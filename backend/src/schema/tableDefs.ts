@@ -44,11 +44,11 @@ export const TABLE_SEEDS: TableSeed[] = [
     columns: [
       { key: "발전소ID", label: "발전소ID", type: "text" },
       { key: "발전소명", label: "발전소명", type: "text" },
-      { key: "발전소위치", label: "발전소위치", type: "text" },
-      { key: "발전원유형", label: "발전원유형", type: "text" },
-      { key: "설비용량_kW", label: "설비용량(kW)", type: "number" },
-      { key: "사업자명", label: "사업자명", type: "text" },
-      { key: "비고", label: "비고", type: "text" },
+      { key: "발전법인명", label: "발전법인명", type: "text" },
+      { key: "설비용량_MW", label: "설비용량(MW)", type: "number" },
+      { key: "발전원", label: "발전원", type: "text" },
+      { key: "Readiness", label: "Readiness", type: "text" },
+      { key: "MGA_Supply", label: "MGA_Supply", type: "number" },
     ],
     foreignKeys: [],
     uniqueGroups: [],
@@ -132,11 +132,3 @@ export const TABLE_SEEDS: TableSeed[] = [
     uniqueGroups: [["전기사용지ID", "구매계약ID"]],
   },
 ];
-
-// Tooltip field candidates, mirroring GetRelatedValueFromTableSafe's header fallback lists.
-export const TOOLTIP_FIELD_CANDIDATES: Record<string, string[]> = {
-  발전소명: ["발전소명", "발전소명칭", "시설명"],
-  발전원유형: ["발전원유형", "발전원", "에너지원", "발전유형"],
-  설비용량: ["설비용량_kW", "설비용량", "용량"],
-  기업명: ["기업명", "수요기업명", "회사명"],
-};

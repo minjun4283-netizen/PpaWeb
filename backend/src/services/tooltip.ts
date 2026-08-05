@@ -47,11 +47,11 @@ export function buildBuyContractTooltip(buyContractId: string): TooltipField[] {
   const plantName = getRelatedValue("T_발전소", "발전소ID", plantId, "발전소명");
   fields.push({ label: "발전소명", value: plantName || "(연결값 없음)" });
 
-  const plantType = getRelatedValue("T_발전소", "발전소ID", plantId, "발전원유형");
-  fields.push({ label: "발전원 유형", value: plantType || "(값 없음)" });
+  const plantType = getRelatedValue("T_발전소", "발전소ID", plantId, "발전원");
+  fields.push({ label: "발전원", value: plantType || "(값 없음)" });
 
-  const plantCapacity = getRelatedValue("T_발전소", "발전소ID", plantId, "설비용량_kW");
-  fields.push({ label: "설비용량(kW)", value: plantCapacity || "(값 없음)" });
+  const plantCapacity = getRelatedValue("T_발전소", "발전소ID", plantId, "설비용량_MW");
+  fields.push({ label: "설비용량(MW)", value: plantCapacity || "(값 없음)" });
 
   return fields;
 }
