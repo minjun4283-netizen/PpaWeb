@@ -7,7 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "seed": "tsx src/seed.ts"
+    "import": "tsx src/importXlsm.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",

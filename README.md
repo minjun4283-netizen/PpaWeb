@@ -90,6 +90,34 @@ docker compose up -d --build
 - 이 환경에서 사용할 수 없을 때는 관리자 페이지에 "Windows 전용 기능" 안내만
   표시되고, 나머지 기능은 정상 동작합니다.
 
+## 실 데이터 가져오기 (엑셀 → 웹앱)
+
+원본 xlsm 파일은 VDI 사내망 안에서만 접근 가능해서, 이 저장소를 개발한 세션에서는
+직접 열어볼 수 없습니다. 그래서 그 파일을 볼 수 있는 사내망 서버에 이 웹앱을
+배포한 뒤, 그 서버 안에서 아래 스크립트로 직접 가져오는 방식을 씁니다.
+
+```bash
+# 개발 실행(tsx)으로 바로
+cd backend
+npm run import -- --file=/path/to/PPA파일.xlsm --dry-run   # 먼저 미리보기
+npm run import -- --file=/path/to/PPA파일.xlsm             # 실제 반영 (append)
+npm run import -- --file=/path/to/PPA파일.xlsm --replace    # 표별 기존 데이터를 지우고 새로 반영
+```
+
+- 표 이름(`T_발전소` 등)과 헤더 텍스트로 시트/컬럼을 자동 매칭합니다. PK중복/PK공란/
+  *참조/조합중복 같은 검증 열은 이 시스템이 따로 계산하므로 자동으로 건너뜁니다
+  (실행 로그에 "인식 안 된 헤더"로 표시되는 게 정상입니다).
+- 완전히 빈 행은 건너뜁니다. 날짜 셀은 `YYYY-MM-DD`로, TRUE/FALSE 셀은 그대로
+  저장됩니다.
+- `--replace` 없이 실행하면 기존 행에 추가만 되므로, 같은 파일을 두 번 실행하면
+  중복 행이 생깁니다 (원본 매크로도 PK 중복을 DB로 막지 않고 검증으로만 걸러냈던
+  것과 같은 방식). 다시 불러올 때는 `--replace`를 쓰세요.
+- Docker로 배포했다면 컨테이너 안에서 파일 경로를 봐야 하므로, 먼저
+  `docker cp PPA파일.xlsm ppaweb:/tmp/PPA파일.xlsm` 로 파일을 복사하거나 호스트
+  디렉터리를 볼륨으로 마운트한 뒤, `docker compose exec ppaweb node dist/importXlsm.js --file=/tmp/PPA파일.xlsm`
+  로 실행하세요 (빌드된 이미지에서는 `npm run import` 대신 컴파일된
+  `dist/importXlsm.js`를 직접 실행합니다).
+
 ## 인증 / 팀원 계정
 
 간단한 아이디/비밀번호 로그인 (JWT, httpOnly 쿠키)입니다. 사내망 전용 배포를
@@ -99,8 +127,10 @@ docker compose up -d --build
 
 ## 알려진 제한사항
 
-- 컬럼 스키마는 추측값입니다 (위 경고 참고).
 - Access DB 동기화는 Windows 전용이며, 이 저장소의 개발/테스트 환경(Linux)에서는
   "사용 불가" 응답만 검증했습니다.
 - Docker 이미지 빌드는 이 개발 환경에 Docker 데몬이 없어 실제 빌드까지는
   검증하지 못했습니다 (Dockerfile 구성 자체는 표준적인 멀티스테이지 빌드입니다).
+- 가져오기 스크립트는 헤더 텍스트가 `column_defs.label`과 정확히 일치해야
+  매칭됩니다. 실제 파일의 헤더가 미세하게 다르면(예: 공백/줄바꿈) 실행 로그의
+  "인식 안 된 헤더" 목록으로 바로 확인할 수 있습니다.
