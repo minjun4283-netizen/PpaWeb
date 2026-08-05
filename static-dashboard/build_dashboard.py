@@ -44,6 +44,7 @@ def build_payload(tables_data: dict[str, list[dict]], is_demo: bool) -> dict:
                 "pk": t.pk,
                 "columns": t.columns,
                 "fk_columns": list(t.fk.keys()),
+                "fk": t.fk,
                 "rows": rows_payload,
             }
         )
