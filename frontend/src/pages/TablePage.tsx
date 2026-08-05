@@ -134,7 +134,7 @@ export function TablePage() {
     setRows((prev) => prev.map((r) => (r._id === rowId ? { ...r, [colKey]: value } : r)));
   }
 
-  async function handleBlurSaved(rowId: number, colKey: string, value: string) {
+  async function commitCell(rowId: number, colKey: string, value: string) {
     const before = snapshots.current[rowId]?.[colKey];
     if (String(before ?? "") === value) return;
     const res = await api.updateRow(tableKey, rowId, { [colKey]: value });
@@ -142,6 +142,20 @@ export function TablePage() {
     setRows((prev) => prev.map((r) => (r._id === rowId ? res.row : r)));
     setSavedFlash(rowId);
     setTimeout(() => setSavedFlash((cur) => (cur === rowId ? null : cur)), 900);
+  }
+
+  // Text/number/date inputs commit on blur (closure reads the latest row,
+  // since typing causes re-renders in between). A checkbox has no such
+  // "leave the field" moment a single click naturally waits for, so it
+  // commits the fresh value immediately instead of relying on blur.
+  function handleBlurSaved(rowId: number, colKey: string, value: string) {
+    commitCell(rowId, colKey, value);
+  }
+
+  function handleCheckboxToggle(rowId: number, colKey: string, checked: boolean) {
+    const value = checked ? "TRUE" : "FALSE";
+    updateRowLocal(rowId, colKey, value);
+    commitCell(rowId, colKey, value);
   }
 
   async function handleDelete(rowId: number) {
@@ -186,8 +200,22 @@ export function TablePage() {
     value: string,
     onChange: (v: string) => void,
     onBlur?: () => void,
-    hasError?: boolean
+    hasError?: boolean,
+    onBooleanToggle?: (checked: boolean) => void
   ) {
+    if (col.type === "boolean") {
+      return (
+        <input
+          type="checkbox"
+          className={`cell-checkbox${hasError ? " cell-input-error" : ""}`}
+          checked={value === "TRUE"}
+          onChange={(e) =>
+            onBooleanToggle ? onBooleanToggle(e.target.checked) : onChange(e.target.checked ? "TRUE" : "FALSE")
+          }
+        />
+      );
+    }
+
     const inputType = col.type === "number" ? "number" : col.type === "date" ? "date" : "text";
     return (
       <input
@@ -254,7 +282,8 @@ export function TablePage() {
                             String(row[col.col_key] ?? ""),
                             (v) => updateRowLocal(row._id, col.col_key, v),
                             () => handleBlurSaved(row._id, col.col_key, String(row[col.col_key] ?? "")),
-                            errInfo?.columns.has(col.col_key)
+                            errInfo?.columns.has(col.col_key),
+                            (checked) => handleCheckboxToggle(row._id, col.col_key, checked)
                           )}
                           {tableKey === TOOLTIP_TABLE && TOOLTIP_COLUMNS.has(col.col_key) && (
                             <InfoPopover column={col.col_key} value={String(row[col.col_key] ?? "")} />

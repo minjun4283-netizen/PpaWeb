@@ -217,6 +217,7 @@ export function AdminPage() {
               <option value="text">텍스트</option>
               <option value="number">숫자</option>
               <option value="date">날짜</option>
+              <option value="boolean">불리언(참/거짓)</option>
             </select>
           </label>
           <button type="submit">컬럼 추가</button>

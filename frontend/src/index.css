@@ -344,6 +344,11 @@ select {
 .row-error {
   background: var(--danger-bg);
 }
+.cell-checkbox {
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+}
 .cell-input-error {
   border-color: var(--danger);
   background: var(--danger-bg);

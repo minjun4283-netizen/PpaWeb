@@ -54,7 +54,7 @@ function ensureMetaTables() {
       table_key TEXT NOT NULL,
       col_key TEXT NOT NULL,
       label TEXT NOT NULL,
-      type TEXT NOT NULL CHECK (type IN ('text','number','date')),
+      type TEXT NOT NULL CHECK (type IN ('text','number','date','boolean')),
       sort_order INTEGER NOT NULL,
       is_fk INTEGER NOT NULL DEFAULT 0,
       ref_table TEXT,
@@ -147,7 +147,7 @@ export interface ColumnDefRow {
   table_key: string;
   col_key: string;
   label: string;
-  type: "text" | "number" | "date";
+  type: "text" | "number" | "date" | "boolean";
   sort_order: number;
   is_fk: number;
   ref_table: string | null;
@@ -220,7 +220,7 @@ export function addColumnDef(
   tableKey: string,
   colKey: string,
   label: string,
-  type: "text" | "number" | "date"
+  type: "text" | "number" | "date" | "boolean"
 ): void {
   assertSafeIdentifier(colKey);
   const maxOrder = db

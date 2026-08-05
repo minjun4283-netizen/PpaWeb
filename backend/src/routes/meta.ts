@@ -25,7 +25,7 @@ metaRouter.get("/tables", (_req, res) => {
 const addColumnSchema = z.object({
   colKey: z.string().min(1).max(64),
   label: z.string().min(1).max(128),
-  type: z.enum(["text", "number", "date"]),
+  type: z.enum(["text", "number", "date", "boolean"]),
 });
 
 metaRouter.post("/tables/:tableKey/columns", requireAdmin, (req, res) => {
