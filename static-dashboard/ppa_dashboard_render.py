@@ -309,10 +309,17 @@ function tLookup(){
 
   if(!state.lookup) return `<section>${picker}</section>`;
 
-  const chain=relatedChain(state.lookup.table,state.lookup.pk);
   const rootT=byKey[state.lookup.table];
   const rootRow=rowIndex[state.lookup.table]&&rowIndex[state.lookup.table][String(state.lookup.pk)];
-  const rootLabel=rootRow?rootT.columns.slice(0,3).map(c=>rootRow.cells[c]).filter(v=>v!==undefined&&v!=='').join(' · '):state.lookup.pk;
+  if(!rootRow){
+    return `<section><div class="panel lookuphead">
+        <div><div class="ph" style="margin-bottom:4px"><h3>조회 중: ${esc(rootT.label)} · ${esc(state.lookup.pk)}</h3></div>
+        <span class="badge no">이 ID를 가진 실제 레코드가 없습니다 — 오타나 참조 오류일 수 있습니다 (검증 탭 확인).</span></div>
+        <button class="clearbtn" onclick="clearLookup()">다른 항목 조회</button>
+      </div></section>`;
+  }
+  const chain=relatedChain(state.lookup.table,state.lookup.pk);
+  const rootLabel=rootT.columns.slice(0,3).map(c=>rootRow.cells[c]).filter(v=>v!==undefined&&v!=='').join(' · ');
   const chainRows=DATA.tables.map(t=>{
     const pkset=chain[t.key];
     const rows=pkset&&pkset.size>0?t.rows.filter(r=>pkset.has(String(r.cells[t.pk]))):[];
