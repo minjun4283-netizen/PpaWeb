@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { buildExportWorkbook, type ExportType } from "../services/exportService.js";
+import { isoToSqliteUtc } from "../util/time.js";
 
 export const exportRouter = Router();
 exportRouter.use(requireAuth);
@@ -12,7 +13,8 @@ exportRouter.get("/:type", async (req, res) => {
     return;
   }
 
-  const since = typeof req.query.since === "string" ? req.query.since : "1970-01-01T00:00:00.000Z";
+  const sinceIso = typeof req.query.since === "string" ? req.query.since : "1970-01-01T00:00:00.000Z";
+  const since = isoToSqliteUtc(sinceIso);
   const workbook = await buildExportWorkbook(type, since);
 
   const label = type === "added" ? "추가" : "수정";

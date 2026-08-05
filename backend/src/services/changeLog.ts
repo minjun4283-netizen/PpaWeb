@@ -59,16 +59,31 @@ export interface ChangeLogRow {
   description: string;
 }
 
-export function listChangeLog(filters: { tableKey?: string; limit?: number }): ChangeLogRow[] {
+export function listChangeLog(filters: {
+  tableKey?: string;
+  since?: string;
+  until?: string;
+  limit?: number;
+}): ChangeLogRow[] {
   const limit = Math.min(filters.limit ?? 200, 1000);
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
   if (filters.tableKey) {
-    return db
-      .prepare(
-        `SELECT * FROM change_log WHERE table_key = ? ORDER BY id DESC LIMIT ?`
-      )
-      .all(filters.tableKey, limit) as ChangeLogRow[];
+    conditions.push("table_key = ?");
+    params.push(filters.tableKey);
   }
+  if (filters.since) {
+    conditions.push("changed_at >= ?");
+    params.push(filters.since);
+  }
+  if (filters.until) {
+    conditions.push("changed_at <= ?");
+    params.push(filters.until);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   return db
-    .prepare(`SELECT * FROM change_log ORDER BY id DESC LIMIT ?`)
-    .all(limit) as ChangeLogRow[];
+    .prepare(`SELECT * FROM change_log ${where} ORDER BY id DESC LIMIT ?`)
+    .all(...params, limit) as ChangeLogRow[];
 }

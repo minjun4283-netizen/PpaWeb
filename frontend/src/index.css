@@ -70,6 +70,11 @@ h3 {
   font-size: 1.05rem;
   margin-top: 24px;
 }
+h4 {
+  font-size: 0.95rem;
+  margin: 16px 0 8px;
+  color: var(--text-h);
+}
 
 button {
   font: inherit;
@@ -260,6 +265,20 @@ select {
   margin-bottom: 16px;
   flex-wrap: wrap;
 }
+.table-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.search-input {
+  min-width: 160px;
+}
+.changelog-filters {
+  flex-wrap: wrap;
+}
+.changelog-filters .inline-label {
+  margin-bottom: 0;
+}
 
 .grid-scroll {
   overflow-x: auto;
@@ -287,6 +306,17 @@ select {
   font-size: 0.85rem;
   font-weight: 600;
 }
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+}
+.sortable-th:hover {
+  color: var(--accent);
+}
+.sort-indicator {
+  font-size: 0.7rem;
+  color: var(--accent);
+}
 .pk-badge,
 .fk-badge {
   margin-left: 6px;
@@ -313,6 +343,11 @@ select {
 
 .row-error {
   background: var(--danger-bg);
+}
+.cell-input-error {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+  color: var(--danger);
 }
 .row-draft {
   background: var(--warn-bg);
@@ -542,6 +577,11 @@ select {
 }
 .user-table {
   margin-bottom: 16px;
+}
+.sync-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .sync-results {
   margin-top: 12px;

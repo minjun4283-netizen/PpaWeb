@@ -136,10 +136,14 @@ export const api = {
 
   runValidation: () => request<ValidationReport>("/validate", { method: "POST" }),
 
-  listChangeLog: (tableKey?: string) =>
-    request<{ entries: ChangeLogEntry[] }>(
-      `/change-log${tableKey ? `?tableKey=${encodeURIComponent(tableKey)}` : ""}`
-    ),
+  listChangeLog: (filters: { tableKey?: string; since?: string; until?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (filters.tableKey) params.set("tableKey", filters.tableKey);
+    if (filters.since) params.set("since", filters.since);
+    if (filters.until) params.set("until", filters.until);
+    const qs = params.toString();
+    return request<{ entries: ChangeLogEntry[] }>(`/change-log${qs ? `?${qs}` : ""}`);
+  },
 
   tooltip: (column: string, value: string) =>
     request<{ fields: TooltipField[] }>(

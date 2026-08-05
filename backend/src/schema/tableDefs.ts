@@ -32,6 +32,10 @@ export interface TableSeed {
   uniqueGroups: string[][];
 }
 
+// Ordered as a natural data-entry flow: build up the supply chain
+// (발전소→구매계약) and the demand chain (수요기업→판매계약→전기사용지)
+// independently, then join them last with 수급매칭. This drives both the
+// sidebar navigation order and the 검증 리포트's table grouping order.
 export const TABLE_SEEDS: TableSeed[] = [
   {
     key: "T_발전소",
@@ -47,6 +51,22 @@ export const TABLE_SEEDS: TableSeed[] = [
       { key: "비고", label: "비고", type: "text" },
     ],
     foreignKeys: [],
+    uniqueGroups: [],
+  },
+  {
+    key: "T_구매계약",
+    label: "구매계약",
+    pk: "구매계약ID",
+    columns: [
+      { key: "구매계약ID", label: "구매계약ID", type: "text" },
+      { key: "발전소ID", label: "발전소ID", type: "text" },
+      { key: "계약시작일", label: "계약시작일", type: "date" },
+      { key: "계약종료일", label: "계약종료일", type: "date" },
+      { key: "구매단가", label: "구매단가(원/kWh)", type: "number" },
+      { key: "계약상태", label: "계약상태", type: "text" },
+      { key: "비고", label: "비고", type: "text" },
+    ],
+    foreignKeys: [{ column: "발전소ID", refTable: "T_발전소", refColumn: "발전소ID" }],
     uniqueGroups: [],
   },
   {
@@ -93,22 +113,6 @@ export const TABLE_SEEDS: TableSeed[] = [
       { key: "비고", label: "비고", type: "text" },
     ],
     foreignKeys: [{ column: "판매계약ID", refTable: "T_판매계약", refColumn: "판매계약ID" }],
-    uniqueGroups: [],
-  },
-  {
-    key: "T_구매계약",
-    label: "구매계약",
-    pk: "구매계약ID",
-    columns: [
-      { key: "구매계약ID", label: "구매계약ID", type: "text" },
-      { key: "발전소ID", label: "발전소ID", type: "text" },
-      { key: "계약시작일", label: "계약시작일", type: "date" },
-      { key: "계약종료일", label: "계약종료일", type: "date" },
-      { key: "구매단가", label: "구매단가(원/kWh)", type: "number" },
-      { key: "계약상태", label: "계약상태", type: "text" },
-      { key: "비고", label: "비고", type: "text" },
-    ],
-    foreignKeys: [{ column: "발전소ID", refTable: "T_발전소", refColumn: "발전소ID" }],
     uniqueGroups: [],
   },
   {

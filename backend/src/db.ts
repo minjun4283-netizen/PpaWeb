@@ -93,6 +93,14 @@ function ensureMetaTables() {
   `);
 }
 
+// Keeps table_defs.sort_order in sync with TABLE_SEEDS' declaration order
+// even on a database that was already seeded under an older ordering —
+// INSERT OR IGNORE alone would never touch sort_order on existing rows.
+function syncTableSortOrder() {
+  const updateOrder = db.prepare(`UPDATE table_defs SET sort_order = ? WHERE table_key = ?`);
+  TABLE_SEEDS.forEach((table, index) => updateOrder.run(index, table.key));
+}
+
 function seedTableDefsIfMissing() {
   const insertTable = db.prepare(
     `INSERT OR IGNORE INTO table_defs (table_key, label, pk_column, sort_order) VALUES (?, ?, ?, ?)`
@@ -185,6 +193,7 @@ function syncPhysicalTable(tableKey: string) {
 export function initDatabase() {
   ensureMetaTables();
   seedTableDefsIfMissing();
+  syncTableSortOrder();
   for (const table of TABLE_SEEDS) {
     syncPhysicalTable(table.key);
   }

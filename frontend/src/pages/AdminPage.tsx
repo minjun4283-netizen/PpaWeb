@@ -127,7 +127,10 @@ export function AdminPage() {
   const [syncResults, setSyncResults] = useState<{ tableKey: string; ok: boolean; message: string }[]>(
     []
   );
-  const [syncing, setSyncing] = useState(false);
+  const [syncing, setSyncing] = useState<string | null>(null);
+  const [syncLog, setSyncLog] = useState<
+    { id: number; synced_at: string; username: string; table_key: string; status: string; message: string }[]
+  >([]);
 
   useEffect(() => {
     if (tables.length > 0 && !tableKey) setTableKey(tables[0].table_key);
@@ -135,7 +138,12 @@ export function AdminPage() {
 
   useEffect(() => {
     api.accessSyncStatus().then((r) => setAccessAvailable(r.available));
+    loadSyncLog();
   }, []);
+
+  function loadSyncLog() {
+    api.accessSyncLog().then((r) => setSyncLog(r.entries));
+  }
 
   async function handleAddColumn(e: React.FormEvent) {
     e.preventDefault();
@@ -152,12 +160,24 @@ export function AdminPage() {
   }
 
   async function handleSyncAll() {
-    setSyncing(true);
+    setSyncing("__all__");
     try {
       const res = await api.accessSyncAll();
       setSyncResults(res.results);
+      loadSyncLog();
     } finally {
-      setSyncing(false);
+      setSyncing(null);
+    }
+  }
+
+  async function handleSyncOne(tk: string) {
+    setSyncing(tk);
+    try {
+      const result = await api.accessSyncTable(tk);
+      setSyncResults((prev) => [result, ...prev.filter((r) => r.tableKey !== tk)]);
+      loadSyncLog();
+    } finally {
+      setSyncing(null);
     }
   }
 
@@ -212,9 +232,21 @@ export function AdminPage() {
             운영 시에는 이 기능을 Access 파일을 볼 수 있는 Windows 서버(또는 예약 작업)에서 실행하세요.
           </div>
         )}
-        <button onClick={handleSyncAll} disabled={!accessAvailable || syncing}>
-          {syncing ? "전송 중..." : "전체 표 Access로 전송"}
-        </button>
+        <div className="sync-buttons">
+          <button onClick={handleSyncAll} disabled={!accessAvailable || syncing !== null}>
+            {syncing === "__all__" ? "전송 중..." : "전체 표 Access로 전송"}
+          </button>
+          {tables.map((t) => (
+            <button
+              key={t.table_key}
+              className="ghost-btn"
+              onClick={() => handleSyncOne(t.table_key)}
+              disabled={!accessAvailable || syncing !== null}
+            >
+              {syncing === t.table_key ? "전송 중..." : `${t.label} 전송`}
+            </button>
+          ))}
+        </div>
         {syncResults.length > 0 && (
           <ul className="sync-results">
             {syncResults.map((r) => (
@@ -223,6 +255,34 @@ export function AdminPage() {
               </li>
             ))}
           </ul>
+        )}
+
+        <h4>최근 동기화 이력</h4>
+        {syncLog.length === 0 ? (
+          <p className="hint">아직 동기화 이력이 없습니다.</p>
+        ) : (
+          <table className="mini-table">
+            <thead>
+              <tr>
+                <th>시각</th>
+                <th>사용자</th>
+                <th>표</th>
+                <th>결과</th>
+                <th>메시지</th>
+              </tr>
+            </thead>
+            <tbody>
+              {syncLog.map((entry) => (
+                <tr key={entry.id}>
+                  <td>{new Date(entry.synced_at.replace(" ", "T") + "Z").toLocaleString()}</td>
+                  <td>{entry.username}</td>
+                  <td>{entry.table_key}</td>
+                  <td className={entry.status === "성공" ? "sync-ok" : "sync-fail"}>{entry.status}</td>
+                  <td>{entry.message}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </section>
     </div>
