@@ -69,8 +69,9 @@ def main():
             tables_data = load_from_xlsm(args.xlsm)
         except ModuleNotFoundError:
             sys.exit(
-                "openpyxl이 설치되어 있지 않습니다. 'pip install openpyxl'이 안 된다면 "
-                "--csv-dir 방식(표준 라이브러리만 사용)을 이용하세요."
+                "openpyxl을 불러올 수 없습니다. vendor/ 폴더가 build_dashboard.py와 "
+                "같은 위치에 있는지 확인하거나, 'pip install openpyxl'을 시도해보세요. "
+                "그래도 안 된다면 --csv-dir 방식(표준 라이브러리만 사용)을 이용하세요."
             )
     else:
         tables_data = load_from_csv_dir(args.csv_dir)
