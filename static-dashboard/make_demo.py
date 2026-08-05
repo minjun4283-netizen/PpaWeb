@@ -5,6 +5,15 @@
 일부러 오류 케이스(PK 중복, FK 참조 실패, 조합중복)를 섞어 넣어서
 검증 탭과 셀 하이라이트가 실제로 어떻게 보이는지 확인할 수 있게 했습니다.
 """
+import os
+import sys
+
+# Windows embeddable Python(python.org "embeddable package")은 pythonXXX._pth
+# 파일이 있으면 실행하는 스크립트의 폴더를 자동으로 sys.path에 넣어주지 않습니다
+# (일반 Python 설치본과 다른 부분). 그래서 같은 폴더의 build_dashboard.py 등을
+# import하려면 이 폴더를 직접 sys.path에 추가해줘야 합니다.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from build_dashboard import build_payload
 from ppa_dashboard_render import render_dashboard
 

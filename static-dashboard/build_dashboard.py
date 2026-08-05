@@ -13,7 +13,14 @@
 """
 import argparse
 import datetime
+import os
 import sys
+
+# Windows embeddable Python(python.org "embeddable package")은 pythonXXX._pth
+# 파일이 있으면 실행하는 스크립트의 폴더를 자동으로 sys.path에 넣어주지 않습니다
+# (일반 Python 설치본과 다른 부분). 그래서 같은 폴더의 ppa_loader.py 등을
+# import하려면 이 폴더를 직접 sys.path에 추가해줘야 합니다.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from ppa_dashboard_render import render_dashboard
 from ppa_loader import load_from_csv_dir, load_from_xlsm
