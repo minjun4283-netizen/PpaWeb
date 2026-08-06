@@ -1,200 +1,204 @@
-Attribute VB_Name = "PPA_í†µí•©ìž…ë ¥í¼"
+Attribute VB_Name = "PPA_InputForm"
 '==============================================================================
-' PPA í†µí•© ìž…ë ¥/ì¡°íšŒ í¼
+' PPA ÅëÇÕ ÀÔ·Â/Á¶È¸ Æû
+'   ¡Ø ÀÌ ÆÄÀÏÀº ANSI(CP949)·Î ÀúÀåµÅ ÀÖ½À´Ï´Ù. VBEÀÇ [ÆÄÀÏ °¡Á®¿À±â]°¡
+'      ÇÑ±¹¾î Windows ±âº» ÄÚµåÆäÀÌÁö·Î ÀÐ±â ¶§¹®ÀÔ´Ï´Ù. ¸Þ¸ðÀå µîÀ¸·Î ´Ù½Ã
+'      ÀúÀåÇÒ ÀÏÀÌ ÀÖÀ¸¸é ÀÎÄÚµùÀ» ¹Ýµå½Ã 'ANSI'·Î µÎ¼¼¿ä. UTF-8·Î ÀúÀåÇÏ¸é
+'      °¡Á®¿Ã ¶§ ÇÑ±ÛÀÌ ±úÁö¸é¼­ "Çã°¡µÈ °³Ã¼ ÀÌ¸§ÀÌ ¾Æ´Õ´Ï´Ù" ¿À·ù°¡ ³³´Ï´Ù.
 '------------------------------------------------------------------------------
-' ëª©ì 
-'   ì§€ê¸ˆì€ í•œ ê±´ì˜ ê³µê¸‰-ìˆ˜ìš” ê±´ì„ ë“±ë¡í•˜ë ¤ë©´ T_ë°œì „ì†Œ â†’ T_êµ¬ë§¤ê³„ì•½ â†’ T_ìˆ˜ê¸‰ë§¤ì¹­ â†’
-'   T_ì „ê¸°ì‚¬ìš©ì§€ â†’ T_íŒë§¤ê³„ì•½ â†’ T_ìˆ˜ìš”ê¸°ì—… ì‹œíŠ¸ë¥¼ ì˜¤ê°€ë©° IDë¥¼ ì†ìœ¼ë¡œ ë§žì¶° ë„£ì–´ì•¼
-'   í•©ë‹ˆë‹¤. ì´ ëª¨ë“ˆì€ "ìž…ë ¥í¼" ì‹œíŠ¸ í•˜ë‚˜ì—ì„œ ê·¸ 6ê°œ í‘œë¥¼ í•œ ë²ˆì— ìž…ë ¥/ì¡°íšŒ/ìˆ˜ì •í• 
-'   ìˆ˜ ìžˆê²Œ í•´ì¤ë‹ˆë‹¤.
+' ¸ñÀû
+'   Áö±ÝÀº ÇÑ °ÇÀÇ °ø±Þ-¼ö¿ä °ÇÀ» µî·ÏÇÏ·Á¸é T_¹ßÀü¼Ò ¡æ T_±¸¸Å°è¾à ¡æ T_¼ö±Þ¸ÅÄª ¡æ
+'   T_Àü±â»ç¿ëÁö ¡æ T_ÆÇ¸Å°è¾à ¡æ T_¼ö¿ä±â¾÷ ½ÃÆ®¸¦ ¿À°¡¸ç ID¸¦ ¼ÕÀ¸·Î ¸ÂÃç ³Ö¾î¾ß
+'   ÇÕ´Ï´Ù. ÀÌ ¸ðµâÀº "ÀÔ·ÂÆû" ½ÃÆ® ÇÏ³ª¿¡¼­ ±× 6°³ Ç¥¸¦ ÇÑ ¹ø¿¡ ÀÔ·Â/Á¶È¸/¼öÁ¤ÇÒ
+'   ¼ö ÀÖ°Ô ÇØÁÝ´Ï´Ù.
 '
-' íŠ¹ì§•
-'   - UserForm(.frm)ì„ ì“°ì§€ ì•ŠìŠµë‹ˆë‹¤. ì´ ëª¨ë“ˆ(.bas) í•˜ë‚˜ë§Œ ê°€ì ¸ì˜¤ë©´ í¼ ì‹œíŠ¸ë¥¼
-'     ìŠ¤ìŠ¤ë¡œ ë§Œë“¤ì–´ëƒ…ë‹ˆë‹¤ (VBE í¼ ë””ìžì´ë„ˆ ìž‘ì—… ë¶ˆí•„ìš”).
-'   - ID ì¹¸ì€ ë“œë¡­ë‹¤ìš´ì—ì„œ ê³ ë¥´ê³ , ê³ ë¥´ë©´ ë‚˜ë¨¸ì§€ í•­ëª©ì´ ìžë™ìœ¼ë¡œ ì±„ì›Œì§‘ë‹ˆë‹¤.
-'     ë°œì „ì†Œë¥¼ ê³ ë¥´ë©´ êµ¬ë§¤ê³„ì•½ ëª©ë¡ì´ ê·¸ ë°œì „ì†Œ ê²ƒë§Œ ë‚¨ëŠ” ì‹ìœ¼ë¡œ ì—°ë™ë©ë‹ˆë‹¤.
-'   - ì €ìž¥ ì „ì— "ë¬´ì—‡ì´ ìƒˆë¡œ ìƒê¸°ê³  ë¬´ì—‡ì´ ì–´ë–»ê²Œ ë°”ë€ŒëŠ”ì§€"ë¥¼ ë¨¼ì € ë³´ì—¬ì£¼ê³ 
-'     í™•ì¸ì„ ë°›ìŠµë‹ˆë‹¤. ì‹¤ìˆ˜ë¡œ ê¸°ì¡´ ë°ì´í„°ë¥¼ ë®ì–´ì“°ëŠ” ì¼ì„ ë§‰ê¸° ìœ„í•œ ìž¥ì¹˜ìž…ë‹ˆë‹¤.
-'   - ì €ìž¥ ì‹œ ê¸°ì¡´ ë§¤í¬ë¡œì˜ ê²€ì¦ ê·œì¹™(PK ê³µëž€/ì¤‘ë³µ, FK ì°¸ì¡°, ì¡°í•©ì¤‘ë³µ)ì„ ê·¸ëŒ€ë¡œ
-'     ì ìš©í•©ë‹ˆë‹¤.
-'   - í¼ì—ì„œ ë¹„ì›Œ ë‘” ì¹¸ì€ ê¸°ì¡´ ê°’ì„ ì§€ìš°ì§€ ì•ŠìŠµë‹ˆë‹¤(ì‹¤ìˆ˜ë¡œ ê°’ì´ ë‚ ì•„ê°€ëŠ” ê²ƒ ë°©ì§€).
+' Æ¯Â¡
+'   - UserForm(.frm)À» ¾²Áö ¾Ê½À´Ï´Ù. ÀÌ ¸ðµâ(.bas) ÇÏ³ª¸¸ °¡Á®¿À¸é Æû ½ÃÆ®¸¦
+'     ½º½º·Î ¸¸µé¾î³À´Ï´Ù (VBE Æû µðÀÚÀÌ³Ê ÀÛ¾÷ ºÒÇÊ¿ä).
+'   - ID Ä­Àº µå·Ó´Ù¿î¿¡¼­ °í¸£°í, °í¸£¸é ³ª¸ÓÁö Ç×¸ñÀÌ ÀÚµ¿À¸·Î Ã¤¿öÁý´Ï´Ù.
+'     ¹ßÀü¼Ò¸¦ °í¸£¸é ±¸¸Å°è¾à ¸ñ·ÏÀÌ ±× ¹ßÀü¼Ò °Í¸¸ ³²´Â ½ÄÀ¸·Î ¿¬µ¿µË´Ï´Ù.
+'   - ÀúÀå Àü¿¡ "¹«¾ùÀÌ »õ·Î »ý±â°í ¹«¾ùÀÌ ¾î¶»°Ô ¹Ù²î´ÂÁö"¸¦ ¸ÕÀú º¸¿©ÁÖ°í
+'     È®ÀÎÀ» ¹Þ½À´Ï´Ù. ½Ç¼ö·Î ±âÁ¸ µ¥ÀÌÅÍ¸¦ µ¤¾î¾²´Â ÀÏÀ» ¸·±â À§ÇÑ ÀåÄ¡ÀÔ´Ï´Ù.
+'   - ÀúÀå ½Ã ±âÁ¸ ¸ÅÅ©·ÎÀÇ °ËÁõ ±ÔÄ¢(PK °ø¶õ/Áßº¹, FK ÂüÁ¶, Á¶ÇÕÁßº¹)À» ±×´ë·Î
+'     Àû¿ëÇÕ´Ï´Ù.
+'   - Æû¿¡¼­ ºñ¿ö µÐ Ä­Àº ±âÁ¸ °ªÀ» Áö¿ìÁö ¾Ê½À´Ï´Ù(½Ç¼ö·Î °ªÀÌ ³¯¾Æ°¡´Â °Í ¹æÁö).
 '
-' ì‚¬ìš© ìˆœì„œ
-'   1) VBE(Alt+F11) â†’ íŒŒì¼ â†’ íŒŒì¼ ê°€ì ¸ì˜¤ê¸° â†’ ì´ .bas ì„ íƒ
-'   2) Alt+F8 â†’ "í¼_ë§Œë“¤ê¸°" ì‹¤í–‰  (ìž…ë ¥í¼ ì‹œíŠ¸ê°€ ìƒì„±ë©ë‹ˆë‹¤)
-'   3) ì´í›„ë¡œëŠ” ìž…ë ¥í¼ ì‹œíŠ¸ ìœ„ìª½ì˜ ë²„íŠ¼ë§Œ ëˆ„ë¥´ë©´ ë©ë‹ˆë‹¤.
+' »ç¿ë ¼ø¼­
+'   1) VBE(Alt+F11) ¡æ ÆÄÀÏ ¡æ ÆÄÀÏ °¡Á®¿À±â ¡æ ÀÌ .bas ¼±ÅÃ
+'   2) Alt+F8 ¡æ "Æû_¸¸µé±â" ½ÇÇà  (ÀÔ·ÂÆû ½ÃÆ®°¡ »ý¼ºµË´Ï´Ù)
+'   3) ÀÌÈÄ·Î´Â ÀÔ·ÂÆû ½ÃÆ® À§ÂÊÀÇ ¹öÆ°¸¸ ´©¸£¸é µË´Ï´Ù.
 '
-'   * ë“œë¡­ë‹¤ìš´ì„ ê³ ë¥´ëŠ” ì¦‰ì‹œ ìžë™ìœ¼ë¡œ ì±„ì›Œì§€ê²Œ í•˜ë ¤ë©´(ì„ íƒ ì‚¬í•­)
-'     ìž…ë ¥í¼ ì‹œíŠ¸ ì½”ë“œì°½ì— ì•„ëž˜ 3ì¤„ì„ ë¶™ì—¬ë„£ìœ¼ì„¸ìš”.
+'   * µå·Ó´Ù¿îÀ» °í¸£´Â Áï½Ã ÀÚµ¿À¸·Î Ã¤¿öÁö°Ô ÇÏ·Á¸é(¼±ÅÃ »çÇ×)
+'     ÀÔ·ÂÆû ½ÃÆ® ÄÚµåÃ¢¿¡ ¾Æ·¡ 3ÁÙÀ» ºÙ¿©³ÖÀ¸¼¼¿ä.
 '         Private Sub Worksheet_Change(ByVal Target As Range)
-'             í¼_ë³€ê²½ê°ì§€ Target
+'             Æû_º¯°æ°¨Áö Target
 '         End Sub
-'     ë¶™ì—¬ë„£ì§€ ì•Šì•„ë„ [ë¶ˆëŸ¬ì˜¤ê¸°] ë²„íŠ¼ìœ¼ë¡œ ë™ì¼í•˜ê²Œ ë™ìž‘í•©ë‹ˆë‹¤.
+'     ºÙ¿©³ÖÁö ¾Ê¾Æµµ [ºÒ·¯¿À±â] ¹öÆ°À¸·Î µ¿ÀÏÇÏ°Ô µ¿ÀÛÇÕ´Ï´Ù.
 '==============================================================================
 Option Explicit
 
-'---- ì‹œíŠ¸ ì´ë¦„ --------------------------------------------------------------
-Private Const FORM_SHEET  As String = "ìž…ë ¥í¼"
-Private Const LIST_SHEET  As String = "_í¼ëª©ë¡"      ' ë“œë¡­ë‹¤ìš´ ì›ë³¸ + ì¡°íšŒê²°ê³¼(ìˆ¨ê¹€)
+'---- ½ÃÆ® ÀÌ¸§ --------------------------------------------------------------
+Private Const FORM_SHEET  As String = "ÀÔ·ÂÆû"
+Private Const LIST_SHEET  As String = "_Æû¸ñ·Ï"      ' µå·Ó´Ù¿î ¿øº» + Á¶È¸°á°ú(¼û±è)
 
-Private Const SH_PLANT    As String = "T_ë°œì „ì†Œ"
-Private Const SH_BUY      As String = "T_êµ¬ë§¤ê³„ì•½"
-Private Const SH_DEMAND   As String = "T_ìˆ˜ìš”ê¸°ì—…"
-Private Const SH_SELL     As String = "T_íŒë§¤ê³„ì•½"
-Private Const SH_SITE     As String = "T_ì „ê¸°ì‚¬ìš©ì§€"
-Private Const SH_MATCH    As String = "T_ìˆ˜ê¸‰ë§¤ì¹­"
+Private Const SH_PLANT    As String = "T_¹ßÀü¼Ò"
+Private Const SH_BUY      As String = "T_±¸¸Å°è¾à"
+Private Const SH_DEMAND   As String = "T_¼ö¿ä±â¾÷"
+Private Const SH_SELL     As String = "T_ÆÇ¸Å°è¾à"
+Private Const SH_SITE     As String = "T_Àü±â»ç¿ëÁö"
+Private Const SH_MATCH    As String = "T_¼ö±Þ¸ÅÄª"
 
-'---- í¼ ë ˆì´ì•„ì›ƒ ------------------------------------------------------------
-' Aì—´: í•„ë“œí‚¤("ì‹œíŠ¸ëª…|ì»¬ëŸ¼ëª…", ìˆ¨ê¹€) / Bì—´: í•­ëª©ëª… / Cì—´: ê°’ / Dì—´: ì•ˆë‚´
+'---- Æû ·¹ÀÌ¾Æ¿ô ------------------------------------------------------------
+' A¿­: ÇÊµåÅ°("½ÃÆ®¸í|ÄÃ·³¸í", ¼û±è) / B¿­: Ç×¸ñ¸í / C¿­: °ª / D¿­: ¾È³»
 Private Const COL_KEY   As Long = 1
 Private Const COL_LABEL As Long = 2
 Private Const COL_VALUE As Long = 3
 Private Const COL_NOTE  As Long = 4
 
-Private Const ROW_SEARCH As Long = 2   ' ê²€ìƒ‰ì–´ ìž…ë ¥ì¹¸ (C2)
-Private Const ROW_STATUS As Long = 3   ' ìƒíƒœ í‘œì‹œì¤„ (C3)
+Private Const ROW_SEARCH As Long = 2   ' °Ë»ö¾î ÀÔ·ÂÄ­ (C2)
+Private Const ROW_STATUS As Long = 3   ' »óÅÂ Ç¥½ÃÁÙ (C3)
 Private Const FIRST_FIELD_ROW As Long = 5
 
-'---- ìˆ¨ê¹€ ëª©ë¡ ì‹œíŠ¸ì˜ ì—´ ë°°ì¹˜ -----------------------------------------------
-Private Const LC_PLANT As Long = 1     ' í‘œë³„ ì „ì²´ ID ëª©ë¡
+'---- ¼û±è ¸ñ·Ï ½ÃÆ®ÀÇ ¿­ ¹èÄ¡ -----------------------------------------------
+Private Const LC_PLANT As Long = 1     ' Ç¥º° ÀüÃ¼ ID ¸ñ·Ï
 Private Const LC_BUY   As Long = 2
 Private Const LC_DEM   As Long = 3
 Private Const LC_SELL  As Long = 4
 Private Const LC_SITE  As Long = 5
 Private Const LC_MATCH As Long = 6
-Private Const LC_BUY_F  As Long = 8    ' ìƒìœ„ ì„ íƒì— ë”°ë¼ ì¢í˜€ì§„ ëª©ë¡
+Private Const LC_BUY_F  As Long = 8    ' »óÀ§ ¼±ÅÃ¿¡ µû¶ó Á¼ÇôÁø ¸ñ·Ï
 Private Const LC_SELL_F As Long = 9
 Private Const LC_SITE_F As Long = 10
-Private Const LC_RESULT As Long = 12   ' ì¡°íšŒ ê²°ê³¼(ìˆ˜ê¸‰ë§¤ì¹­ í–‰ë²ˆí˜¸)
-Private Const LC_POS    As Long = 13   ' ì¡°íšŒ ê²°ê³¼ ë‚´ í˜„ìž¬ ìœ„ì¹˜
+Private Const LC_RESULT As Long = 12   ' Á¶È¸ °á°ú(¼ö±Þ¸ÅÄª Çà¹øÈ£)
+Private Const LC_POS    As Long = 13   ' Á¶È¸ °á°ú ³» ÇöÀç À§Ä¡
 
 '==============================================================================
-' ìŠ¤í‚¤ë§ˆ ì •ì˜ â€” static-dashboard/ppa_schema.py, backendì˜ tableDefs.tsì™€ ë™ì¼
+' ½ºÅ°¸¶ Á¤ÀÇ - static-dashboard/ppa_schema.py, backendÀÇ tableDefs.ts¿Í µ¿ÀÏ
 '==============================================================================
-Private Function í‘œ_ì»¬ëŸ¼ëª©ë¡(ByVal ì‹œíŠ¸ëª… As String) As Variant
-    Select Case ì‹œíŠ¸ëª…
+Private Function Ç¥_ÄÃ·³¸ñ·Ï(ByVal ½ÃÆ®¸í As String) As Variant
+    Select Case ½ÃÆ®¸í
     Case SH_PLANT
-        í‘œ_ì»¬ëŸ¼ëª©ë¡ = Array("ë°œì „ì†ŒID", "ë°œì „ì†Œëª…", "ë°œì „ë²•ì¸ëª…", "ì„¤ë¹„ìš©ëŸ‰(MW)", _
-                            "ë°œì „ì›", "Readiness", "MGA_Supply")
+        Ç¥_ÄÃ·³¸ñ·Ï = Array("¹ßÀü¼ÒID", "¹ßÀü¼Ò¸í", "¹ßÀü¹ýÀÎ¸í", "¼³ºñ¿ë·®(MW)", _
+                            "¹ßÀü¿ø", "Readiness", "MGA_Supply")
     Case SH_BUY
-        í‘œ_ì»¬ëŸ¼ëª©ë¡ = Array("êµ¬ë§¤ê³„ì•½ID", "ë°œì „ì†ŒID", "êµ¬ë§¤ê³„ì•½ìš©ëŸ‰(MW)", "êµ¬ë§¤ë‹¨ê°€(ì›/kWh)", _
-                            "ê³µê¸‰ê¸°í•œ_êµ¬ë§¤", "ê³„ì•½ê¸°ê°„(ë…„)", "ìˆ˜ìš”ê¸°ì—… ë¯¸í™•ë³´", "êµ¬ë§¤ ë‹´ë‹¹ìž")
+        Ç¥_ÄÃ·³¸ñ·Ï = Array("±¸¸Å°è¾àID", "¹ßÀü¼ÒID", "±¸¸Å°è¾à¿ë·®(MW)", "±¸¸Å´Ü°¡(¿ø/kWh)", _
+                            "°ø±Þ±âÇÑ_±¸¸Å", "°è¾à±â°£(³â)", "¼ö¿ä±â¾÷ ¹ÌÈ®º¸", "±¸¸Å ´ã´çÀÚ")
     Case SH_DEMAND
-        í‘œ_ì»¬ëŸ¼ëª©ë¡ = Array("ìˆ˜ìš”ê¸°ì—…ID", "ê¸°ì—…ëª…")
+        Ç¥_ÄÃ·³¸ñ·Ï = Array("¼ö¿ä±â¾÷ID", "±â¾÷¸í")
     Case SH_SELL
-        í‘œ_ì»¬ëŸ¼ëª©ë¡ = Array("íŒë§¤ê³„ì•½ID", "ìˆ˜ìš”ê¸°ì—…ID", "íŒë§¤ê³„ì•½ìš©ëŸ‰(MW)", "ê³„ì•½ì¼", _
-                            "ê³µê¸‰ê¸°í•œ_íŒë§¤", "ê³„ì•½ìœ í˜•", "íŒë§¤ë‹¨ê°€(ì›/kWh)", "ê³µê¸‰ìžì› ë¯¸í™•ë³´", _
-                            "íŒë§¤ ë‹´ë‹¹ìž", "ê³„ì•½ê¸°ê°„(ë…„)", "Requirement", "MGA_Demand")
+        Ç¥_ÄÃ·³¸ñ·Ï = Array("ÆÇ¸Å°è¾àID", "¼ö¿ä±â¾÷ID", "ÆÇ¸Å°è¾à¿ë·®(MW)", "°è¾àÀÏ", _
+                            "°ø±Þ±âÇÑ_ÆÇ¸Å", "°è¾àÀ¯Çü", "ÆÇ¸Å´Ü°¡(¿ø/kWh)", "°ø±ÞÀÚ¿ø ¹ÌÈ®º¸", _
+                            "ÆÇ¸Å ´ã´çÀÚ", "°è¾à±â°£(³â)", "Requirement", "MGA_Demand")
     Case SH_SITE
-        í‘œ_ì»¬ëŸ¼ëª©ë¡ = Array("ì „ê¸°ì‚¬ìš©ì§€ID", "íŒë§¤ê³„ì•½ID", "ì „ê¸°ì‚¬ìš©ì§€ëª…", "ì „ê¸°ì‚¬ìš©ì§€ê³„ì•½ìš©ëŸ‰(MW)")
+        Ç¥_ÄÃ·³¸ñ·Ï = Array("Àü±â»ç¿ëÁöID", "ÆÇ¸Å°è¾àID", "Àü±â»ç¿ëÁö¸í", "Àü±â»ç¿ëÁö°è¾à¿ë·®(MW)")
     Case SH_MATCH
-        í‘œ_ì»¬ëŸ¼ëª©ë¡ = Array("ìˆ˜ê¸‰ë§¤ì¹­ID", "ì „ê¸°ì‚¬ìš©ì§€ID", "êµ¬ë§¤ê³„ì•½ID", "í˜„í™©")
+        Ç¥_ÄÃ·³¸ñ·Ï = Array("¼ö±Þ¸ÅÄªID", "Àü±â»ç¿ëÁöID", "±¸¸Å°è¾àID", "ÇöÈ²")
     Case Else
-        í‘œ_ì»¬ëŸ¼ëª©ë¡ = Array()
+        Ç¥_ÄÃ·³¸ñ·Ï = Array()
     End Select
 End Function
 
-Private Function í‘œ_PK(ByVal ì‹œíŠ¸ëª… As String) As String
+Private Function Ç¥_PK(ByVal ½ÃÆ®¸í As String) As String
     Dim c As Variant
-    c = í‘œ_ì»¬ëŸ¼ëª©ë¡(ì‹œíŠ¸ëª…)
+    c = Ç¥_ÄÃ·³¸ñ·Ï(½ÃÆ®¸í)
     If UBound(c) < 0 Then Exit Function
-    í‘œ_PK = CStr(c(0))                  ' 6ê°œ í‘œ ëª¨ë‘ ì²« ì»¬ëŸ¼ì´ PK
+    Ç¥_PK = CStr(c(0))                  ' 6°³ Ç¥ ¸ðµÎ Ã¹ ÄÃ·³ÀÌ PK
 End Function
 
-' ì´ í¼ì´ ë‹¤ë£¨ëŠ” í‘œë¥¼ ìž…ë ¥ ìˆœì„œëŒ€ë¡œ (ë¶€ëª¨ â†’ ìžì‹)
-Private Function í‘œ_ìˆœì„œ() As Variant
-    í‘œ_ìˆœì„œ = Array(SH_PLANT, SH_BUY, SH_DEMAND, SH_SELL, SH_SITE, SH_MATCH)
+' ÀÌ ÆûÀÌ ´Ù·ç´Â Ç¥¸¦ ÀÔ·Â ¼ø¼­´ë·Î (ºÎ¸ð ¡æ ÀÚ½Ä)
+Private Function Ç¥_¼ø¼­() As Variant
+    Ç¥_¼ø¼­ = Array(SH_PLANT, SH_BUY, SH_DEMAND, SH_SELL, SH_SITE, SH_MATCH)
 End Function
 
-' FK: í•´ë‹¹ ì»¬ëŸ¼ì´ ì°¸ì¡°í•˜ëŠ” ì‹œíŠ¸ (ì•„ë‹ˆë©´ "")
-Private Function FK_ì°¸ì¡°ì‹œíŠ¸(ByVal ì‹œíŠ¸ëª… As String, ByVal ì»¬ëŸ¼ As String) As String
-    Select Case ì‹œíŠ¸ëª… & "|" & ì»¬ëŸ¼
-    Case SH_BUY & "|ë°œì „ì†ŒID":       FK_ì°¸ì¡°ì‹œíŠ¸ = SH_PLANT
-    Case SH_SELL & "|ìˆ˜ìš”ê¸°ì—…ID":    FK_ì°¸ì¡°ì‹œíŠ¸ = SH_DEMAND
-    Case SH_SITE & "|íŒë§¤ê³„ì•½ID":    FK_ì°¸ì¡°ì‹œíŠ¸ = SH_SELL
-    Case SH_MATCH & "|ì „ê¸°ì‚¬ìš©ì§€ID": FK_ì°¸ì¡°ì‹œíŠ¸ = SH_SITE
-    Case SH_MATCH & "|êµ¬ë§¤ê³„ì•½ID":   FK_ì°¸ì¡°ì‹œíŠ¸ = SH_BUY
-    Case Else:                       FK_ì°¸ì¡°ì‹œíŠ¸ = ""
+' FK: ÇØ´ç ÄÃ·³ÀÌ ÂüÁ¶ÇÏ´Â ½ÃÆ® (¾Æ´Ï¸é "")
+Private Function FK_ÂüÁ¶½ÃÆ®(ByVal ½ÃÆ®¸í As String, ByVal ÄÃ·³ As String) As String
+    Select Case ½ÃÆ®¸í & "|" & ÄÃ·³
+    Case SH_BUY & "|¹ßÀü¼ÒID":       FK_ÂüÁ¶½ÃÆ® = SH_PLANT
+    Case SH_SELL & "|¼ö¿ä±â¾÷ID":    FK_ÂüÁ¶½ÃÆ® = SH_DEMAND
+    Case SH_SITE & "|ÆÇ¸Å°è¾àID":    FK_ÂüÁ¶½ÃÆ® = SH_SELL
+    Case SH_MATCH & "|Àü±â»ç¿ëÁöID": FK_ÂüÁ¶½ÃÆ® = SH_SITE
+    Case SH_MATCH & "|±¸¸Å°è¾àID":   FK_ÂüÁ¶½ÃÆ® = SH_BUY
+    Case Else:                       FK_ÂüÁ¶½ÃÆ® = ""
     End Select
 End Function
 
-' ID ì„±ê²©ì˜ ì»¬ëŸ¼ì¸ê°€ (ìˆ«ìžë¡œ ë°”ê¾¸ë©´ ì•ˆ ë˜ëŠ” ê°’)
-Private Function IDì»¬ëŸ¼ì¸ê°€(ByVal ì‹œíŠ¸ëª… As String, ByVal ì»¬ëŸ¼ As String) As Boolean
-    IDì»¬ëŸ¼ì¸ê°€ = (ì»¬ëŸ¼ = í‘œ_PK(ì‹œíŠ¸ëª…)) Or (Len(FK_ì°¸ì¡°ì‹œíŠ¸(ì‹œíŠ¸ëª…, ì»¬ëŸ¼)) > 0)
+' ID ¼º°ÝÀÇ ÄÃ·³ÀÎ°¡ (¼ýÀÚ·Î ¹Ù²Ù¸é ¾È µÇ´Â °ª)
+Private Function IDÄÃ·³ÀÎ°¡(ByVal ½ÃÆ®¸í As String, ByVal ÄÃ·³ As String) As Boolean
+    IDÄÃ·³ÀÎ°¡ = (ÄÃ·³ = Ç¥_PK(½ÃÆ®¸í)) Or (Len(FK_ÂüÁ¶½ÃÆ®(½ÃÆ®¸í, ÄÃ·³)) > 0)
 End Function
 
 '==============================================================================
-' ê³µí†µ ë„ìš°ë¯¸
+' °øÅë µµ¿ì¹Ì
 '==============================================================================
-Private Function ì‹œíŠ¸(ByVal ì´ë¦„ As String) As Worksheet
+Private Function ½ÃÆ®(ByVal ÀÌ¸§ As String) As Worksheet
     On Error Resume Next
-    Set ì‹œíŠ¸ = ThisWorkbook.Worksheets(ì´ë¦„)
+    Set ½ÃÆ® = ThisWorkbook.Worksheets(ÀÌ¸§)
     On Error GoTo 0
 End Function
 
-' í—¤ë” í…ìŠ¤íŠ¸ë¡œ ì—´ ë²ˆí˜¸ ì°¾ê¸° (ì—´ ìˆœì„œê°€ ë°”ë€Œì–´ë„ ì•ˆì „)
-Private Function í—¤ë”ì—´(ByVal ws As Worksheet, ByVal í—¤ë” As String) As Long
-    Dim ë§ˆì§€ë§‰ì—´ As Long, j As Long
+' Çì´õ ÅØ½ºÆ®·Î ¿­ ¹øÈ£ Ã£±â (¿­ ¼ø¼­°¡ ¹Ù²î¾îµµ ¾ÈÀü)
+Private Function Çì´õ¿­(ByVal ws As Worksheet, ByVal Çì´õ As String) As Long
+    Dim ¸¶Áö¸·¿­ As Long, j As Long
     If ws Is Nothing Then Exit Function
-    ë§ˆì§€ë§‰ì—´ = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
-    For j = 1 To ë§ˆì§€ë§‰ì—´
-        If Trim$(CStr(ws.Cells(1, j).Value)) = í—¤ë” Then
-            í—¤ë”ì—´ = j
+    ¸¶Áö¸·¿­ = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
+    For j = 1 To ¸¶Áö¸·¿­
+        If Trim$(CStr(ws.Cells(1, j).Value)) = Çì´õ Then
+            Çì´õ¿­ = j
             Exit Function
         End If
     Next j
 End Function
 
-Private Function ë§ˆì§€ë§‰í–‰(ByVal ws As Worksheet, ByVal pkì—´ As Long) As Long
-    If ws Is Nothing Or pkì—´ = 0 Then Exit Function
-    ë§ˆì§€ë§‰í–‰ = ws.Cells(ws.Rows.Count, pkì—´).End(xlUp).Row
-    If ë§ˆì§€ë§‰í–‰ < 1 Then ë§ˆì§€ë§‰í–‰ = 1
+Private Function ¸¶Áö¸·Çà(ByVal ws As Worksheet, ByVal pk¿­ As Long) As Long
+    If ws Is Nothing Or pk¿­ = 0 Then Exit Function
+    ¸¶Áö¸·Çà = ws.Cells(ws.Rows.Count, pk¿­).End(xlUp).Row
+    If ¸¶Áö¸·Çà < 1 Then ¸¶Áö¸·Çà = 1
 End Function
 
-' PK ê°’ìœ¼ë¡œ ë°ì´í„° í–‰ ì°¾ê¸° (ì—†ìœ¼ë©´ 0)
-Private Function PKí–‰ì°¾ê¸°(ByVal ws As Worksheet, ByVal PKê°’ As String) As Long
-    Dim pkì—´ As Long, r As Long, ë As Long
+' PK °ªÀ¸·Î µ¥ÀÌÅÍ Çà Ã£±â (¾øÀ¸¸é 0)
+Private Function PKÇàÃ£±â(ByVal ws As Worksheet, ByVal PK°ª As String) As Long
+    Dim pk¿­ As Long, r As Long, ³¡ As Long
     If ws Is Nothing Then Exit Function
-    If Len(Trim$(PKê°’)) = 0 Then Exit Function
-    pkì—´ = í—¤ë”ì—´(ws, í‘œ_PK(ws.Name))
-    If pkì—´ = 0 Then Exit Function
-    ë = ë§ˆì§€ë§‰í–‰(ws, pkì—´)
-    For r = 2 To ë
-        If Trim$(CStr(ws.Cells(r, pkì—´).Value)) = Trim$(PKê°’) Then
-            PKí–‰ì°¾ê¸° = r
+    If Len(Trim$(PK°ª)) = 0 Then Exit Function
+    pk¿­ = Çì´õ¿­(ws, Ç¥_PK(ws.Name))
+    If pk¿­ = 0 Then Exit Function
+    ³¡ = ¸¶Áö¸·Çà(ws, pk¿­)
+    For r = 2 To ³¡
+        If Trim$(CStr(ws.Cells(r, pk¿­).Value)) = Trim$(PK°ª) Then
+            PKÇàÃ£±â = r
             Exit Function
         End If
     Next r
 End Function
 
-' ì…€ ê°’ì„ í™”ë©´ í‘œê¸°ìš© ë¬¸ìžì—´ë¡œ (ë‚ ì§œ â†’ yyyy-mm-dd, ë¶ˆë¦° â†’ TRUE/FALSE)
-Private Function ê°’ì„ë¬¸ìžì—´(ByVal v As Variant) As String
+' ¼¿ °ªÀ» È­¸é Ç¥±â¿ë ¹®ÀÚ¿­·Î (³¯Â¥ ¡æ yyyy-mm-dd, ºÒ¸° ¡æ TRUE/FALSE)
+Private Function °ªÀ»¹®ÀÚ¿­(ByVal v As Variant) As String
     If IsEmpty(v) Or IsNull(v) Then
-        ê°’ì„ë¬¸ìžì—´ = ""
+        °ªÀ»¹®ÀÚ¿­ = ""
     ElseIf VarType(v) = vbBoolean Then
-        ê°’ì„ë¬¸ìžì—´ = IIf(v, "TRUE", "FALSE")
+        °ªÀ»¹®ÀÚ¿­ = IIf(v, "TRUE", "FALSE")
     ElseIf IsDate(v) Then
-        ê°’ì„ë¬¸ìžì—´ = Format$(v, "yyyy-mm-dd")
+        °ªÀ»¹®ÀÚ¿­ = Format$(v, "yyyy-mm-dd")
     Else
-        ê°’ì„ë¬¸ìžì—´ = Trim$(CStr(v))
+        °ªÀ»¹®ÀÚ¿­ = Trim$(CStr(v))
     End If
 End Function
 
-Private Function ì…€ê°’(ByVal ws As Worksheet, ByVal r As Long, ByVal í—¤ë” As String) As String
+Private Function ¼¿°ª(ByVal ws As Worksheet, ByVal r As Long, ByVal Çì´õ As String) As String
     Dim j As Long
     If ws Is Nothing Or r < 2 Then Exit Function
-    j = í—¤ë”ì—´(ws, í—¤ë”)
+    j = Çì´õ¿­(ws, Çì´õ)
     If j = 0 Then Exit Function
-    ì…€ê°’ = ê°’ì„ë¬¸ìžì—´(ws.Cells(r, j).Value)
+    ¼¿°ª = °ªÀ»¹®ÀÚ¿­(ws.Cells(r, j).Value)
 End Function
 
-' ê°’ ì“°ê¸° â€” ê·¸ ì—´ì— ì´ë¯¸ ë“¤ì–´ìžˆëŠ” ë°ì´í„°ì˜ í˜•ì‹ì„ ë”°ë¼ê°‘ë‹ˆë‹¤
-' (ë¶ˆë¦° ì—´ì—ëŠ” True/False, ë‚ ì§œ ì—´ì—ëŠ” ì§„ì§œ ë‚ ì§œë¡œ). ID ì»¬ëŸ¼ì€ í•­ìƒ ë¬¸ìžì—´.
-Private Sub ì…€ì“°ê¸°(ByVal ws As Worksheet, ByVal r As Long, ByVal í—¤ë” As String, ByVal v As String)
-    Dim j As Long, ê²¬ë³¸ As Variant, rr As Long, pkì—´ As Long, ë As Long
-    Dim ê²¬ë³¸ìžˆìŒ As Boolean
+' °ª ¾²±â - ±× ¿­¿¡ ÀÌ¹Ì µé¾îÀÖ´Â µ¥ÀÌÅÍÀÇ Çü½ÄÀ» µû¶ó°©´Ï´Ù
+' (ºÒ¸° ¿­¿¡´Â True/False, ³¯Â¥ ¿­¿¡´Â ÁøÂ¥ ³¯Â¥·Î). ID ÄÃ·³Àº Ç×»ó ¹®ÀÚ¿­.
+Private Sub ¼¿¾²±â(ByVal ws As Worksheet, ByVal r As Long, ByVal Çì´õ As String, ByVal v As String)
+    Dim j As Long, °ßº» As Variant, rr As Long, pk¿­ As Long, ³¡ As Long
+    Dim °ßº»ÀÖÀ½ As Boolean
 
-    j = í—¤ë”ì—´(ws, í—¤ë”)
+    j = Çì´õ¿­(ws, Çì´õ)
     If j = 0 Then Exit Sub
 
     If Len(v) = 0 Then
@@ -202,29 +206,29 @@ Private Sub ì…€ì“°ê¸°(ByVal ws As Worksheet, ByVal r As Long, ByVal í—¤ë” As St
         Exit Sub
     End If
 
-    ' ID(PK/FK)ëŠ” "001" ê°™ì€ ê°’ì´ ìˆ«ìž 1ë¡œ ë°”ë€Œì§€ ì•Šë„ë¡ í•­ìƒ ë¬¸ìžì—´ë¡œ
-    If IDì»¬ëŸ¼ì¸ê°€(ws.Name, í—¤ë”) Then
+    ' ID(PK/FK)´Â "001" °°Àº °ªÀÌ ¼ýÀÚ 1·Î ¹Ù²îÁö ¾Êµµ·Ï Ç×»ó ¹®ÀÚ¿­·Î
+    If IDÄÃ·³ÀÎ°¡(ws.Name, Çì´õ) Then
         ws.Cells(r, j).NumberFormatLocal = "@"
         ws.Cells(r, j).Value = v
         Exit Sub
     End If
 
-    ' ê°™ì€ ì—´ì—ì„œ ë¹„ì–´ìžˆì§€ ì•Šì€ ê¸°ì¡´ ê°’ í•˜ë‚˜ë¥¼ ì°¾ì•„ í˜•ì‹ íŒë‹¨
-    pkì—´ = í—¤ë”ì—´(ws, í‘œ_PK(ws.Name))
-    ë = ë§ˆì§€ë§‰í–‰(ws, pkì—´)
-    For rr = 2 To ë
+    ' °°Àº ¿­¿¡¼­ ºñ¾îÀÖÁö ¾ÊÀº ±âÁ¸ °ª ÇÏ³ª¸¦ Ã£¾Æ Çü½Ä ÆÇ´Ü
+    pk¿­ = Çì´õ¿­(ws, Ç¥_PK(ws.Name))
+    ³¡ = ¸¶Áö¸·Çà(ws, pk¿­)
+    For rr = 2 To ³¡
         If rr <> r Then
             If Len(Trim$(CStr(ws.Cells(rr, j).Value))) > 0 Then
-                ê²¬ë³¸ = ws.Cells(rr, j).Value
-                ê²¬ë³¸ìžˆìŒ = True
+                °ßº» = ws.Cells(rr, j).Value
+                °ßº»ÀÖÀ½ = True
                 Exit For
             End If
         End If
     Next rr
 
-    If ê²¬ë³¸ìžˆìŒ And VarType(ê²¬ë³¸) = vbBoolean Then
-        ws.Cells(r, j).Value = (UCase$(v) = "TRUE" Or v = "ì˜ˆ" Or UCase$(v) = "Y")
-    ElseIf ê²¬ë³¸ìžˆìŒ And IsDate(ê²¬ë³¸) And IsDate(v) Then
+    If °ßº»ÀÖÀ½ And VarType(°ßº») = vbBoolean Then
+        ws.Cells(r, j).Value = (UCase$(v) = "TRUE" Or v = "¿¹" Or UCase$(v) = "Y")
+    ElseIf °ßº»ÀÖÀ½ And IsDate(°ßº») And IsDate(v) Then
         ws.Cells(r, j).Value = CDate(v)
         ws.Cells(r, j).NumberFormatLocal = "yyyy-mm-dd"
     ElseIf UCase$(v) = "TRUE" Then
@@ -233,7 +237,7 @@ Private Sub ì…€ì“°ê¸°(ByVal ws As Worksheet, ByVal r As Long, ByVal í—¤ë” As St
         ws.Cells(r, j).Value = False
     ElseIf IsNumeric(v) And Not IsDate(v) Then
         ws.Cells(r, j).Value = CDbl(v)
-    ElseIf IsDate(v) And InStr(1, í—¤ë”, "ì¼") + InStr(1, í—¤ë”, "ê¸°í•œ") > 0 Then
+    ElseIf IsDate(v) And InStr(1, Çì´õ, "ÀÏ") + InStr(1, Çì´õ, "±âÇÑ") > 0 Then
         ws.Cells(r, j).Value = CDate(v)
         ws.Cells(r, j).NumberFormatLocal = "yyyy-mm-dd"
     Else
@@ -242,39 +246,39 @@ Private Sub ì…€ì“°ê¸°(ByVal ws As Worksheet, ByVal r As Long, ByVal í—¤ë” As St
 End Sub
 
 '==============================================================================
-' í¼ ë§Œë“¤ê¸°
+' Æû ¸¸µé±â
 '==============================================================================
-Public Sub í¼_ë§Œë“¤ê¸°()
+Public Sub Æû_¸¸µé±â()
     Dim ws As Worksheet, r As Long, t As Variant, cols As Variant, i As Long
-    Dim í‘œì´ë¦„ As String
+    Dim Ç¥ÀÌ¸§ As String
 
-    If Not ì›ë³¸í‘œ_ì ê²€() Then Exit Sub
+    If Not ¿øº»Ç¥_Á¡°Ë() Then Exit Sub
 
     Application.ScreenUpdating = False
     Application.DisplayAlerts = False
-    On Error GoTo ì •ë¦¬
+    On Error GoTo Á¤¸®
 
-    Set ws = ì‹œíŠ¸(FORM_SHEET)
+    Set ws = ½ÃÆ®(FORM_SHEET)
     If Not ws Is Nothing Then ws.Delete
     Set ws = ThisWorkbook.Worksheets.Add(Before:=ThisWorkbook.Worksheets(1))
     ws.Name = FORM_SHEET
 
     With ws.Cells
-        .Font.Name = "ë§‘ì€ ê³ ë”•"
+        .Font.Name = "¸¼Àº °íµñ"
         .Font.Size = 10
     End With
-    ws.Columns(COL_KEY).ColumnWidth = 0.1        ' í•„ë“œí‚¤(ì‚¬ì‹¤ìƒ ìˆ¨ê¹€)
+    ws.Columns(COL_KEY).ColumnWidth = 0.1        ' ÇÊµåÅ°(»ç½Ç»ó ¼û±è)
     ws.Columns(COL_LABEL).ColumnWidth = 22
     ws.Columns(COL_VALUE).ColumnWidth = 34
     ws.Columns(COL_NOTE).ColumnWidth = 48
 
     With ws.Cells(1, COL_LABEL)
-        .Value = "PPA í†µí•© ìž…ë ¥ Â· ì¡°íšŒ í¼"
+        .Value = "PPA ÅëÇÕ ÀÔ·Â ¡¤ Á¶È¸ Æû"
         .Font.Size = 15
         .Font.Bold = True
     End With
 
-    ws.Cells(ROW_SEARCH, COL_LABEL).Value = "ì¡°íšŒ (ID / ì´ë¦„)"
+    ws.Cells(ROW_SEARCH, COL_LABEL).Value = "Á¶È¸ (ID / ÀÌ¸§)"
     ws.Cells(ROW_SEARCH, COL_LABEL).Font.Bold = True
     With ws.Cells(ROW_SEARCH, COL_VALUE)
         .Interior.Color = RGB(255, 249, 219)
@@ -282,17 +286,17 @@ Public Sub í¼_ë§Œë“¤ê¸°()
         .Borders.Color = RGB(200, 196, 180)
         .NumberFormatLocal = "@"
     End With
-    ws.Cells(ROW_SEARCH, COL_NOTE).Value = "ê°’ì„ ë„£ê³  [ì¡°íšŒ]. ì—¬ëŸ¬ ê±´ì´ë©´ [ì´ì „]/[ë‹¤ìŒ]ìœ¼ë¡œ ë„˜ê¹ë‹ˆë‹¤."
+    ws.Cells(ROW_SEARCH, COL_NOTE).Value = "°ªÀ» ³Ö°í [Á¶È¸]. ¿©·¯ °ÇÀÌ¸é [ÀÌÀü]/[´ÙÀ½]À¸·Î ³Ñ±é´Ï´Ù."
     ws.Cells(ROW_SEARCH, COL_NOTE).Font.Color = RGB(110, 110, 110)
 
-    ws.Cells(ROW_STATUS, COL_LABEL).Value = "ìƒíƒœ"
+    ws.Cells(ROW_STATUS, COL_LABEL).Value = "»óÅÂ"
     ws.Cells(ROW_STATUS, COL_LABEL).Font.Bold = True
 
-    ' í‘œë³„ ìž…ë ¥ í•­ëª© ë°°ì¹˜
+    ' Ç¥º° ÀÔ·Â Ç×¸ñ ¹èÄ¡
     r = FIRST_FIELD_ROW
-    For Each t In í‘œ_ìˆœì„œ()
-        í‘œì´ë¦„ = CStr(t)
-        ws.Cells(r, COL_LABEL).Value = "â–  " & Replace(í‘œì´ë¦„, "T_", "")
+    For Each t In Ç¥_¼ø¼­()
+        Ç¥ÀÌ¸§ = CStr(t)
+        ws.Cells(r, COL_LABEL).Value = "¡á " & Replace(Ç¥ÀÌ¸§, "T_", "")
         With ws.Range(ws.Cells(r, COL_LABEL), ws.Cells(r, COL_NOTE))
             .Interior.Color = RGB(14, 124, 123)
             .Font.Color = RGB(255, 255, 255)
@@ -300,23 +304,23 @@ Public Sub í¼_ë§Œë“¤ê¸°()
         End With
         r = r + 1
 
-        cols = í‘œ_ì»¬ëŸ¼ëª©ë¡(í‘œì´ë¦„)
+        cols = Ç¥_ÄÃ·³¸ñ·Ï(Ç¥ÀÌ¸§)
         For i = LBound(cols) To UBound(cols)
-            ws.Cells(r, COL_KEY).Value = í‘œì´ë¦„ & "|" & cols(i)
+            ws.Cells(r, COL_KEY).Value = Ç¥ÀÌ¸§ & "|" & cols(i)
             ws.Cells(r, COL_LABEL).Value = cols(i)
             With ws.Cells(r, COL_VALUE)
                 .Interior.Color = RGB(255, 255, 255)
                 .Borders.LineStyle = xlContinuous
                 .Borders.Color = RGB(214, 210, 196)
                 .HorizontalAlignment = xlLeft
-                .NumberFormatLocal = "@"          ' í¼ì—ì„œëŠ” ì „ë¶€ í…ìŠ¤íŠ¸ë¡œ ë‹¤ë£¸
+                .NumberFormatLocal = "@"          ' Æû¿¡¼­´Â ÀüºÎ ÅØ½ºÆ®·Î ´Ù·ë
             End With
             If i = 0 Then
                 ws.Cells(r, COL_LABEL).Font.Bold = True
-                ws.Cells(r, COL_NOTE).Value = "PK Â· ë¹„ì›Œë‘ë©´ ì €ìž¥í•  ë•Œ ìžë™ ìƒì„±"
-            ElseIf Len(FK_ì°¸ì¡°ì‹œíŠ¸(í‘œì´ë¦„, CStr(cols(i)))) > 0 Then
+                ws.Cells(r, COL_NOTE).Value = "PK ¡¤ ºñ¿öµÎ¸é ÀúÀåÇÒ ¶§ ÀÚµ¿ »ý¼º"
+            ElseIf Len(FK_ÂüÁ¶½ÃÆ®(Ç¥ÀÌ¸§, CStr(cols(i)))) > 0 Then
                 ws.Cells(r, COL_LABEL).Font.Color = RGB(83, 74, 183)
-                ws.Cells(r, COL_NOTE).Value = "FK â†’ " & Replace(FK_ì°¸ì¡°ì‹œíŠ¸(í‘œì´ë¦„, CStr(cols(i))), "T_", "")
+                ws.Cells(r, COL_NOTE).Value = "FK ¡æ " & Replace(FK_ÂüÁ¶½ÃÆ®(Ç¥ÀÌ¸§, CStr(cols(i))), "T_", "")
             End If
             ws.Cells(r, COL_NOTE).Font.Color = RGB(110, 110, 110)
             r = r + 1
@@ -324,392 +328,392 @@ Public Sub í¼_ë§Œë“¤ê¸°()
         r = r + 1
     Next t
 
-    í¼_ë²„íŠ¼ë§Œë“¤ê¸° ws
+    Æû_¹öÆ°¸¸µé±â ws
     ws.Rows(1).RowHeight = 26
-    í¼_ëª©ë¡ê°±ì‹ 
-    í¼_ì´ˆê¸°í™”
+    Æû_¸ñ·Ï°»½Å
+    Æû_ÃÊ±âÈ­
     ws.Activate
     ws.Cells(ROW_SEARCH, COL_VALUE).Select
 
-ì •ë¦¬:
+Á¤¸®:
     Application.DisplayAlerts = True
     Application.ScreenUpdating = True
     If Err.Number <> 0 Then
-        MsgBox "í¼ì„ ë§Œë“œëŠ” ì¤‘ ì˜¤ë¥˜ê°€ ë°œìƒí–ˆìŠµë‹ˆë‹¤." & vbCrLf & Err.Description, vbExclamation
+        MsgBox "ÆûÀ» ¸¸µå´Â Áß ¿À·ù°¡ ¹ß»ýÇß½À´Ï´Ù." & vbCrLf & Err.Description, vbExclamation
         Exit Sub
     End If
 
-    MsgBox "ìž…ë ¥í¼ ì‹œíŠ¸ë¥¼ ë§Œë“¤ì—ˆìŠµë‹ˆë‹¤." & vbCrLf & vbCrLf & _
-           "Â· ID ì¹¸ì˜ ë“œë¡­ë‹¤ìš´ì—ì„œ ê¸°ì¡´ í•­ëª©ì„ ê³ ë¥´ê³  [ë¶ˆëŸ¬ì˜¤ê¸°]ë¥¼ ëˆ„ë¥´ë©´ ë‚˜ë¨¸ì§€ê°€ ì±„ì›Œì§‘ë‹ˆë‹¤." & vbCrLf & _
-           "Â· ìƒˆ ê±´ì´ë©´ ê°’ë§Œ ì±„ìš°ê³  [ì €ìž¥]ì„ ëˆ„ë¥´ì„¸ìš”. ì €ìž¥ ì „ì— í™•ì¸ ì°½ì´ ëœ¹ë‹ˆë‹¤.", _
-           vbInformation, "PPA í†µí•© ìž…ë ¥í¼"
+    MsgBox "ÀÔ·ÂÆû ½ÃÆ®¸¦ ¸¸µé¾ú½À´Ï´Ù." & vbCrLf & vbCrLf & _
+           "¡¤ ID Ä­ÀÇ µå·Ó´Ù¿î¿¡¼­ ±âÁ¸ Ç×¸ñÀ» °í¸£°í [ºÒ·¯¿À±â]¸¦ ´©¸£¸é ³ª¸ÓÁö°¡ Ã¤¿öÁý´Ï´Ù." & vbCrLf & _
+           "¡¤ »õ °ÇÀÌ¸é °ª¸¸ Ã¤¿ì°í [ÀúÀå]À» ´©¸£¼¼¿ä. ÀúÀå Àü¿¡ È®ÀÎ Ã¢ÀÌ ¶å´Ï´Ù.", _
+           vbInformation, "PPA ÅëÇÕ ÀÔ·ÂÆû"
 End Sub
 
-Private Sub í¼_ë²„íŠ¼ë§Œë“¤ê¸°(ByVal ws As Worksheet)
-    Dim b As Object, ì •ì˜ As Variant, i As Long, x As Double
+Private Sub Æû_¹öÆ°¸¸µé±â(ByVal ws As Worksheet)
+    Dim b As Object, Á¤ÀÇ As Variant, i As Long, x As Double
 
     On Error Resume Next
     ws.Buttons.Delete
     On Error GoTo 0
 
-    ì •ì˜ = Array("ì¡°íšŒ|í¼_ì¡°íšŒ", "ì´ì „|í¼_ì´ì „", "ë‹¤ìŒ|í¼_ë‹¤ìŒ", "ë¶ˆëŸ¬ì˜¤ê¸°|í¼_ë¶ˆëŸ¬ì˜¤ê¸°", _
-                 "ìƒˆë¡œ ë§Œë“¤ê¸°|í¼_ì´ˆê¸°í™”", "ì €ìž¥|í¼_ì €ìž¥", "ì‚­ì œ|í¼_ì‚­ì œ", "ëª©ë¡ ìƒˆë¡œê³ ì¹¨|í¼_ëª©ë¡ê°±ì‹ ")
+    Á¤ÀÇ = Array("Á¶È¸|Æû_Á¶È¸", "ÀÌÀü|Æû_ÀÌÀü", "´ÙÀ½|Æû_´ÙÀ½", "ºÒ·¯¿À±â|Æû_ºÒ·¯¿À±â", _
+                 "»õ·Î ¸¸µé±â|Æû_ÃÊ±âÈ­", "ÀúÀå|Æû_ÀúÀå", "»èÁ¦|Æû_»èÁ¦", "¸ñ·Ï »õ·Î°íÄ§|Æû_¸ñ·Ï°»½Å")
     x = ws.Cells(1, COL_VALUE).Left
-    For i = LBound(ì •ì˜) To UBound(ì •ì˜)
+    For i = LBound(Á¤ÀÇ) To UBound(Á¤ÀÇ)
         Set b = ws.Buttons.Add(x, ws.Cells(1, 1).Top + 2, 74, 22)
-        b.Caption = Split(ì •ì˜(i), "|")(0)
-        b.OnAction = Split(ì •ì˜(i), "|")(1)
+        b.Caption = Split(Á¤ÀÇ(i), "|")(0)
+        b.OnAction = Split(Á¤ÀÇ(i), "|")(1)
         x = x + 78
     Next i
 End Sub
 
-' ì›ë³¸ í‘œ ì‹œíŠ¸ì™€ í—¤ë”ê°€ ì œëŒ€ë¡œ ìžˆëŠ”ì§€ ë¯¸ë¦¬ í™•ì¸
-Private Function ì›ë³¸í‘œ_ì ê²€() As Boolean
+' ¿øº» Ç¥ ½ÃÆ®¿Í Çì´õ°¡ Á¦´ë·Î ÀÖ´ÂÁö ¹Ì¸® È®ÀÎ
+Private Function ¿øº»Ç¥_Á¡°Ë() As Boolean
     Dim t As Variant, cols As Variant, i As Long, ws As Worksheet
-    Dim ë¬¸ì œ As String
+    Dim ¹®Á¦ As String
 
-    For Each t In í‘œ_ìˆœì„œ()
-        Set ws = ì‹œíŠ¸(CStr(t))
+    For Each t In Ç¥_¼ø¼­()
+        Set ws = ½ÃÆ®(CStr(t))
         If ws Is Nothing Then
-            ë¬¸ì œ = ë¬¸ì œ & "Â· ì‹œíŠ¸ ì—†ìŒ: " & t & vbCrLf
+            ¹®Á¦ = ¹®Á¦ & "¡¤ ½ÃÆ® ¾øÀ½: " & t & vbCrLf
         Else
-            cols = í‘œ_ì»¬ëŸ¼ëª©ë¡(CStr(t))
+            cols = Ç¥_ÄÃ·³¸ñ·Ï(CStr(t))
             For i = LBound(cols) To UBound(cols)
-                If í—¤ë”ì—´(ws, CStr(cols(i))) = 0 Then
-                    ë¬¸ì œ = ë¬¸ì œ & "Â· " & t & " ì‹œíŠ¸ì— '" & cols(i) & "' ì—´ì´ ì—†ìŠµë‹ˆë‹¤" & vbCrLf
+                If Çì´õ¿­(ws, CStr(cols(i))) = 0 Then
+                    ¹®Á¦ = ¹®Á¦ & "¡¤ " & t & " ½ÃÆ®¿¡ '" & cols(i) & "' ¿­ÀÌ ¾ø½À´Ï´Ù" & vbCrLf
                 End If
             Next i
         End If
     Next t
 
-    If Len(ë¬¸ì œ) > 0 Then
-        MsgBox "í‘œ êµ¬ì„±ì´ ì˜ˆìƒê³¼ ë‹¬ë¼ í¼ì„ ë§Œë“¤ ìˆ˜ ì—†ìŠµë‹ˆë‹¤." & vbCrLf & vbCrLf & ë¬¸ì œ & vbCrLf & _
-               "ì‹œíŠ¸ ì´ë¦„ê³¼ 1í–‰ ë¨¸ë¦¬ê¸€ì„ í™•ì¸í•´ì£¼ì„¸ìš”.", vbExclamation, "PPA í†µí•© ìž…ë ¥í¼"
-        ì›ë³¸í‘œ_ì ê²€ = False
+    If Len(¹®Á¦) > 0 Then
+        MsgBox "Ç¥ ±¸¼ºÀÌ ¿¹»ó°ú ´Þ¶ó ÆûÀ» ¸¸µé ¼ö ¾ø½À´Ï´Ù." & vbCrLf & vbCrLf & ¹®Á¦ & vbCrLf & _
+               "½ÃÆ® ÀÌ¸§°ú 1Çà ¸Ó¸®±ÛÀ» È®ÀÎÇØÁÖ¼¼¿ä.", vbExclamation, "PPA ÅëÇÕ ÀÔ·ÂÆû"
+        ¿øº»Ç¥_Á¡°Ë = False
     Else
-        ì›ë³¸í‘œ_ì ê²€ = True
+        ¿øº»Ç¥_Á¡°Ë = True
     End If
 End Function
 
 '==============================================================================
-' í¼ ê°’ ì½ê¸°/ì“°ê¸°
+' Æû °ª ÀÐ±â/¾²±â
 '==============================================================================
-Private Function í•„ë“œí–‰(ByVal ws As Worksheet, ByVal í•„ë“œí‚¤ As String) As Long
-    Dim r As Long, ë As Long
+Private Function ÇÊµåÇà(ByVal ws As Worksheet, ByVal ÇÊµåÅ° As String) As Long
+    Dim r As Long, ³¡ As Long
     If ws Is Nothing Then Exit Function
-    ë = ws.Cells(ws.Rows.Count, COL_KEY).End(xlUp).Row
-    For r = FIRST_FIELD_ROW To ë
-        If CStr(ws.Cells(r, COL_KEY).Value) = í•„ë“œí‚¤ Then
-            í•„ë“œí–‰ = r
+    ³¡ = ws.Cells(ws.Rows.Count, COL_KEY).End(xlUp).Row
+    For r = FIRST_FIELD_ROW To ³¡
+        If CStr(ws.Cells(r, COL_KEY).Value) = ÇÊµåÅ° Then
+            ÇÊµåÇà = r
             Exit Function
         End If
     Next r
 End Function
 
-Private Function í¼ê°’(ByVal ì‹œíŠ¸ëª… As String, ByVal ì»¬ëŸ¼ As String) As String
+Private Function Æû°ª(ByVal ½ÃÆ®¸í As String, ByVal ÄÃ·³ As String) As String
     Dim ws As Worksheet, r As Long
-    Set ws = ì‹œíŠ¸(FORM_SHEET)
+    Set ws = ½ÃÆ®(FORM_SHEET)
     If ws Is Nothing Then Exit Function
-    r = í•„ë“œí–‰(ws, ì‹œíŠ¸ëª… & "|" & ì»¬ëŸ¼)
+    r = ÇÊµåÇà(ws, ½ÃÆ®¸í & "|" & ÄÃ·³)
     If r = 0 Then Exit Function
-    í¼ê°’ = Trim$(CStr(ws.Cells(r, COL_VALUE).Value))
+    Æû°ª = Trim$(CStr(ws.Cells(r, COL_VALUE).Value))
 End Function
 
-' í¼ì— ê°’ì„ ë„£ì„ ë•ŒëŠ” Change ì´ë²¤íŠ¸ê°€ ë‹¤ì‹œ ëŒì§€ ì•Šë„ë¡ ìž ê¸‰ë‹ˆë‹¤.
-' (ì´ì „ ìƒíƒœë¥¼ ì €ìž¥í•´ë’€ë‹¤ ëŒë ¤ë†“ì•„ì•¼ ì¤‘ì²© í˜¸ì¶œì—ì„œ ê¼¬ì´ì§€ ì•ŠìŠµë‹ˆë‹¤)
-Private Sub í¼ê°’ì“°ê¸°(ByVal ì‹œíŠ¸ëª… As String, ByVal ì»¬ëŸ¼ As String, ByVal v As String)
-    Dim ws As Worksheet, r As Long, ì´ì „ As Boolean
-    Set ws = ì‹œíŠ¸(FORM_SHEET)
+' Æû¿¡ °ªÀ» ³ÖÀ» ¶§´Â Change ÀÌº¥Æ®°¡ ´Ù½Ã µ¹Áö ¾Êµµ·Ï Àá±Þ´Ï´Ù.
+' (ÀÌÀü »óÅÂ¸¦ ÀúÀåÇØµ×´Ù µ¹·Á³õ¾Æ¾ß ÁßÃ¸ È£Ãâ¿¡¼­ ²¿ÀÌÁö ¾Ê½À´Ï´Ù)
+Private Sub Æû°ª¾²±â(ByVal ½ÃÆ®¸í As String, ByVal ÄÃ·³ As String, ByVal v As String)
+    Dim ws As Worksheet, r As Long, ÀÌÀü As Boolean
+    Set ws = ½ÃÆ®(FORM_SHEET)
     If ws Is Nothing Then Exit Sub
-    r = í•„ë“œí–‰(ws, ì‹œíŠ¸ëª… & "|" & ì»¬ëŸ¼)
+    r = ÇÊµåÇà(ws, ½ÃÆ®¸í & "|" & ÄÃ·³)
     If r = 0 Then Exit Sub
-    ì´ì „ = Application.EnableEvents
+    ÀÌÀü = Application.EnableEvents
     Application.EnableEvents = False
     ws.Cells(r, COL_VALUE).Value = v
-    Application.EnableEvents = ì´ì „
+    Application.EnableEvents = ÀÌÀü
 End Sub
 
-Private Sub ìƒíƒœì“°ê¸°(ByVal msg As String, Optional ByVal ê²½ê³  As Boolean = False)
+Private Sub »óÅÂ¾²±â(ByVal msg As String, Optional ByVal °æ°í As Boolean = False)
     Dim ws As Worksheet
-    Set ws = ì‹œíŠ¸(FORM_SHEET)
+    Set ws = ½ÃÆ®(FORM_SHEET)
     If ws Is Nothing Then Exit Sub
     With ws.Cells(ROW_STATUS, COL_VALUE)
         .Value = msg
-        .Font.Color = IIf(ê²½ê³ , RGB(178, 58, 58), RGB(31, 122, 84))
+        .Font.Color = IIf(°æ°í, RGB(178, 58, 58), RGB(31, 122, 84))
         .Font.Bold = True
     End With
 End Sub
 
 '==============================================================================
-' ìƒˆë¡œ ë§Œë“¤ê¸°
+' »õ·Î ¸¸µé±â
 '==============================================================================
-Public Sub í¼_ì´ˆê¸°í™”()
-    Dim ws As Worksheet, r As Long, ë As Long, ì´ì „ As Boolean
-    Set ws = ì‹œíŠ¸(FORM_SHEET)
+Public Sub Æû_ÃÊ±âÈ­()
+    Dim ws As Worksheet, r As Long, ³¡ As Long, ÀÌÀü As Boolean
+    Set ws = ½ÃÆ®(FORM_SHEET)
     If ws Is Nothing Then Exit Sub
 
-    ì´ì „ = Application.EnableEvents
+    ÀÌÀü = Application.EnableEvents
     Application.EnableEvents = False
-    ë = ws.Cells(ws.Rows.Count, COL_KEY).End(xlUp).Row
-    For r = FIRST_FIELD_ROW To ë
+    ³¡ = ws.Cells(ws.Rows.Count, COL_KEY).End(xlUp).Row
+    For r = FIRST_FIELD_ROW To ³¡
         If Len(CStr(ws.Cells(r, COL_KEY).Value)) > 0 Then
             ws.Cells(r, COL_VALUE).ClearContents
             ws.Cells(r, COL_VALUE).Interior.Color = RGB(255, 255, 255)
         End If
     Next r
     ws.Cells(ROW_SEARCH, COL_VALUE).ClearContents
-    Application.EnableEvents = ì´ì „
+    Application.EnableEvents = ÀÌÀü
 
-    ì¡°íšŒê²°ê³¼_ì§€ìš°ê¸°
-    í¼_ê¸°ì¡´ì‹ ê·œí‘œì‹œ
-    ìƒíƒœì“°ê¸° "ìƒˆ ìž…ë ¥ â€” ê°’ì„ ì±„ìš°ê³  [ì €ìž¥]ì„ ëˆ„ë¥´ì„¸ìš”."
+    Á¶È¸°á°ú_Áö¿ì±â
+    Æû_±âÁ¸½Å±ÔÇ¥½Ã
+    »óÅÂ¾²±â "»õ ÀÔ·Â - °ªÀ» Ã¤¿ì°í [ÀúÀå]À» ´©¸£¼¼¿ä."
 End Sub
 
-Private Sub í¼_ê°’ë§Œì§€ìš°ê¸°()
-    Dim ws As Worksheet, r As Long, ë As Long, ì´ì „ As Boolean
-    Set ws = ì‹œíŠ¸(FORM_SHEET)
+Private Sub Æû_°ª¸¸Áö¿ì±â()
+    Dim ws As Worksheet, r As Long, ³¡ As Long, ÀÌÀü As Boolean
+    Set ws = ½ÃÆ®(FORM_SHEET)
     If ws Is Nothing Then Exit Sub
-    ì´ì „ = Application.EnableEvents
+    ÀÌÀü = Application.EnableEvents
     Application.EnableEvents = False
-    ë = ws.Cells(ws.Rows.Count, COL_KEY).End(xlUp).Row
-    For r = FIRST_FIELD_ROW To ë
+    ³¡ = ws.Cells(ws.Rows.Count, COL_KEY).End(xlUp).Row
+    For r = FIRST_FIELD_ROW To ³¡
         If Len(CStr(ws.Cells(r, COL_KEY).Value)) > 0 Then ws.Cells(r, COL_VALUE).ClearContents
     Next r
-    Application.EnableEvents = ì´ì „
+    Application.EnableEvents = ÀÌÀü
 End Sub
 
 '==============================================================================
-' ì¡°íšŒ
+' Á¶È¸
 '==============================================================================
-Public Sub í¼_ì¡°íšŒ()
-    Dim ws As Worksheet, wsL As Worksheet, ê²€ìƒ‰ì–´ As String
-    Dim ì°¾ì€í–‰ As Collection, i As Long
+Public Sub Æû_Á¶È¸()
+    Dim ws As Worksheet, wsL As Worksheet, °Ë»ö¾î As String
+    Dim Ã£ÀºÇà As Collection, i As Long
 
-    Set ws = ì‹œíŠ¸(FORM_SHEET)
+    Set ws = ½ÃÆ®(FORM_SHEET)
     If ws Is Nothing Then Exit Sub
-    ê²€ìƒ‰ì–´ = Trim$(CStr(ws.Cells(ROW_SEARCH, COL_VALUE).Value))
-    If Len(ê²€ìƒ‰ì–´) = 0 Then
-        MsgBox "ì¡°íšŒí•  IDë‚˜ ì´ë¦„ì„ ìž…ë ¥í•´ì£¼ì„¸ìš”.", vbInformation, "ì¡°íšŒ"
+    °Ë»ö¾î = Trim$(CStr(ws.Cells(ROW_SEARCH, COL_VALUE).Value))
+    If Len(°Ë»ö¾î) = 0 Then
+        MsgBox "Á¶È¸ÇÒ ID³ª ÀÌ¸§À» ÀÔ·ÂÇØÁÖ¼¼¿ä.", vbInformation, "Á¶È¸"
         Exit Sub
     End If
 
-    Set ì°¾ì€í–‰ = ë§¤ì¹­ê²€ìƒ‰(ê²€ìƒ‰ì–´)
-    If ì°¾ì€í–‰.Count = 0 Then
-        ì¡°íšŒê²°ê³¼_ì§€ìš°ê¸°
-        ìƒíƒœì“°ê¸° "'" & ê²€ìƒ‰ì–´ & "' ë¡œ ì°¾ì€ í•­ëª©ì´ ì—†ìŠµë‹ˆë‹¤.", True
+    Set Ã£ÀºÇà = ¸ÅÄª°Ë»ö(°Ë»ö¾î)
+    If Ã£ÀºÇà.Count = 0 Then
+        Á¶È¸°á°ú_Áö¿ì±â
+        »óÅÂ¾²±â "'" & °Ë»ö¾î & "' ·Î Ã£Àº Ç×¸ñÀÌ ¾ø½À´Ï´Ù.", True
         Exit Sub
     End If
 
-    Set wsL = ëª©ë¡ì‹œíŠ¸()
+    Set wsL = ¸ñ·Ï½ÃÆ®()
     wsL.Columns(LC_RESULT).ClearContents
-    For i = 1 To ì°¾ì€í–‰.Count
-        wsL.Cells(i, LC_RESULT).Value = ì°¾ì€í–‰(i)
+    For i = 1 To Ã£ÀºÇà.Count
+        wsL.Cells(i, LC_RESULT).Value = Ã£ÀºÇà(i)
     Next i
     wsL.Cells(1, LC_POS).Value = 1
-    í¼_ê²°ê³¼í‘œì‹œ
+    Æû_°á°úÇ¥½Ã
 End Sub
 
-Public Sub í¼_ë‹¤ìŒ()
-    ì¡°íšŒìœ„ì¹˜_ì´ë™ 1
+Public Sub Æû_´ÙÀ½()
+    Á¶È¸À§Ä¡_ÀÌµ¿ 1
 End Sub
 
-Public Sub í¼_ì´ì „()
-    ì¡°íšŒìœ„ì¹˜_ì´ë™ -1
+Public Sub Æû_ÀÌÀü()
+    Á¶È¸À§Ä¡_ÀÌµ¿ -1
 End Sub
 
-Private Sub ì¡°íšŒìœ„ì¹˜_ì´ë™(ByVal ì¦ê° As Long)
-    Dim wsL As Worksheet, ê°œìˆ˜ As Long, í˜„ìž¬ As Long
-    Set wsL = ëª©ë¡ì‹œíŠ¸()
-    ê°œìˆ˜ = ì¡°íšŒê²°ê³¼_ê°œìˆ˜()
-    If ê°œìˆ˜ = 0 Then
-        ìƒíƒœì“°ê¸° "ë¨¼ì € [ì¡°íšŒ]ë¥¼ ì‹¤í–‰í•´ì£¼ì„¸ìš”.", True
+Private Sub Á¶È¸À§Ä¡_ÀÌµ¿(ByVal Áõ°¨ As Long)
+    Dim wsL As Worksheet, °³¼ö As Long, ÇöÀç As Long
+    Set wsL = ¸ñ·Ï½ÃÆ®()
+    °³¼ö = Á¶È¸°á°ú_°³¼ö()
+    If °³¼ö = 0 Then
+        »óÅÂ¾²±â "¸ÕÀú [Á¶È¸]¸¦ ½ÇÇàÇØÁÖ¼¼¿ä.", True
         Exit Sub
     End If
-    í˜„ìž¬ = CLng(Val(wsL.Cells(1, LC_POS).Value)) + ì¦ê°
-    If í˜„ìž¬ < 1 Then í˜„ìž¬ = 1
-    If í˜„ìž¬ > ê°œìˆ˜ Then í˜„ìž¬ = ê°œìˆ˜
-    wsL.Cells(1, LC_POS).Value = í˜„ìž¬
-    í¼_ê²°ê³¼í‘œì‹œ
+    ÇöÀç = CLng(Val(wsL.Cells(1, LC_POS).Value)) + Áõ°¨
+    If ÇöÀç < 1 Then ÇöÀç = 1
+    If ÇöÀç > °³¼ö Then ÇöÀç = °³¼ö
+    wsL.Cells(1, LC_POS).Value = ÇöÀç
+    Æû_°á°úÇ¥½Ã
 End Sub
 
-Private Function ì¡°íšŒê²°ê³¼_ê°œìˆ˜() As Long
+Private Function Á¶È¸°á°ú_°³¼ö() As Long
     Dim wsL As Worksheet
-    Set wsL = ëª©ë¡ì‹œíŠ¸()
+    Set wsL = ¸ñ·Ï½ÃÆ®()
     If wsL Is Nothing Then Exit Function
-    ì¡°íšŒê²°ê³¼_ê°œìˆ˜ = wsL.Cells(wsL.Rows.Count, LC_RESULT).End(xlUp).Row
-    If Len(Trim$(CStr(wsL.Cells(1, LC_RESULT).Value))) = 0 Then ì¡°íšŒê²°ê³¼_ê°œìˆ˜ = 0
+    Á¶È¸°á°ú_°³¼ö = wsL.Cells(wsL.Rows.Count, LC_RESULT).End(xlUp).Row
+    If Len(Trim$(CStr(wsL.Cells(1, LC_RESULT).Value))) = 0 Then Á¶È¸°á°ú_°³¼ö = 0
 End Function
 
-Private Sub ì¡°íšŒê²°ê³¼_ì§€ìš°ê¸°()
+Private Sub Á¶È¸°á°ú_Áö¿ì±â()
     Dim wsL As Worksheet
-    Set wsL = ëª©ë¡ì‹œíŠ¸()
+    Set wsL = ¸ñ·Ï½ÃÆ®()
     If wsL Is Nothing Then Exit Sub
     wsL.Columns(LC_RESULT).ClearContents
     wsL.Cells(1, LC_POS).ClearContents
 End Sub
 
-' ê²€ìƒ‰: ìˆ˜ê¸‰ë§¤ì¹­ì„ ê¸°ì¤€ìœ¼ë¡œ, ê·¸ì™€ ì´ì–´ì§„ ìƒìœ„ í‘œì˜ ID/ì´ë¦„ê¹Œì§€ ë’¤ì ¸ì„œ ì°¾ìŠµë‹ˆë‹¤
-Private Function ë§¤ì¹­ê²€ìƒ‰(ByVal ê²€ìƒ‰ì–´ As String) As Collection
-    Dim ê²°ê³¼ As New Collection
+' °Ë»ö: ¼ö±Þ¸ÅÄªÀ» ±âÁØÀ¸·Î, ±×¿Í ÀÌ¾îÁø »óÀ§ Ç¥ÀÇ ID/ÀÌ¸§±îÁö µÚÁ®¼­ Ã£½À´Ï´Ù
+Private Function ¸ÅÄª°Ë»ö(ByVal °Ë»ö¾î As String) As Collection
+    Dim °á°ú As New Collection
     Dim wsM As Worksheet, wsSite As Worksheet, wsBuy As Worksheet
     Dim wsPlant As Worksheet, wsSell As Worksheet, wsDem As Worksheet
-    Dim r As Long, ë As Long, pkì—´ As Long
-    Dim ì‚¬ìš©ì§€ID As String, êµ¬ë§¤ID As String, íŒë§¤ID As String, ìˆ˜ìš”ID As String, ë°œì „ì†ŒID As String
-    Dim í•©ì¹¨ As String, í‚¤ì›Œë“œ As String
+    Dim r As Long, ³¡ As Long, pk¿­ As Long
+    Dim »ç¿ëÁöID As String, ±¸¸ÅID As String, ÆÇ¸ÅID As String, ¼ö¿äID As String, ¹ßÀü¼ÒID As String
+    Dim ÇÕÄ§ As String, Å°¿öµå As String
     Dim rs As Long, rb As Long, rp As Long, rl As Long, rd As Long
 
-    í‚¤ì›Œë“œ = Trim$(ê²€ìƒ‰ì–´)
-    Set wsM = ì‹œíŠ¸(SH_MATCH): Set wsSite = ì‹œíŠ¸(SH_SITE): Set wsBuy = ì‹œíŠ¸(SH_BUY)
-    Set wsPlant = ì‹œíŠ¸(SH_PLANT): Set wsSell = ì‹œíŠ¸(SH_SELL): Set wsDem = ì‹œíŠ¸(SH_DEMAND)
+    Å°¿öµå = Trim$(°Ë»ö¾î)
+    Set wsM = ½ÃÆ®(SH_MATCH): Set wsSite = ½ÃÆ®(SH_SITE): Set wsBuy = ½ÃÆ®(SH_BUY)
+    Set wsPlant = ½ÃÆ®(SH_PLANT): Set wsSell = ½ÃÆ®(SH_SELL): Set wsDem = ½ÃÆ®(SH_DEMAND)
     If wsM Is Nothing Then
-        Set ë§¤ì¹­ê²€ìƒ‰ = ê²°ê³¼
+        Set ¸ÅÄª°Ë»ö = °á°ú
         Exit Function
     End If
 
-    pkì—´ = í—¤ë”ì—´(wsM, í‘œ_PK(SH_MATCH))
-    ë = ë§ˆì§€ë§‰í–‰(wsM, pkì—´)
+    pk¿­ = Çì´õ¿­(wsM, Ç¥_PK(SH_MATCH))
+    ³¡ = ¸¶Áö¸·Çà(wsM, pk¿­)
 
-    For r = 2 To ë
-        ì‚¬ìš©ì§€ID = ì…€ê°’(wsM, r, "ì „ê¸°ì‚¬ìš©ì§€ID")
-        êµ¬ë§¤ID = ì…€ê°’(wsM, r, "êµ¬ë§¤ê³„ì•½ID")
-        í•©ì¹¨ = ì…€ê°’(wsM, r, "ìˆ˜ê¸‰ë§¤ì¹­ID") & "|" & ì‚¬ìš©ì§€ID & "|" & êµ¬ë§¤ID & "|" & ì…€ê°’(wsM, r, "í˜„í™©")
+    For r = 2 To ³¡
+        »ç¿ëÁöID = ¼¿°ª(wsM, r, "Àü±â»ç¿ëÁöID")
+        ±¸¸ÅID = ¼¿°ª(wsM, r, "±¸¸Å°è¾àID")
+        ÇÕÄ§ = ¼¿°ª(wsM, r, "¼ö±Þ¸ÅÄªID") & "|" & »ç¿ëÁöID & "|" & ±¸¸ÅID & "|" & ¼¿°ª(wsM, r, "ÇöÈ²")
 
-        rs = PKí–‰ì°¾ê¸°(wsSite, ì‚¬ìš©ì§€ID)
+        rs = PKÇàÃ£±â(wsSite, »ç¿ëÁöID)
         If rs > 0 Then
-            í•©ì¹¨ = í•©ì¹¨ & "|" & ì…€ê°’(wsSite, rs, "ì „ê¸°ì‚¬ìš©ì§€ëª…")
-            íŒë§¤ID = ì…€ê°’(wsSite, rs, "íŒë§¤ê³„ì•½ID")
-            rl = PKí–‰ì°¾ê¸°(wsSell, íŒë§¤ID)
+            ÇÕÄ§ = ÇÕÄ§ & "|" & ¼¿°ª(wsSite, rs, "Àü±â»ç¿ëÁö¸í")
+            ÆÇ¸ÅID = ¼¿°ª(wsSite, rs, "ÆÇ¸Å°è¾àID")
+            rl = PKÇàÃ£±â(wsSell, ÆÇ¸ÅID)
             If rl > 0 Then
-                í•©ì¹¨ = í•©ì¹¨ & "|" & íŒë§¤ID & "|" & ì…€ê°’(wsSell, rl, "íŒë§¤ ë‹´ë‹¹ìž")
-                ìˆ˜ìš”ID = ì…€ê°’(wsSell, rl, "ìˆ˜ìš”ê¸°ì—…ID")
-                rd = PKí–‰ì°¾ê¸°(wsDem, ìˆ˜ìš”ID)
-                If rd > 0 Then í•©ì¹¨ = í•©ì¹¨ & "|" & ìˆ˜ìš”ID & "|" & ì…€ê°’(wsDem, rd, "ê¸°ì—…ëª…")
+                ÇÕÄ§ = ÇÕÄ§ & "|" & ÆÇ¸ÅID & "|" & ¼¿°ª(wsSell, rl, "ÆÇ¸Å ´ã´çÀÚ")
+                ¼ö¿äID = ¼¿°ª(wsSell, rl, "¼ö¿ä±â¾÷ID")
+                rd = PKÇàÃ£±â(wsDem, ¼ö¿äID)
+                If rd > 0 Then ÇÕÄ§ = ÇÕÄ§ & "|" & ¼ö¿äID & "|" & ¼¿°ª(wsDem, rd, "±â¾÷¸í")
             End If
         End If
 
-        rb = PKí–‰ì°¾ê¸°(wsBuy, êµ¬ë§¤ID)
+        rb = PKÇàÃ£±â(wsBuy, ±¸¸ÅID)
         If rb > 0 Then
-            í•©ì¹¨ = í•©ì¹¨ & "|" & ì…€ê°’(wsBuy, rb, "êµ¬ë§¤ ë‹´ë‹¹ìž")
-            ë°œì „ì†ŒID = ì…€ê°’(wsBuy, rb, "ë°œì „ì†ŒID")
-            rp = PKí–‰ì°¾ê¸°(wsPlant, ë°œì „ì†ŒID)
+            ÇÕÄ§ = ÇÕÄ§ & "|" & ¼¿°ª(wsBuy, rb, "±¸¸Å ´ã´çÀÚ")
+            ¹ßÀü¼ÒID = ¼¿°ª(wsBuy, rb, "¹ßÀü¼ÒID")
+            rp = PKÇàÃ£±â(wsPlant, ¹ßÀü¼ÒID)
             If rp > 0 Then
-                í•©ì¹¨ = í•©ì¹¨ & "|" & ë°œì „ì†ŒID & "|" & ì…€ê°’(wsPlant, rp, "ë°œì „ì†Œëª…") & _
-                       "|" & ì…€ê°’(wsPlant, rp, "ë°œì „ë²•ì¸ëª…")
+                ÇÕÄ§ = ÇÕÄ§ & "|" & ¹ßÀü¼ÒID & "|" & ¼¿°ª(wsPlant, rp, "¹ßÀü¼Ò¸í") & _
+                       "|" & ¼¿°ª(wsPlant, rp, "¹ßÀü¹ýÀÎ¸í")
             End If
         End If
 
-        If InStr(1, í•©ì¹¨, í‚¤ì›Œë“œ, vbTextCompare) > 0 Then ê²°ê³¼.Add r
+        If InStr(1, ÇÕÄ§, Å°¿öµå, vbTextCompare) > 0 Then °á°ú.Add r
     Next r
 
-    Set ë§¤ì¹­ê²€ìƒ‰ = ê²°ê³¼
+    Set ¸ÅÄª°Ë»ö = °á°ú
 End Function
 
-' í˜„ìž¬ ìœ„ì¹˜ì˜ ìˆ˜ê¸‰ë§¤ì¹­ í–‰ì„ í¼ ì „ì²´ì— íŽ¼ì³ ë³´ì—¬ì¤ë‹ˆë‹¤
-Private Sub í¼_ê²°ê³¼í‘œì‹œ()
+' ÇöÀç À§Ä¡ÀÇ ¼ö±Þ¸ÅÄª ÇàÀ» Æû ÀüÃ¼¿¡ ÆîÃÄ º¸¿©ÁÝ´Ï´Ù
+Private Sub Æû_°á°úÇ¥½Ã()
     Dim wsL As Worksheet, wsM As Worksheet
-    Dim ìœ„ì¹˜ As Long, ê°œìˆ˜ As Long, í–‰ As Long
+    Dim À§Ä¡ As Long, °³¼ö As Long, Çà As Long
 
-    Set wsL = ëª©ë¡ì‹œíŠ¸()
-    ê°œìˆ˜ = ì¡°íšŒê²°ê³¼_ê°œìˆ˜()
-    If ê°œìˆ˜ = 0 Then Exit Sub
-    ìœ„ì¹˜ = CLng(Val(wsL.Cells(1, LC_POS).Value))
-    If ìœ„ì¹˜ < 1 Then ìœ„ì¹˜ = 1
-    í–‰ = CLng(Val(wsL.Cells(ìœ„ì¹˜, LC_RESULT).Value))
-    If í–‰ < 2 Then Exit Sub
+    Set wsL = ¸ñ·Ï½ÃÆ®()
+    °³¼ö = Á¶È¸°á°ú_°³¼ö()
+    If °³¼ö = 0 Then Exit Sub
+    À§Ä¡ = CLng(Val(wsL.Cells(1, LC_POS).Value))
+    If À§Ä¡ < 1 Then À§Ä¡ = 1
+    Çà = CLng(Val(wsL.Cells(À§Ä¡, LC_RESULT).Value))
+    If Çà < 2 Then Exit Sub
 
-    Set wsM = ì‹œíŠ¸(SH_MATCH)
-    í¼_ê°’ë§Œì§€ìš°ê¸°
-    í‘œê°’_í¼ì—ì±„ìš°ê¸° SH_MATCH, í–‰
-    í¼_ë¶ˆëŸ¬ì˜¤ê¸° True
+    Set wsM = ½ÃÆ®(SH_MATCH)
+    Æû_°ª¸¸Áö¿ì±â
+    Ç¥°ª_Æû¿¡Ã¤¿ì±â SH_MATCH, Çà
+    Æû_ºÒ·¯¿À±â True
 
-    ìƒíƒœì“°ê¸° "ì¡°íšŒ ê²°ê³¼ " & ìœ„ì¹˜ & " / " & ê°œìˆ˜ & "ê±´ â€” ìˆ˜ê¸‰ë§¤ì¹­ " & ì…€ê°’(wsM, í–‰, "ìˆ˜ê¸‰ë§¤ì¹­ID")
+    »óÅÂ¾²±â "Á¶È¸ °á°ú " & À§Ä¡ & " / " & °³¼ö & "°Ç - ¼ö±Þ¸ÅÄª " & ¼¿°ª(wsM, Çà, "¼ö±Þ¸ÅÄªID")
 End Sub
 
-Private Sub í‘œê°’_í¼ì—ì±„ìš°ê¸°(ByVal ì‹œíŠ¸ëª… As String, ByVal í–‰ As Long)
+Private Sub Ç¥°ª_Æû¿¡Ã¤¿ì±â(ByVal ½ÃÆ®¸í As String, ByVal Çà As Long)
     Dim ws As Worksheet, cols As Variant, i As Long
-    If í–‰ < 2 Then Exit Sub
-    Set ws = ì‹œíŠ¸(ì‹œíŠ¸ëª…)
+    If Çà < 2 Then Exit Sub
+    Set ws = ½ÃÆ®(½ÃÆ®¸í)
     If ws Is Nothing Then Exit Sub
-    cols = í‘œ_ì»¬ëŸ¼ëª©ë¡(ì‹œíŠ¸ëª…)
+    cols = Ç¥_ÄÃ·³¸ñ·Ï(½ÃÆ®¸í)
     For i = LBound(cols) To UBound(cols)
-        í¼ê°’ì“°ê¸° ì‹œíŠ¸ëª…, CStr(cols(i)), ì…€ê°’(ws, í–‰, CStr(cols(i)))
+        Æû°ª¾²±â ½ÃÆ®¸í, CStr(cols(i)), ¼¿°ª(ws, Çà, CStr(cols(i)))
     Next i
 End Sub
 
 '==============================================================================
-' ë¶ˆëŸ¬ì˜¤ê¸° â€” ì§€ê¸ˆ ìž…ë ¥ëœ IDë“¤ì„ ê¸°ì¤€ìœ¼ë¡œ ì—°ê²°ëœ í‘œë¥¼ ëª¨ë‘ ì±„ì›ë‹ˆë‹¤
+' ºÒ·¯¿À±â - Áö±Ý ÀÔ·ÂµÈ IDµéÀ» ±âÁØÀ¸·Î ¿¬°áµÈ Ç¥¸¦ ¸ðµÎ Ã¤¿ó´Ï´Ù
 '==============================================================================
-Public Sub í¼_ë¶ˆëŸ¬ì˜¤ê¸°(Optional ByVal ì¡°ìš©ížˆ As Boolean = False)
+Public Sub Æû_ºÒ·¯¿À±â(Optional ByVal Á¶¿ëÈ÷ As Boolean = False)
     Dim r As Long, v As String
 
-    ' ìˆ˜ê¸‰ë§¤ì¹­ PK ê°€ ìžˆìœ¼ë©´ ê·¸ê²ƒë¶€í„°
-    v = í¼ê°’(SH_MATCH, "ìˆ˜ê¸‰ë§¤ì¹­ID")
+    ' ¼ö±Þ¸ÅÄª PK °¡ ÀÖÀ¸¸é ±×°ÍºÎÅÍ
+    v = Æû°ª(SH_MATCH, "¼ö±Þ¸ÅÄªID")
     If Len(v) > 0 Then
-        r = PKí–‰ì°¾ê¸°(ì‹œíŠ¸(SH_MATCH), v)
-        If r > 0 Then í‘œê°’_í¼ì—ì±„ìš°ê¸° SH_MATCH, r
+        r = PKÇàÃ£±â(½ÃÆ®(SH_MATCH), v)
+        If r > 0 Then Ç¥°ª_Æû¿¡Ã¤¿ì±â SH_MATCH, r
     End If
 
-    ' ìˆ˜ìš”ì¸¡: ì „ê¸°ì‚¬ìš©ì§€ â†’ íŒë§¤ê³„ì•½ â†’ ìˆ˜ìš”ê¸°ì—…
-    v = í¼ê°’(SH_MATCH, "ì „ê¸°ì‚¬ìš©ì§€ID")
-    If Len(v) = 0 Then v = í¼ê°’(SH_SITE, "ì „ê¸°ì‚¬ìš©ì§€ID")
+    ' ¼ö¿äÃø: Àü±â»ç¿ëÁö ¡æ ÆÇ¸Å°è¾à ¡æ ¼ö¿ä±â¾÷
+    v = Æû°ª(SH_MATCH, "Àü±â»ç¿ëÁöID")
+    If Len(v) = 0 Then v = Æû°ª(SH_SITE, "Àü±â»ç¿ëÁöID")
     If Len(v) > 0 Then
-        r = PKí–‰ì°¾ê¸°(ì‹œíŠ¸(SH_SITE), v)
-        If r > 0 Then í‘œê°’_í¼ì—ì±„ìš°ê¸° SH_SITE, r
+        r = PKÇàÃ£±â(½ÃÆ®(SH_SITE), v)
+        If r > 0 Then Ç¥°ª_Æû¿¡Ã¤¿ì±â SH_SITE, r
     End If
-    v = í¼ê°’(SH_SITE, "íŒë§¤ê³„ì•½ID")
-    If Len(v) = 0 Then v = í¼ê°’(SH_SELL, "íŒë§¤ê³„ì•½ID")
+    v = Æû°ª(SH_SITE, "ÆÇ¸Å°è¾àID")
+    If Len(v) = 0 Then v = Æû°ª(SH_SELL, "ÆÇ¸Å°è¾àID")
     If Len(v) > 0 Then
-        r = PKí–‰ì°¾ê¸°(ì‹œíŠ¸(SH_SELL), v)
-        If r > 0 Then í‘œê°’_í¼ì—ì±„ìš°ê¸° SH_SELL, r
+        r = PKÇàÃ£±â(½ÃÆ®(SH_SELL), v)
+        If r > 0 Then Ç¥°ª_Æû¿¡Ã¤¿ì±â SH_SELL, r
     End If
-    v = í¼ê°’(SH_SELL, "ìˆ˜ìš”ê¸°ì—…ID")
-    If Len(v) = 0 Then v = í¼ê°’(SH_DEMAND, "ìˆ˜ìš”ê¸°ì—…ID")
+    v = Æû°ª(SH_SELL, "¼ö¿ä±â¾÷ID")
+    If Len(v) = 0 Then v = Æû°ª(SH_DEMAND, "¼ö¿ä±â¾÷ID")
     If Len(v) > 0 Then
-        r = PKí–‰ì°¾ê¸°(ì‹œíŠ¸(SH_DEMAND), v)
-        If r > 0 Then í‘œê°’_í¼ì—ì±„ìš°ê¸° SH_DEMAND, r
-    End If
-
-    ' ê³µê¸‰ì¸¡: êµ¬ë§¤ê³„ì•½ â†’ ë°œì „ì†Œ
-    v = í¼ê°’(SH_MATCH, "êµ¬ë§¤ê³„ì•½ID")
-    If Len(v) = 0 Then v = í¼ê°’(SH_BUY, "êµ¬ë§¤ê³„ì•½ID")
-    If Len(v) > 0 Then
-        r = PKí–‰ì°¾ê¸°(ì‹œíŠ¸(SH_BUY), v)
-        If r > 0 Then í‘œê°’_í¼ì—ì±„ìš°ê¸° SH_BUY, r
-    End If
-    v = í¼ê°’(SH_BUY, "ë°œì „ì†ŒID")
-    If Len(v) = 0 Then v = í¼ê°’(SH_PLANT, "ë°œì „ì†ŒID")
-    If Len(v) > 0 Then
-        r = PKí–‰ì°¾ê¸°(ì‹œíŠ¸(SH_PLANT), v)
-        If r > 0 Then í‘œê°’_í¼ì—ì±„ìš°ê¸° SH_PLANT, r
+        r = PKÇàÃ£±â(½ÃÆ®(SH_DEMAND), v)
+        If r > 0 Then Ç¥°ª_Æû¿¡Ã¤¿ì±â SH_DEMAND, r
     End If
 
-    í¼_ì—°ë™ëª©ë¡ê°±ì‹ 
-    í¼_ê¸°ì¡´ì‹ ê·œí‘œì‹œ
-    If Not ì¡°ìš©ížˆ Then ìƒíƒœì“°ê¸° "ì—°ê²°ëœ í•­ëª©ì„ ë¶ˆëŸ¬ì™”ìŠµë‹ˆë‹¤."
+    ' °ø±ÞÃø: ±¸¸Å°è¾à ¡æ ¹ßÀü¼Ò
+    v = Æû°ª(SH_MATCH, "±¸¸Å°è¾àID")
+    If Len(v) = 0 Then v = Æû°ª(SH_BUY, "±¸¸Å°è¾àID")
+    If Len(v) > 0 Then
+        r = PKÇàÃ£±â(½ÃÆ®(SH_BUY), v)
+        If r > 0 Then Ç¥°ª_Æû¿¡Ã¤¿ì±â SH_BUY, r
+    End If
+    v = Æû°ª(SH_BUY, "¹ßÀü¼ÒID")
+    If Len(v) = 0 Then v = Æû°ª(SH_PLANT, "¹ßÀü¼ÒID")
+    If Len(v) > 0 Then
+        r = PKÇàÃ£±â(½ÃÆ®(SH_PLANT), v)
+        If r > 0 Then Ç¥°ª_Æû¿¡Ã¤¿ì±â SH_PLANT, r
+    End If
+
+    Æû_¿¬µ¿¸ñ·Ï°»½Å
+    Æû_±âÁ¸½Å±ÔÇ¥½Ã
+    If Not Á¶¿ëÈ÷ Then »óÅÂ¾²±â "¿¬°áµÈ Ç×¸ñÀ» ºÒ·¯¿Ô½À´Ï´Ù."
 End Sub
 
-' ê° í‘œì˜ PK ì¹¸ì— ê¸°ì¡´/ì‹ ê·œ ì—¬ë¶€ë¥¼ ìƒ‰ê³¼ ì•ˆë‚´ë¡œ í‘œì‹œ
-Private Sub í¼_ê¸°ì¡´ì‹ ê·œí‘œì‹œ()
-    Dim ws As Worksheet, t As Variant, í‘œì´ë¦„ As String
-    Dim r As Long, PKê°’ As String
-    Set ws = ì‹œíŠ¸(FORM_SHEET)
+' °¢ Ç¥ÀÇ PK Ä­¿¡ ±âÁ¸/½Å±Ô ¿©ºÎ¸¦ »ö°ú ¾È³»·Î Ç¥½Ã
+Private Sub Æû_±âÁ¸½Å±ÔÇ¥½Ã()
+    Dim ws As Worksheet, t As Variant, Ç¥ÀÌ¸§ As String
+    Dim r As Long, PK°ª As String
+    Set ws = ½ÃÆ®(FORM_SHEET)
     If ws Is Nothing Then Exit Sub
 
-    For Each t In í‘œ_ìˆœì„œ()
-        í‘œì´ë¦„ = CStr(t)
-        r = í•„ë“œí–‰(ws, í‘œì´ë¦„ & "|" & í‘œ_PK(í‘œì´ë¦„))
+    For Each t In Ç¥_¼ø¼­()
+        Ç¥ÀÌ¸§ = CStr(t)
+        r = ÇÊµåÇà(ws, Ç¥ÀÌ¸§ & "|" & Ç¥_PK(Ç¥ÀÌ¸§))
         If r > 0 Then
-            PKê°’ = Trim$(CStr(ws.Cells(r, COL_VALUE).Value))
-            If Len(PKê°’) = 0 Then
-                ws.Cells(r, COL_NOTE).Value = "PK Â· ë¹„ì›Œë‘ë©´ ì €ìž¥í•  ë•Œ ìžë™ ìƒì„±"
+            PK°ª = Trim$(CStr(ws.Cells(r, COL_VALUE).Value))
+            If Len(PK°ª) = 0 Then
+                ws.Cells(r, COL_NOTE).Value = "PK ¡¤ ºñ¿öµÎ¸é ÀúÀåÇÒ ¶§ ÀÚµ¿ »ý¼º"
                 ws.Cells(r, COL_NOTE).Font.Color = RGB(110, 110, 110)
                 ws.Cells(r, COL_VALUE).Interior.Color = RGB(255, 255, 255)
-            ElseIf PKí–‰ì°¾ê¸°(ì‹œíŠ¸(í‘œì´ë¦„), PKê°’) > 0 Then
-                ws.Cells(r, COL_NOTE).Value = "ê¸°ì¡´ í•­ëª© â€” ê°’ì„ ê³ ì¹˜ë©´ ì›ë³¸ì´ ìˆ˜ì •ë©ë‹ˆë‹¤"
+            ElseIf PKÇàÃ£±â(½ÃÆ®(Ç¥ÀÌ¸§), PK°ª) > 0 Then
+                ws.Cells(r, COL_NOTE).Value = "±âÁ¸ Ç×¸ñ - °ªÀ» °íÄ¡¸é ¿øº»ÀÌ ¼öÁ¤µË´Ï´Ù"
                 ws.Cells(r, COL_NOTE).Font.Color = RGB(30, 99, 168)
                 ws.Cells(r, COL_VALUE).Interior.Color = RGB(230, 239, 248)
             Else
-                ws.Cells(r, COL_NOTE).Value = "ì‹ ê·œ â€” ì €ìž¥í•˜ë©´ ìƒˆë¡œ ì¶”ê°€ë©ë‹ˆë‹¤"
+                ws.Cells(r, COL_NOTE).Value = "½Å±Ô - ÀúÀåÇÏ¸é »õ·Î Ãß°¡µË´Ï´Ù"
                 ws.Cells(r, COL_NOTE).Font.Color = RGB(31, 122, 84)
                 ws.Cells(r, COL_VALUE).Interior.Color = RGB(231, 243, 236)
             End If
@@ -718,279 +722,279 @@ Private Sub í¼_ê¸°ì¡´ì‹ ê·œí‘œì‹œ()
 End Sub
 
 '==============================================================================
-' ë“œë¡­ë‹¤ìš´ ëª©ë¡
-'   ìœ íš¨ì„± ê²€ì‚¬ ëª©ë¡ì€ ë¬¸ìžì—´ë¡œ ë„£ìœ¼ë©´ 255ìž ì œí•œì´ ìžˆì–´ ë°œì „ì†Œ 589ê±´ ê°™ì€ ëª©ë¡ì„
-'   ë‹´ì§€ ëª»í•©ë‹ˆë‹¤. ê·¸ëž˜ì„œ ìˆ¨ê¹€ ì‹œíŠ¸ì— ê°’ì„ ì“°ê³  "ì´ë¦„(Name)"ìœ¼ë¡œ ì°¸ì¡°í•©ë‹ˆë‹¤.
+' µå·Ó´Ù¿î ¸ñ·Ï
+'   À¯È¿¼º °Ë»ç ¸ñ·ÏÀº ¹®ÀÚ¿­·Î ³ÖÀ¸¸é 255ÀÚ Á¦ÇÑÀÌ ÀÖ¾î ¹ßÀü¼Ò 589°Ç °°Àº ¸ñ·ÏÀ»
+'   ´ãÁö ¸øÇÕ´Ï´Ù. ±×·¡¼­ ¼û±è ½ÃÆ®¿¡ °ªÀ» ¾²°í "ÀÌ¸§(Name)"À¸·Î ÂüÁ¶ÇÕ´Ï´Ù.
 '==============================================================================
-Private Function ëª©ë¡ì‹œíŠ¸() As Worksheet
-    Set ëª©ë¡ì‹œíŠ¸ = ì‹œíŠ¸(LIST_SHEET)
-    If ëª©ë¡ì‹œíŠ¸ Is Nothing Then
-        Set ëª©ë¡ì‹œíŠ¸ = ThisWorkbook.Worksheets.Add( _
+Private Function ¸ñ·Ï½ÃÆ®() As Worksheet
+    Set ¸ñ·Ï½ÃÆ® = ½ÃÆ®(LIST_SHEET)
+    If ¸ñ·Ï½ÃÆ® Is Nothing Then
+        Set ¸ñ·Ï½ÃÆ® = ThisWorkbook.Worksheets.Add( _
             After:=ThisWorkbook.Worksheets(ThisWorkbook.Worksheets.Count))
-        ëª©ë¡ì‹œíŠ¸.Name = LIST_SHEET
-        ëª©ë¡ì‹œíŠ¸.Visible = xlSheetHidden
+        ¸ñ·Ï½ÃÆ®.Name = LIST_SHEET
+        ¸ñ·Ï½ÃÆ®.Visible = xlSheetHidden
     End If
 End Function
 
-Public Sub í¼_ëª©ë¡ê°±ì‹ ()
+Public Sub Æû_¸ñ·Ï°»½Å()
     Dim wsL As Worksheet
     Application.ScreenUpdating = False
-    Set wsL = ëª©ë¡ì‹œíŠ¸()
+    Set wsL = ¸ñ·Ï½ÃÆ®()
 
-    IDëª©ë¡ì“°ê¸° wsL, LC_PLANT, "ëª©ë¡_ë°œì „ì†Œ", IDìˆ˜ì§‘(SH_PLANT, "", "")
-    IDëª©ë¡ì“°ê¸° wsL, LC_BUY, "ëª©ë¡_êµ¬ë§¤ê³„ì•½", IDìˆ˜ì§‘(SH_BUY, "", "")
-    IDëª©ë¡ì“°ê¸° wsL, LC_DEM, "ëª©ë¡_ìˆ˜ìš”ê¸°ì—…", IDìˆ˜ì§‘(SH_DEMAND, "", "")
-    IDëª©ë¡ì“°ê¸° wsL, LC_SELL, "ëª©ë¡_íŒë§¤ê³„ì•½", IDìˆ˜ì§‘(SH_SELL, "", "")
-    IDëª©ë¡ì“°ê¸° wsL, LC_SITE, "ëª©ë¡_ì „ê¸°ì‚¬ìš©ì§€", IDìˆ˜ì§‘(SH_SITE, "", "")
-    IDëª©ë¡ì“°ê¸° wsL, LC_MATCH, "ëª©ë¡_ìˆ˜ê¸‰ë§¤ì¹­", IDìˆ˜ì§‘(SH_MATCH, "", "")
+    ID¸ñ·Ï¾²±â wsL, LC_PLANT, "¸ñ·Ï_¹ßÀü¼Ò", ID¼öÁý(SH_PLANT, "", "")
+    ID¸ñ·Ï¾²±â wsL, LC_BUY, "¸ñ·Ï_±¸¸Å°è¾à", ID¼öÁý(SH_BUY, "", "")
+    ID¸ñ·Ï¾²±â wsL, LC_DEM, "¸ñ·Ï_¼ö¿ä±â¾÷", ID¼öÁý(SH_DEMAND, "", "")
+    ID¸ñ·Ï¾²±â wsL, LC_SELL, "¸ñ·Ï_ÆÇ¸Å°è¾à", ID¼öÁý(SH_SELL, "", "")
+    ID¸ñ·Ï¾²±â wsL, LC_SITE, "¸ñ·Ï_Àü±â»ç¿ëÁö", ID¼öÁý(SH_SITE, "", "")
+    ID¸ñ·Ï¾²±â wsL, LC_MATCH, "¸ñ·Ï_¼ö±Þ¸ÅÄª", ID¼öÁý(SH_MATCH, "", "")
 
-    í¼_ì—°ë™ëª©ë¡ê°±ì‹ 
+    Æû_¿¬µ¿¸ñ·Ï°»½Å
     Application.ScreenUpdating = True
 End Sub
 
-' ìƒìœ„ì—ì„œ ê³ ë¥¸ ê°’ì— ë”°ë¼ í•˜ìœ„ ëª©ë¡ì„ ì¢í˜€ ë‹¤ì‹œ ê²ë‹ˆë‹¤
-Private Sub í¼_ì—°ë™ëª©ë¡ê°±ì‹ ()
+' »óÀ§¿¡¼­ °í¸¥ °ª¿¡ µû¶ó ÇÏÀ§ ¸ñ·ÏÀ» Á¼Çô ´Ù½Ã °Ì´Ï´Ù
+Private Sub Æû_¿¬µ¿¸ñ·Ï°»½Å()
     Dim wsF As Worksheet, wsL As Worksheet
-    Set wsF = ì‹œíŠ¸(FORM_SHEET)
+    Set wsF = ½ÃÆ®(FORM_SHEET)
     If wsF Is Nothing Then Exit Sub
-    Set wsL = ëª©ë¡ì‹œíŠ¸()
+    Set wsL = ¸ñ·Ï½ÃÆ®()
 
-    IDëª©ë¡ì“°ê¸° wsL, LC_BUY_F, "ëª©ë¡_êµ¬ë§¤ê³„ì•½_F", IDìˆ˜ì§‘(SH_BUY, "ë°œì „ì†ŒID", í¼ê°’(SH_PLANT, "ë°œì „ì†ŒID"))
-    IDëª©ë¡ì“°ê¸° wsL, LC_SELL_F, "ëª©ë¡_íŒë§¤ê³„ì•½_F", IDìˆ˜ì§‘(SH_SELL, "ìˆ˜ìš”ê¸°ì—…ID", í¼ê°’(SH_DEMAND, "ìˆ˜ìš”ê¸°ì—…ID"))
-    IDëª©ë¡ì“°ê¸° wsL, LC_SITE_F, "ëª©ë¡_ì „ê¸°ì‚¬ìš©ì§€_F", IDìˆ˜ì§‘(SH_SITE, "íŒë§¤ê³„ì•½ID", í¼ê°’(SH_SELL, "íŒë§¤ê³„ì•½ID"))
+    ID¸ñ·Ï¾²±â wsL, LC_BUY_F, "¸ñ·Ï_±¸¸Å°è¾à_F", ID¼öÁý(SH_BUY, "¹ßÀü¼ÒID", Æû°ª(SH_PLANT, "¹ßÀü¼ÒID"))
+    ID¸ñ·Ï¾²±â wsL, LC_SELL_F, "¸ñ·Ï_ÆÇ¸Å°è¾à_F", ID¼öÁý(SH_SELL, "¼ö¿ä±â¾÷ID", Æû°ª(SH_DEMAND, "¼ö¿ä±â¾÷ID"))
+    ID¸ñ·Ï¾²±â wsL, LC_SITE_F, "¸ñ·Ï_Àü±â»ç¿ëÁö_F", ID¼öÁý(SH_SITE, "ÆÇ¸Å°è¾àID", Æû°ª(SH_SELL, "ÆÇ¸Å°è¾àID"))
 
-    ìœ íš¨ì„±ì ìš© wsF, SH_PLANT, "ë°œì „ì†ŒID", "ëª©ë¡_ë°œì „ì†Œ"
-    ìœ íš¨ì„±ì ìš© wsF, SH_DEMAND, "ìˆ˜ìš”ê¸°ì—…ID", "ëª©ë¡_ìˆ˜ìš”ê¸°ì—…"
-    ìœ íš¨ì„±ì ìš© wsF, SH_MATCH, "ìˆ˜ê¸‰ë§¤ì¹­ID", "ëª©ë¡_ìˆ˜ê¸‰ë§¤ì¹­"
+    À¯È¿¼ºÀû¿ë wsF, SH_PLANT, "¹ßÀü¼ÒID", "¸ñ·Ï_¹ßÀü¼Ò"
+    À¯È¿¼ºÀû¿ë wsF, SH_DEMAND, "¼ö¿ä±â¾÷ID", "¸ñ·Ï_¼ö¿ä±â¾÷"
+    À¯È¿¼ºÀû¿ë wsF, SH_MATCH, "¼ö±Þ¸ÅÄªID", "¸ñ·Ï_¼ö±Þ¸ÅÄª"
 
-    ìœ íš¨ì„±ì ìš© wsF, SH_BUY, "êµ¬ë§¤ê³„ì•½ID", "ëª©ë¡_êµ¬ë§¤ê³„ì•½_F"
-    ìœ íš¨ì„±ì ìš© wsF, SH_BUY, "ë°œì „ì†ŒID", "ëª©ë¡_ë°œì „ì†Œ"
-    ìœ íš¨ì„±ì ìš© wsF, SH_SELL, "íŒë§¤ê³„ì•½ID", "ëª©ë¡_íŒë§¤ê³„ì•½_F"
-    ìœ íš¨ì„±ì ìš© wsF, SH_SELL, "ìˆ˜ìš”ê¸°ì—…ID", "ëª©ë¡_ìˆ˜ìš”ê¸°ì—…"
-    ìœ íš¨ì„±ì ìš© wsF, SH_SITE, "ì „ê¸°ì‚¬ìš©ì§€ID", "ëª©ë¡_ì „ê¸°ì‚¬ìš©ì§€_F"
-    ìœ íš¨ì„±ì ìš© wsF, SH_SITE, "íŒë§¤ê³„ì•½ID", "ëª©ë¡_íŒë§¤ê³„ì•½_F"
-    ìœ íš¨ì„±ì ìš© wsF, SH_MATCH, "ì „ê¸°ì‚¬ìš©ì§€ID", "ëª©ë¡_ì „ê¸°ì‚¬ìš©ì§€_F"
-    ìœ íš¨ì„±ì ìš© wsF, SH_MATCH, "êµ¬ë§¤ê³„ì•½ID", "ëª©ë¡_êµ¬ë§¤ê³„ì•½_F"
+    À¯È¿¼ºÀû¿ë wsF, SH_BUY, "±¸¸Å°è¾àID", "¸ñ·Ï_±¸¸Å°è¾à_F"
+    À¯È¿¼ºÀû¿ë wsF, SH_BUY, "¹ßÀü¼ÒID", "¸ñ·Ï_¹ßÀü¼Ò"
+    À¯È¿¼ºÀû¿ë wsF, SH_SELL, "ÆÇ¸Å°è¾àID", "¸ñ·Ï_ÆÇ¸Å°è¾à_F"
+    À¯È¿¼ºÀû¿ë wsF, SH_SELL, "¼ö¿ä±â¾÷ID", "¸ñ·Ï_¼ö¿ä±â¾÷"
+    À¯È¿¼ºÀû¿ë wsF, SH_SITE, "Àü±â»ç¿ëÁöID", "¸ñ·Ï_Àü±â»ç¿ëÁö_F"
+    À¯È¿¼ºÀû¿ë wsF, SH_SITE, "ÆÇ¸Å°è¾àID", "¸ñ·Ï_ÆÇ¸Å°è¾à_F"
+    À¯È¿¼ºÀû¿ë wsF, SH_MATCH, "Àü±â»ç¿ëÁöID", "¸ñ·Ï_Àü±â»ç¿ëÁö_F"
+    À¯È¿¼ºÀû¿ë wsF, SH_MATCH, "±¸¸Å°è¾àID", "¸ñ·Ï_±¸¸Å°è¾à_F"
 End Sub
 
-' ì¡°ê±´ì´ ë¹„ì–´ ìžˆìœ¼ë©´ ì „ì²´ ëª©ë¡
-Private Function IDìˆ˜ì§‘(ByVal ì‹œíŠ¸ëª… As String, ByVal ì¡°ê±´ì»¬ëŸ¼ As String, _
-                        ByVal ì¡°ê±´ê°’ As String) As Collection
-    Dim ê²°ê³¼ As New Collection
-    Dim ws As Worksheet, pkì—´ As Long, ì¡°ê±´ì—´ As Long, r As Long, ë As Long, v As String
+' Á¶°ÇÀÌ ºñ¾î ÀÖÀ¸¸é ÀüÃ¼ ¸ñ·Ï
+Private Function ID¼öÁý(ByVal ½ÃÆ®¸í As String, ByVal Á¶°ÇÄÃ·³ As String, _
+                        ByVal Á¶°Ç°ª As String) As Collection
+    Dim °á°ú As New Collection
+    Dim ws As Worksheet, pk¿­ As Long, Á¶°Ç¿­ As Long, r As Long, ³¡ As Long, v As String
 
-    Set ws = ì‹œíŠ¸(ì‹œíŠ¸ëª…)
+    Set ws = ½ÃÆ®(½ÃÆ®¸í)
     If ws Is Nothing Then
-        Set IDìˆ˜ì§‘ = ê²°ê³¼
+        Set ID¼öÁý = °á°ú
         Exit Function
     End If
-    pkì—´ = í—¤ë”ì—´(ws, í‘œ_PK(ì‹œíŠ¸ëª…))
-    If Len(ì¡°ê±´ì»¬ëŸ¼) > 0 And Len(ì¡°ê±´ê°’) > 0 Then ì¡°ê±´ì—´ = í—¤ë”ì—´(ws, ì¡°ê±´ì»¬ëŸ¼)
-    ë = ë§ˆì§€ë§‰í–‰(ws, pkì—´)
+    pk¿­ = Çì´õ¿­(ws, Ç¥_PK(½ÃÆ®¸í))
+    If Len(Á¶°ÇÄÃ·³) > 0 And Len(Á¶°Ç°ª) > 0 Then Á¶°Ç¿­ = Çì´õ¿­(ws, Á¶°ÇÄÃ·³)
+    ³¡ = ¸¶Áö¸·Çà(ws, pk¿­)
 
-    For r = 2 To ë
-        v = Trim$(CStr(ws.Cells(r, pkì—´).Value))
+    For r = 2 To ³¡
+        v = Trim$(CStr(ws.Cells(r, pk¿­).Value))
         If Len(v) > 0 Then
-            If ì¡°ê±´ì—´ = 0 Then
-                ê²°ê³¼.Add v
-            ElseIf Trim$(CStr(ws.Cells(r, ì¡°ê±´ì—´).Value)) = ì¡°ê±´ê°’ Then
-                ê²°ê³¼.Add v
+            If Á¶°Ç¿­ = 0 Then
+                °á°ú.Add v
+            ElseIf Trim$(CStr(ws.Cells(r, Á¶°Ç¿­).Value)) = Á¶°Ç°ª Then
+                °á°ú.Add v
             End If
         End If
     Next r
-    Set IDìˆ˜ì§‘ = ê²°ê³¼
+    Set ID¼öÁý = °á°ú
 End Function
 
-Private Sub IDëª©ë¡ì“°ê¸°(ByVal wsL As Worksheet, ByVal ì—´ As Long, ByVal ì´ë¦„ As String, _
-                       ByVal ê°’ë“¤ As Collection)
+Private Sub ID¸ñ·Ï¾²±â(ByVal wsL As Worksheet, ByVal ¿­ As Long, ByVal ÀÌ¸§ As String, _
+                       ByVal °ªµé As Collection)
     Dim i As Long
-    wsL.Columns(ì—´).ClearContents
-    For i = 1 To ê°’ë“¤.Count
-        wsL.Cells(i, ì—´).Value = ê°’ë“¤(i)
+    wsL.Columns(¿­).ClearContents
+    For i = 1 To °ªµé.Count
+        wsL.Cells(i, ¿­).Value = °ªµé(i)
     Next i
 
     On Error Resume Next
-    ThisWorkbook.Names(ì´ë¦„).Delete
+    ThisWorkbook.Names(ÀÌ¸§).Delete
     On Error GoTo 0
-    If ê°’ë“¤.Count > 0 Then
-        ThisWorkbook.Names.Add Name:=ì´ë¦„, _
+    If °ªµé.Count > 0 Then
+        ThisWorkbook.Names.Add Name:=ÀÌ¸§, _
             RefersTo:="='" & LIST_SHEET & "'!" & _
-                      wsL.Range(wsL.Cells(1, ì—´), wsL.Cells(ê°’ë“¤.Count, ì—´)).Address(True, True), _
+                      wsL.Range(wsL.Cells(1, ¿­), wsL.Cells(°ªµé.Count, ¿­)).Address(True, True), _
             Visible:=False
     End If
 End Sub
 
-Private Sub ìœ íš¨ì„±ì ìš©(ByVal wsF As Worksheet, ByVal ì‹œíŠ¸ëª… As String, _
-                       ByVal ì»¬ëŸ¼ As String, ByVal ì´ë¦„ As String)
-    Dim r As Long, ìžˆìŒ As Boolean, nm As Name
-    r = í•„ë“œí–‰(wsF, ì‹œíŠ¸ëª… & "|" & ì»¬ëŸ¼)
+Private Sub À¯È¿¼ºÀû¿ë(ByVal wsF As Worksheet, ByVal ½ÃÆ®¸í As String, _
+                       ByVal ÄÃ·³ As String, ByVal ÀÌ¸§ As String)
+    Dim r As Long, ÀÖÀ½ As Boolean, nm As Name
+    r = ÇÊµåÇà(wsF, ½ÃÆ®¸í & "|" & ÄÃ·³)
     If r = 0 Then Exit Sub
 
     On Error Resume Next
-    Set nm = ThisWorkbook.Names(ì´ë¦„)
-    ìžˆìŒ = (Err.Number = 0) And (Not nm Is Nothing)
+    Set nm = ThisWorkbook.Names(ÀÌ¸§)
+    ÀÖÀ½ = (Err.Number = 0) And (Not nm Is Nothing)
     Err.Clear
 
     With wsF.Cells(r, COL_VALUE).Validation
         .Delete
-        If ìžˆìŒ Then
+        If ÀÖÀ½ Then
             .Add Type:=xlValidateList, AlertStyle:=xlValidAlertInformation, _
-                 Operator:=xlBetween, Formula1:="=" & ì´ë¦„
+                 Operator:=xlBetween, Formula1:="=" & ÀÌ¸§
             .IgnoreBlank = True
             .InCellDropdown = True
-            .ShowError = False      ' ìƒˆ IDë¥¼ ì§ì ‘ íƒ€ì´í•‘í•˜ëŠ” ê²ƒë„ í—ˆìš©
+            .ShowError = False      ' »õ ID¸¦ Á÷Á¢ Å¸ÀÌÇÎÇÏ´Â °Íµµ Çã¿ë
         End If
     End With
     On Error GoTo 0
 End Sub
 
 '==============================================================================
-' ìžë™ ë³€ê²½ ê°ì§€ (ì„ íƒ ì‚¬í•­ â€” ìž…ë ¥í¼ ì‹œíŠ¸ ëª¨ë“ˆì—ì„œ í˜¸ì¶œ)
+' ÀÚµ¿ º¯°æ °¨Áö (¼±ÅÃ »çÇ× - ÀÔ·ÂÆû ½ÃÆ® ¸ðµâ¿¡¼­ È£Ãâ)
 '==============================================================================
-Public Sub í¼_ë³€ê²½ê°ì§€(ByVal Target As Range)
-    Dim ws As Worksheet, ì´ì „ As Boolean
-    Set ws = ì‹œíŠ¸(FORM_SHEET)
+Public Sub Æû_º¯°æ°¨Áö(ByVal Target As Range)
+    Dim ws As Worksheet, ÀÌÀü As Boolean
+    Set ws = ½ÃÆ®(FORM_SHEET)
     If ws Is Nothing Then Exit Sub
     If Target.Worksheet.Name <> FORM_SHEET Then Exit Sub
     If Target.Column <> COL_VALUE Then Exit Sub
     If Target.Cells.Count > 1 Then Exit Sub
     If Len(CStr(ws.Cells(Target.Row, COL_KEY).Value)) = 0 Then Exit Sub
 
-    ì´ì „ = Application.EnableEvents
+    ÀÌÀü = Application.EnableEvents
     Application.EnableEvents = False
     On Error Resume Next
-    í¼_ë¶ˆëŸ¬ì˜¤ê¸° True
+    Æû_ºÒ·¯¿À±â True
     On Error GoTo 0
-    Application.EnableEvents = ì´ì „
+    Application.EnableEvents = ÀÌÀü
 End Sub
 
 '==============================================================================
-' ì €ìž¥ â€” ê²€ì¦ â†’ ë¯¸ë¦¬ë³´ê¸° í™•ì¸ â†’ 6ê°œ í‘œì— ë°˜ì˜
+' ÀúÀå - °ËÁõ ¡æ ¹Ì¸®º¸±â È®ÀÎ ¡æ 6°³ Ç¥¿¡ ¹Ý¿µ
 '==============================================================================
-Public Sub í¼_ì €ìž¥()
-    Dim ì˜¤ë¥˜ As String, ë¯¸ë¦¬ë³´ê¸° As String
-    Dim t As Variant, í‘œì´ë¦„ As String, PKê°’ As String
-    Dim ì‹ ê·œID As Object
-    Dim ë‹µ As VbMsgBoxResult
+Public Sub Æû_ÀúÀå()
+    Dim ¿À·ù As String, ¹Ì¸®º¸±â As String
+    Dim t As Variant, Ç¥ÀÌ¸§ As String, PK°ª As String
+    Dim ½Å±ÔID As Object
+    Dim ´ä As VbMsgBoxResult
 
-    If ì‹œíŠ¸(FORM_SHEET) Is Nothing Then Exit Sub
-    Set ì‹ ê·œID = CreateObject("Scripting.Dictionary")
+    If ½ÃÆ®(FORM_SHEET) Is Nothing Then Exit Sub
+    Set ½Å±ÔID = CreateObject("Scripting.Dictionary")
 
-    ' 1) ì €ìž¥ ëŒ€ìƒ íŒë‹¨ + PK ìžë™ ìƒì„±
-    For Each t In í‘œ_ìˆœì„œ()
-        í‘œì´ë¦„ = CStr(t)
-        If í‘œ_ìž…ë ¥ìžˆìŒ(í‘œì´ë¦„) Then
-            PKê°’ = í¼ê°’(í‘œì´ë¦„, í‘œ_PK(í‘œì´ë¦„))
-            If Len(PKê°’) = 0 Then ì‹ ê·œID(í‘œì´ë¦„) = ë‹¤ìŒID(í‘œì´ë¦„)
+    ' 1) ÀúÀå ´ë»ó ÆÇ´Ü + PK ÀÚµ¿ »ý¼º
+    For Each t In Ç¥_¼ø¼­()
+        Ç¥ÀÌ¸§ = CStr(t)
+        If Ç¥_ÀÔ·ÂÀÖÀ½(Ç¥ÀÌ¸§) Then
+            PK°ª = Æû°ª(Ç¥ÀÌ¸§, Ç¥_PK(Ç¥ÀÌ¸§))
+            If Len(PK°ª) = 0 Then ½Å±ÔID(Ç¥ÀÌ¸§) = ´ÙÀ½ID(Ç¥ÀÌ¸§)
         End If
     Next t
 
-    ' 2) ê²€ì¦
-    ì˜¤ë¥˜ = ì €ìž¥ì „_ê²€ì¦(ì‹ ê·œID)
-    If Len(ì˜¤ë¥˜) > 0 Then
-        MsgBox "ì €ìž¥í•  ìˆ˜ ì—†ìŠµë‹ˆë‹¤." & vbCrLf & vbCrLf & ì˜¤ë¥˜, vbExclamation, "ê²€ì¦ ì˜¤ë¥˜"
-        ìƒíƒœì“°ê¸° "ê²€ì¦ ì˜¤ë¥˜ë¡œ ì €ìž¥í•˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤.", True
+    ' 2) °ËÁõ
+    ¿À·ù = ÀúÀåÀü_°ËÁõ(½Å±ÔID)
+    If Len(¿À·ù) > 0 Then
+        MsgBox "ÀúÀåÇÒ ¼ö ¾ø½À´Ï´Ù." & vbCrLf & vbCrLf & ¿À·ù, vbExclamation, "°ËÁõ ¿À·ù"
+        »óÅÂ¾²±â "°ËÁõ ¿À·ù·Î ÀúÀåÇÏÁö ¾Ê¾Ò½À´Ï´Ù.", True
         Exit Sub
     End If
 
-    ' 3) ë¯¸ë¦¬ë³´ê¸° í™•ì¸
-    ë¯¸ë¦¬ë³´ê¸° = ì €ìž¥_ë¯¸ë¦¬ë³´ê¸°(ì‹ ê·œID)
-    If Len(ë¯¸ë¦¬ë³´ê¸°) = 0 Then
-        MsgBox "ì €ìž¥í•  ë‚´ìš©ì´ ì—†ìŠµë‹ˆë‹¤. ê°’ì„ ìž…ë ¥í•´ì£¼ì„¸ìš”.", vbInformation, "ì €ìž¥"
+    ' 3) ¹Ì¸®º¸±â È®ÀÎ
+    ¹Ì¸®º¸±â = ÀúÀå_¹Ì¸®º¸±â(½Å±ÔID)
+    If Len(¹Ì¸®º¸±â) = 0 Then
+        MsgBox "ÀúÀåÇÒ ³»¿ëÀÌ ¾ø½À´Ï´Ù. °ªÀ» ÀÔ·ÂÇØÁÖ¼¼¿ä.", vbInformation, "ÀúÀå"
         Exit Sub
     End If
-    ë‹µ = MsgBox(ë¯¸ë¦¬ë³´ê¸° & vbCrLf & "ì´ëŒ€ë¡œ ì €ìž¥í• ê¹Œìš”?", vbQuestion + vbYesNo, "ì €ìž¥ í™•ì¸")
-    If ë‹µ <> vbYes Then
-        ìƒíƒœì“°ê¸° "ì €ìž¥ì„ ì·¨ì†Œí–ˆìŠµë‹ˆë‹¤."
+    ´ä = MsgBox(¹Ì¸®º¸±â & vbCrLf & "ÀÌ´ë·Î ÀúÀåÇÒ±î¿ä?", vbQuestion + vbYesNo, "ÀúÀå È®ÀÎ")
+    If ´ä <> vbYes Then
+        »óÅÂ¾²±â "ÀúÀåÀ» Ãë¼ÒÇß½À´Ï´Ù."
         Exit Sub
     End If
 
-    ' 4) ë°˜ì˜ (ë¶€ëª¨ â†’ ìžì‹ ìˆœì„œ â€” ë¶€ëª¨ê°€ ë¨¼ì € ìžˆì–´ì•¼ FK ê°€ ì„±ë¦½)
+    ' 4) ¹Ý¿µ (ºÎ¸ð ¡æ ÀÚ½Ä ¼ø¼­ - ºÎ¸ð°¡ ¸ÕÀú ÀÖ¾î¾ß FK °¡ ¼º¸³)
     Application.ScreenUpdating = False
-    For Each t In í‘œ_ìˆœì„œ()
-        í‘œì´ë¦„ = CStr(t)
-        If í‘œ_ìž…ë ¥ìžˆìŒ(í‘œì´ë¦„) Then í‘œ_ì €ìž¥ ì‹ ê·œID, í‘œì´ë¦„
+    For Each t In Ç¥_¼ø¼­()
+        Ç¥ÀÌ¸§ = CStr(t)
+        If Ç¥_ÀÔ·ÂÀÖÀ½(Ç¥ÀÌ¸§) Then Ç¥_ÀúÀå ½Å±ÔID, Ç¥ÀÌ¸§
     Next t
 
-    ' ìžë™ ìƒì„±ëœ IDë¥¼ í¼ì— ë˜ëŒë ¤ ë³´ì—¬ì£¼ê³ , ë‚˜ë¨¸ì§€ ì¹¸ë„ ì €ìž¥ ê²°ê³¼ë¡œ ìƒˆë¡œ ê³ ì¹¨
-    For Each t In í‘œ_ìˆœì„œ()
-        í‘œì´ë¦„ = CStr(t)
-        If ì‹ ê·œID.Exists(í‘œì´ë¦„) Then í¼ê°’ì“°ê¸° í‘œì´ë¦„, í‘œ_PK(í‘œì´ë¦„), CStr(ì‹ ê·œID(í‘œì´ë¦„))
+    ' ÀÚµ¿ »ý¼ºµÈ ID¸¦ Æû¿¡ µÇµ¹·Á º¸¿©ÁÖ°í, ³ª¸ÓÁö Ä­µµ ÀúÀå °á°ú·Î »õ·Î °íÄ§
+    For Each t In Ç¥_¼ø¼­()
+        Ç¥ÀÌ¸§ = CStr(t)
+        If ½Å±ÔID.Exists(Ç¥ÀÌ¸§) Then Æû°ª¾²±â Ç¥ÀÌ¸§, Ç¥_PK(Ç¥ÀÌ¸§), CStr(½Å±ÔID(Ç¥ÀÌ¸§))
     Next t
-    í¼_ëª©ë¡ê°±ì‹ 
-    í¼_ë¶ˆëŸ¬ì˜¤ê¸° True
+    Æû_¸ñ·Ï°»½Å
+    Æû_ºÒ·¯¿À±â True
     Application.ScreenUpdating = True
 
-    ìƒíƒœì“°ê¸° "ì €ìž¥í–ˆìŠµë‹ˆë‹¤. (" & Format$(Now, "hh:nn:ss") & ")"
-    MsgBox "ì €ìž¥ì„ ì™„ë£Œí–ˆìŠµë‹ˆë‹¤.", vbInformation, "ì €ìž¥"
+    »óÅÂ¾²±â "ÀúÀåÇß½À´Ï´Ù. (" & Format$(Now, "hh:nn:ss") & ")"
+    MsgBox "ÀúÀåÀ» ¿Ï·áÇß½À´Ï´Ù.", vbInformation, "ÀúÀå"
 End Sub
 
-' ì €ìž¥ì— ì‹¤ì œë¡œ ì“°ì¼ ê°’ì„ ê³„ì‚°í•©ë‹ˆë‹¤.
-'   - PK ë¥¼ ë¹„ì›Œë’€ìœ¼ë©´ ì´ë²ˆì— ìžë™ ìƒì„±ëœ ID
-'   - FK ë¥¼ ë¹„ì›Œë’€ëŠ”ë° ê·¸ ë¶€ëª¨ë¥¼ ì´ë²ˆì— ê°™ì´ ë§Œë“ ë‹¤ë©´ ê·¸ ë¶€ëª¨ì˜ ìƒˆ ID
-' í¼ì— ì§ì ‘ ì¨ë„£ì§€ ì•Šê³  ê³„ì‚°ë§Œ í•˜ë¯€ë¡œ, ì‚¬ìš©ìžê°€ ì €ìž¥ì„ ì·¨ì†Œí•´ë„ í¼ì´ ë”ëŸ½í˜€ì§€ì§€
-' ì•ŠìŠµë‹ˆë‹¤.
-Private Function ê°’í•´ì„(ByVal ì‹ ê·œID As Object, ByVal ì‹œíŠ¸ëª… As String, _
-                        ByVal ì»¬ëŸ¼ As String) As String
-    Dim v As String, ì°¸ì¡° As String
-    v = í¼ê°’(ì‹œíŠ¸ëª…, ì»¬ëŸ¼)
+' ÀúÀå¿¡ ½ÇÁ¦·Î ¾²ÀÏ °ªÀ» °è»êÇÕ´Ï´Ù.
+'   - PK ¸¦ ºñ¿öµ×À¸¸é ÀÌ¹ø¿¡ ÀÚµ¿ »ý¼ºµÈ ID
+'   - FK ¸¦ ºñ¿öµ×´Âµ¥ ±× ºÎ¸ð¸¦ ÀÌ¹ø¿¡ °°ÀÌ ¸¸µç´Ù¸é ±× ºÎ¸ðÀÇ »õ ID
+' Æû¿¡ Á÷Á¢ ½á³ÖÁö ¾Ê°í °è»ê¸¸ ÇÏ¹Ç·Î, »ç¿ëÀÚ°¡ ÀúÀåÀ» Ãë¼ÒÇØµµ ÆûÀÌ ´õ·´ÇôÁöÁö
+' ¾Ê½À´Ï´Ù.
+Private Function °ªÇØ¼®(ByVal ½Å±ÔID As Object, ByVal ½ÃÆ®¸í As String, _
+                        ByVal ÄÃ·³ As String) As String
+    Dim v As String, ÂüÁ¶ As String
+    v = Æû°ª(½ÃÆ®¸í, ÄÃ·³)
 
-    If ì»¬ëŸ¼ = í‘œ_PK(ì‹œíŠ¸ëª…) Then
-        If Len(v) = 0 And ì‹ ê·œID.Exists(ì‹œíŠ¸ëª…) Then v = CStr(ì‹ ê·œID(ì‹œíŠ¸ëª…))
-        ê°’í•´ì„ = v
+    If ÄÃ·³ = Ç¥_PK(½ÃÆ®¸í) Then
+        If Len(v) = 0 And ½Å±ÔID.Exists(½ÃÆ®¸í) Then v = CStr(½Å±ÔID(½ÃÆ®¸í))
+        °ªÇØ¼® = v
         Exit Function
     End If
 
-    ì°¸ì¡° = FK_ì°¸ì¡°ì‹œíŠ¸(ì‹œíŠ¸ëª…, ì»¬ëŸ¼)
-    If Len(ì°¸ì¡°) > 0 And Len(v) = 0 Then
-        If ì‹ ê·œID.Exists(ì°¸ì¡°) Then v = CStr(ì‹ ê·œID(ì°¸ì¡°))
+    ÂüÁ¶ = FK_ÂüÁ¶½ÃÆ®(½ÃÆ®¸í, ÄÃ·³)
+    If Len(ÂüÁ¶) > 0 And Len(v) = 0 Then
+        If ½Å±ÔID.Exists(ÂüÁ¶) Then v = CStr(½Å±ÔID(ÂüÁ¶))
     End If
-    ê°’í•´ì„ = v
+    °ªÇØ¼® = v
 End Function
 
-' ê·¸ í‘œì— ì‚¬ìš©ìžê°€ ê°’ì„ í•˜ë‚˜ë¼ë„ ë„£ì—ˆëŠ”ì§€
-Private Function í‘œ_ìž…ë ¥ìžˆìŒ(ByVal ì‹œíŠ¸ëª… As String) As Boolean
+' ±× Ç¥¿¡ »ç¿ëÀÚ°¡ °ªÀ» ÇÏ³ª¶óµµ ³Ö¾ú´ÂÁö
+Private Function Ç¥_ÀÔ·ÂÀÖÀ½(ByVal ½ÃÆ®¸í As String) As Boolean
     Dim cols As Variant, i As Long
-    cols = í‘œ_ì»¬ëŸ¼ëª©ë¡(ì‹œíŠ¸ëª…)
+    cols = Ç¥_ÄÃ·³¸ñ·Ï(½ÃÆ®¸í)
     For i = LBound(cols) To UBound(cols)
-        If Len(í¼ê°’(ì‹œíŠ¸ëª…, CStr(cols(i)))) > 0 Then
-            í‘œ_ìž…ë ¥ìžˆìŒ = True
+        If Len(Æû°ª(½ÃÆ®¸í, CStr(cols(i)))) > 0 Then
+            Ç¥_ÀÔ·ÂÀÖÀ½ = True
             Exit Function
         End If
     Next i
 End Function
 
-' ê¸°ì¡´ ë§¤í¬ë¡œì˜ ê²€ì¦ ê·œì¹™ê³¼ ë™ì¼: PK ê³µëž€/ì¤‘ë³µ, FK ê³µëž€/ì°¸ì¡°, ì¡°í•©ì¤‘ë³µ
-Private Function ì €ìž¥ì „_ê²€ì¦(ByVal ì‹ ê·œID As Object) As String
-    Dim t As Variant, í‘œì´ë¦„ As String, cols As Variant, i As Long
-    Dim ì˜¤ë¥˜ As String, PKê°’ As String, ì›ëž˜PK As String
-    Dim FKê°’ As String, ì°¸ì¡° As String, ë¼ë²¨ As String
+' ±âÁ¸ ¸ÅÅ©·ÎÀÇ °ËÁõ ±ÔÄ¢°ú µ¿ÀÏ: PK °ø¶õ/Áßº¹, FK °ø¶õ/ÂüÁ¶, Á¶ÇÕÁßº¹
+Private Function ÀúÀåÀü_°ËÁõ(ByVal ½Å±ÔID As Object) As String
+    Dim t As Variant, Ç¥ÀÌ¸§ As String, cols As Variant, i As Long
+    Dim ¿À·ù As String, PK°ª As String, ¿ø·¡PK As String
+    Dim FK°ª As String, ÂüÁ¶ As String, ¶óº§ As String
 
-    For Each t In í‘œ_ìˆœì„œ()
-        í‘œì´ë¦„ = CStr(t)
-        If í‘œ_ìž…ë ¥ìžˆìŒ(í‘œì´ë¦„) Then
-            ë¼ë²¨ = Replace(í‘œì´ë¦„, "T_", "")
-            ì›ëž˜PK = í¼ê°’(í‘œì´ë¦„, í‘œ_PK(í‘œì´ë¦„))
-            PKê°’ = ì›ëž˜PK
-            If ì‹ ê·œID.Exists(í‘œì´ë¦„) Then PKê°’ = CStr(ì‹ ê·œID(í‘œì´ë¦„))
+    For Each t In Ç¥_¼ø¼­()
+        Ç¥ÀÌ¸§ = CStr(t)
+        If Ç¥_ÀÔ·ÂÀÖÀ½(Ç¥ÀÌ¸§) Then
+            ¶óº§ = Replace(Ç¥ÀÌ¸§, "T_", "")
+            ¿ø·¡PK = Æû°ª(Ç¥ÀÌ¸§, Ç¥_PK(Ç¥ÀÌ¸§))
+            PK°ª = ¿ø·¡PK
+            If ½Å±ÔID.Exists(Ç¥ÀÌ¸§) Then PK°ª = CStr(½Å±ÔID(Ç¥ÀÌ¸§))
 
-            If Len(PKê°’) = 0 Then
-                ì˜¤ë¥˜ = ì˜¤ë¥˜ & "Â· " & ë¼ë²¨ & ": " & í‘œ_PK(í‘œì´ë¦„) & " ê°€ ë¹„ì–´ ìžˆìŠµë‹ˆë‹¤." & vbCrLf
+            If Len(PK°ª) = 0 Then
+                ¿À·ù = ¿À·ù & "¡¤ " & ¶óº§ & ": " & Ç¥_PK(Ç¥ÀÌ¸§) & " °¡ ºñ¾î ÀÖ½À´Ï´Ù." & vbCrLf
             End If
 
-            cols = í‘œ_ì»¬ëŸ¼ëª©ë¡(í‘œì´ë¦„)
+            cols = Ç¥_ÄÃ·³¸ñ·Ï(Ç¥ÀÌ¸§)
             For i = LBound(cols) To UBound(cols)
-                ì°¸ì¡° = FK_ì°¸ì¡°ì‹œíŠ¸(í‘œì´ë¦„, CStr(cols(i)))
-                If Len(ì°¸ì¡°) > 0 Then
-                    FKê°’ = í¼ê°’(í‘œì´ë¦„, CStr(cols(i)))
-                    ' ì´ë²ˆì— ê°™ì´ ë§Œë“¤ì–´ì§ˆ ë¶€ëª¨ë¼ë©´ ê·¸ ìƒˆ IDë¡œ ì±„ì›Œì§‘ë‹ˆë‹¤
-                    If Len(FKê°’) = 0 And ì‹ ê·œID.Exists(ì°¸ì¡°) Then FKê°’ = CStr(ì‹ ê·œID(ì°¸ì¡°))
-                    If Len(FKê°’) = 0 Then
-                        ì˜¤ë¥˜ = ì˜¤ë¥˜ & "Â· " & ë¼ë²¨ & ": " & cols(i) & " ê°€ ë¹„ì–´ ìžˆìŠµë‹ˆë‹¤." & vbCrLf
-                    ElseIf PKí–‰ì°¾ê¸°(ì‹œíŠ¸(ì°¸ì¡°), FKê°’) = 0 Then
-                        If Not (ì‹ ê·œID.Exists(ì°¸ì¡°) And FKê°’ = CStr(ì‹ ê·œID(ì°¸ì¡°))) Then
-                            ì˜¤ë¥˜ = ì˜¤ë¥˜ & "Â· " & ë¼ë²¨ & ": " & cols(i) & " '" & FKê°’ & _
-                                   "' ì— í•´ë‹¹í•˜ëŠ” " & Replace(ì°¸ì¡°, "T_", "") & " ê°€ ì—†ìŠµë‹ˆë‹¤." & vbCrLf
+                ÂüÁ¶ = FK_ÂüÁ¶½ÃÆ®(Ç¥ÀÌ¸§, CStr(cols(i)))
+                If Len(ÂüÁ¶) > 0 Then
+                    FK°ª = Æû°ª(Ç¥ÀÌ¸§, CStr(cols(i)))
+                    ' ÀÌ¹ø¿¡ °°ÀÌ ¸¸µé¾îÁú ºÎ¸ð¶ó¸é ±× »õ ID·Î Ã¤¿öÁý´Ï´Ù
+                    If Len(FK°ª) = 0 And ½Å±ÔID.Exists(ÂüÁ¶) Then FK°ª = CStr(½Å±ÔID(ÂüÁ¶))
+                    If Len(FK°ª) = 0 Then
+                        ¿À·ù = ¿À·ù & "¡¤ " & ¶óº§ & ": " & cols(i) & " °¡ ºñ¾î ÀÖ½À´Ï´Ù." & vbCrLf
+                    ElseIf PKÇàÃ£±â(½ÃÆ®(ÂüÁ¶), FK°ª) = 0 Then
+                        If Not (½Å±ÔID.Exists(ÂüÁ¶) And FK°ª = CStr(½Å±ÔID(ÂüÁ¶))) Then
+                            ¿À·ù = ¿À·ù & "¡¤ " & ¶óº§ & ": " & cols(i) & " '" & FK°ª & _
+                                   "' ¿¡ ÇØ´çÇÏ´Â " & Replace(ÂüÁ¶, "T_", "") & " °¡ ¾ø½À´Ï´Ù." & vbCrLf
                         End If
                     End If
                 End If
@@ -998,27 +1002,27 @@ Private Function ì €ìž¥ì „_ê²€ì¦(ByVal ì‹ ê·œID As Object) As String
         End If
     Next t
 
-    ' ìˆ˜ê¸‰ë§¤ì¹­ ì¡°í•©ì¤‘ë³µ (ì „ê¸°ì‚¬ìš©ì§€ID + êµ¬ë§¤ê³„ì•½ID)
-    If í‘œ_ìž…ë ¥ìžˆìŒ(SH_MATCH) Then
-        Dim ì‚¬ìš©ì§€ As String, êµ¬ë§¤ As String, ë‚´PK As String
-        Dim wsM As Worksheet, r As Long, ë As Long, pkì—´ As Long
+    ' ¼ö±Þ¸ÅÄª Á¶ÇÕÁßº¹ (Àü±â»ç¿ëÁöID + ±¸¸Å°è¾àID)
+    If Ç¥_ÀÔ·ÂÀÖÀ½(SH_MATCH) Then
+        Dim »ç¿ëÁö As String, ±¸¸Å As String, ³»PK As String
+        Dim wsM As Worksheet, r As Long, ³¡ As Long, pk¿­ As Long
 
-        ì‚¬ìš©ì§€ = í¼ê°’(SH_MATCH, "ì „ê¸°ì‚¬ìš©ì§€ID")
-        If Len(ì‚¬ìš©ì§€) = 0 And ì‹ ê·œID.Exists(SH_SITE) Then ì‚¬ìš©ì§€ = CStr(ì‹ ê·œID(SH_SITE))
-        êµ¬ë§¤ = í¼ê°’(SH_MATCH, "êµ¬ë§¤ê³„ì•½ID")
-        If Len(êµ¬ë§¤) = 0 And ì‹ ê·œID.Exists(SH_BUY) Then êµ¬ë§¤ = CStr(ì‹ ê·œID(SH_BUY))
-        ë‚´PK = í¼ê°’(SH_MATCH, "ìˆ˜ê¸‰ë§¤ì¹­ID")
-        If ì‹ ê·œID.Exists(SH_MATCH) Then ë‚´PK = CStr(ì‹ ê·œID(SH_MATCH))
+        »ç¿ëÁö = Æû°ª(SH_MATCH, "Àü±â»ç¿ëÁöID")
+        If Len(»ç¿ëÁö) = 0 And ½Å±ÔID.Exists(SH_SITE) Then »ç¿ëÁö = CStr(½Å±ÔID(SH_SITE))
+        ±¸¸Å = Æû°ª(SH_MATCH, "±¸¸Å°è¾àID")
+        If Len(±¸¸Å) = 0 And ½Å±ÔID.Exists(SH_BUY) Then ±¸¸Å = CStr(½Å±ÔID(SH_BUY))
+        ³»PK = Æû°ª(SH_MATCH, "¼ö±Þ¸ÅÄªID")
+        If ½Å±ÔID.Exists(SH_MATCH) Then ³»PK = CStr(½Å±ÔID(SH_MATCH))
 
-        If Len(ì‚¬ìš©ì§€) > 0 And Len(êµ¬ë§¤) > 0 Then
-            Set wsM = ì‹œíŠ¸(SH_MATCH)
-            pkì—´ = í—¤ë”ì—´(wsM, "ìˆ˜ê¸‰ë§¤ì¹­ID")
-            ë = ë§ˆì§€ë§‰í–‰(wsM, pkì—´)
-            For r = 2 To ë
-                If ì…€ê°’(wsM, r, "ì „ê¸°ì‚¬ìš©ì§€ID") = ì‚¬ìš©ì§€ And ì…€ê°’(wsM, r, "êµ¬ë§¤ê³„ì•½ID") = êµ¬ë§¤ Then
-                    If ì…€ê°’(wsM, r, "ìˆ˜ê¸‰ë§¤ì¹­ID") <> ë‚´PK Then
-                        ì˜¤ë¥˜ = ì˜¤ë¥˜ & "Â· ìˆ˜ê¸‰ë§¤ì¹­: ê°™ì€ (ì „ê¸°ì‚¬ìš©ì§€ " & ì‚¬ìš©ì§€ & " + êµ¬ë§¤ê³„ì•½ " & êµ¬ë§¤ & _
-                               ") ì¡°í•©ì´ ì´ë¯¸ ìžˆìŠµë‹ˆë‹¤ [" & ì…€ê°’(wsM, r, "ìˆ˜ê¸‰ë§¤ì¹­ID") & "]." & vbCrLf
+        If Len(»ç¿ëÁö) > 0 And Len(±¸¸Å) > 0 Then
+            Set wsM = ½ÃÆ®(SH_MATCH)
+            pk¿­ = Çì´õ¿­(wsM, "¼ö±Þ¸ÅÄªID")
+            ³¡ = ¸¶Áö¸·Çà(wsM, pk¿­)
+            For r = 2 To ³¡
+                If ¼¿°ª(wsM, r, "Àü±â»ç¿ëÁöID") = »ç¿ëÁö And ¼¿°ª(wsM, r, "±¸¸Å°è¾àID") = ±¸¸Å Then
+                    If ¼¿°ª(wsM, r, "¼ö±Þ¸ÅÄªID") <> ³»PK Then
+                        ¿À·ù = ¿À·ù & "¡¤ ¼ö±Þ¸ÅÄª: °°Àº (Àü±â»ç¿ëÁö " & »ç¿ëÁö & " + ±¸¸Å°è¾à " & ±¸¸Å & _
+                               ") Á¶ÇÕÀÌ ÀÌ¹Ì ÀÖ½À´Ï´Ù [" & ¼¿°ª(wsM, r, "¼ö±Þ¸ÅÄªID") & "]." & vbCrLf
                         Exit For
                     End If
                 End If
@@ -1026,168 +1030,168 @@ Private Function ì €ìž¥ì „_ê²€ì¦(ByVal ì‹ ê·œID As Object) As String
         End If
     End If
 
-    ì €ìž¥ì „_ê²€ì¦ = ì˜¤ë¥˜
+    ÀúÀåÀü_°ËÁõ = ¿À·ù
 End Function
 
-' ë¬´ì—‡ì´ ìƒˆë¡œ ìƒê¸°ê³  ë¬´ì—‡ì´ ë°”ë€ŒëŠ”ì§€ ì‚¬ëžŒì´ ì½ì„ ìˆ˜ ìžˆê²Œ ì •ë¦¬
-Private Function ì €ìž¥_ë¯¸ë¦¬ë³´ê¸°(ByVal ì‹ ê·œID As Object) As String
-    Dim t As Variant, í‘œì´ë¦„ As String, cols As Variant, i As Long
+' ¹«¾ùÀÌ »õ·Î »ý±â°í ¹«¾ùÀÌ ¹Ù²î´ÂÁö »ç¶÷ÀÌ ÀÐÀ» ¼ö ÀÖ°Ô Á¤¸®
+Private Function ÀúÀå_¹Ì¸®º¸±â(ByVal ½Å±ÔID As Object) As String
+    Dim t As Variant, Ç¥ÀÌ¸§ As String, cols As Variant, i As Long
     Dim s As String, ws As Worksheet, r As Long
-    Dim ìƒˆê°’ As String, ì˜›ê°’ As String, ë³€ê²½ As String, PKê°’ As String, ë¼ë²¨ As String
+    Dim »õ°ª As String, ¿¾°ª As String, º¯°æ As String, PK°ª As String, ¶óº§ As String
 
-    For Each t In í‘œ_ìˆœì„œ()
-        í‘œì´ë¦„ = CStr(t)
-        If í‘œ_ìž…ë ¥ìžˆìŒ(í‘œì´ë¦„) Then
-            ë¼ë²¨ = Replace(í‘œì´ë¦„, "T_", "")
-            Set ws = ì‹œíŠ¸(í‘œì´ë¦„)
-            PKê°’ = í¼ê°’(í‘œì´ë¦„, í‘œ_PK(í‘œì´ë¦„))
-            If ì‹ ê·œID.Exists(í‘œì´ë¦„) Then PKê°’ = CStr(ì‹ ê·œID(í‘œì´ë¦„))
-            r = PKí–‰ì°¾ê¸°(ws, PKê°’)
+    For Each t In Ç¥_¼ø¼­()
+        Ç¥ÀÌ¸§ = CStr(t)
+        If Ç¥_ÀÔ·ÂÀÖÀ½(Ç¥ÀÌ¸§) Then
+            ¶óº§ = Replace(Ç¥ÀÌ¸§, "T_", "")
+            Set ws = ½ÃÆ®(Ç¥ÀÌ¸§)
+            PK°ª = Æû°ª(Ç¥ÀÌ¸§, Ç¥_PK(Ç¥ÀÌ¸§))
+            If ½Å±ÔID.Exists(Ç¥ÀÌ¸§) Then PK°ª = CStr(½Å±ÔID(Ç¥ÀÌ¸§))
+            r = PKÇàÃ£±â(ws, PK°ª)
 
             If r = 0 Then
-                s = s & "[ì‹ ê·œ] " & ë¼ë²¨ & "  " & PKê°’ & vbCrLf
+                s = s & "[½Å±Ô] " & ¶óº§ & "  " & PK°ª & vbCrLf
             Else
-                ë³€ê²½ = ""
-                cols = í‘œ_ì»¬ëŸ¼ëª©ë¡(í‘œì´ë¦„)
+                º¯°æ = ""
+                cols = Ç¥_ÄÃ·³¸ñ·Ï(Ç¥ÀÌ¸§)
                 For i = LBound(cols) To UBound(cols)
-                    ìƒˆê°’ = ê°’í•´ì„(ì‹ ê·œID, í‘œì´ë¦„, CStr(cols(i)))
-                    ì˜›ê°’ = ì…€ê°’(ws, r, CStr(cols(i)))
-                    If Len(ìƒˆê°’) > 0 And ìƒˆê°’ <> ì˜›ê°’ Then
-                        ë³€ê²½ = ë³€ê²½ & "      Â· " & cols(i) & ": " & _
-                               IIf(Len(ì˜›ê°’) = 0, "(ê³µëž€)", ì˜›ê°’) & " â†’ " & ìƒˆê°’ & vbCrLf
+                    »õ°ª = °ªÇØ¼®(½Å±ÔID, Ç¥ÀÌ¸§, CStr(cols(i)))
+                    ¿¾°ª = ¼¿°ª(ws, r, CStr(cols(i)))
+                    If Len(»õ°ª) > 0 And »õ°ª <> ¿¾°ª Then
+                        º¯°æ = º¯°æ & "      ¡¤ " & cols(i) & ": " & _
+                               IIf(Len(¿¾°ª) = 0, "(°ø¶õ)", ¿¾°ª) & " ¡æ " & »õ°ª & vbCrLf
                     End If
                 Next i
-                If Len(ë³€ê²½) > 0 Then
-                    s = s & "[ìˆ˜ì •] " & ë¼ë²¨ & "  " & PKê°’ & vbCrLf & ë³€ê²½
+                If Len(º¯°æ) > 0 Then
+                    s = s & "[¼öÁ¤] " & ¶óº§ & "  " & PK°ª & vbCrLf & º¯°æ
                 Else
-                    s = s & "[ë³€ê²½ì—†ìŒ] " & ë¼ë²¨ & "  " & PKê°’ & vbCrLf
+                    s = s & "[º¯°æ¾øÀ½] " & ¶óº§ & "  " & PK°ª & vbCrLf
                 End If
             End If
         End If
     Next t
 
-    If Len(s) > 0 Then ì €ìž¥_ë¯¸ë¦¬ë³´ê¸° = "ì•„ëž˜ ë‚´ìš©ìœ¼ë¡œ ë°˜ì˜ë©ë‹ˆë‹¤." & vbCrLf & vbCrLf & s
+    If Len(s) > 0 Then ÀúÀå_¹Ì¸®º¸±â = "¾Æ·¡ ³»¿ëÀ¸·Î ¹Ý¿µµË´Ï´Ù." & vbCrLf & vbCrLf & s
 End Function
 
-' í•œ í‘œë¥¼ ì‹¤ì œë¡œ ì“°ê¸° (ìžˆìœ¼ë©´ ìˆ˜ì •, ì—†ìœ¼ë©´ ìƒˆ í–‰ ì¶”ê°€)
-Private Sub í‘œ_ì €ìž¥(ByVal ì‹ ê·œID As Object, ByVal ì‹œíŠ¸ëª… As String)
+' ÇÑ Ç¥¸¦ ½ÇÁ¦·Î ¾²±â (ÀÖÀ¸¸é ¼öÁ¤, ¾øÀ¸¸é »õ Çà Ãß°¡)
+Private Sub Ç¥_ÀúÀå(ByVal ½Å±ÔID As Object, ByVal ½ÃÆ®¸í As String)
     Dim ws As Worksheet, cols As Variant, i As Long
-    Dim PKê°’ As String, r As Long, pkì—´ As Long, v As String
+    Dim PK°ª As String, r As Long, pk¿­ As Long, v As String
 
-    Set ws = ì‹œíŠ¸(ì‹œíŠ¸ëª…)
+    Set ws = ½ÃÆ®(½ÃÆ®¸í)
     If ws Is Nothing Then Exit Sub
-    PKê°’ = ê°’í•´ì„(ì‹ ê·œID, ì‹œíŠ¸ëª…, í‘œ_PK(ì‹œíŠ¸ëª…))
-    If Len(PKê°’) = 0 Then Exit Sub
+    PK°ª = °ªÇØ¼®(½Å±ÔID, ½ÃÆ®¸í, Ç¥_PK(½ÃÆ®¸í))
+    If Len(PK°ª) = 0 Then Exit Sub
 
-    r = PKí–‰ì°¾ê¸°(ws, PKê°’)
+    r = PKÇàÃ£±â(ws, PK°ª)
     If r = 0 Then
-        pkì—´ = í—¤ë”ì—´(ws, í‘œ_PK(ì‹œíŠ¸ëª…))
-        r = ë§ˆì§€ë§‰í–‰(ws, pkì—´) + 1
+        pk¿­ = Çì´õ¿­(ws, Ç¥_PK(½ÃÆ®¸í))
+        r = ¸¶Áö¸·Çà(ws, pk¿­) + 1
     End If
 
-    cols = í‘œ_ì»¬ëŸ¼ëª©ë¡(ì‹œíŠ¸ëª…)
+    cols = Ç¥_ÄÃ·³¸ñ·Ï(½ÃÆ®¸í)
     For i = LBound(cols) To UBound(cols)
-        v = ê°’í•´ì„(ì‹ ê·œID, ì‹œíŠ¸ëª…, CStr(cols(i)))
+        v = °ªÇØ¼®(½Å±ÔID, ½ÃÆ®¸í, CStr(cols(i)))
         If i = 0 Then
-            ì…€ì“°ê¸° ws, r, CStr(cols(i)), PKê°’
+            ¼¿¾²±â ws, r, CStr(cols(i)), PK°ª
         ElseIf Len(v) > 0 Then
-            ' í¼ì—ì„œ ë¹„ì›Œ ë‘” ì¹¸ì€ ê¸°ì¡´ ê°’ì„ ì§€ìš°ì§€ ì•ŠìŠµë‹ˆë‹¤
-            ì…€ì“°ê¸° ws, r, CStr(cols(i)), v
+            ' Æû¿¡¼­ ºñ¿ö µÐ Ä­Àº ±âÁ¸ °ªÀ» Áö¿ìÁö ¾Ê½À´Ï´Ù
+            ¼¿¾²±â ws, r, CStr(cols(i)), v
         End If
     Next i
 End Sub
 
 '==============================================================================
-' PK ìžë™ ìƒì„± â€” ê¸°ì¡´ IDë“¤ì´ ì“°ê³  ìžˆëŠ” ê·œì¹™ì„ ê·¸ëŒ€ë¡œ ë”°ë¼ê°‘ë‹ˆë‹¤
-'   ì˜ˆ) ê¸°ì¡´ì´ "êµ¬ë§¤-0001..0615" ë©´ ë‹¤ìŒì€ "êµ¬ë§¤-0616"
-'       ê¸°ì¡´ì´ "P001..P589"      ë©´ ë‹¤ìŒì€ "P590"
+' PK ÀÚµ¿ »ý¼º - ±âÁ¸ IDµéÀÌ ¾²°í ÀÖ´Â ±ÔÄ¢À» ±×´ë·Î µû¶ó°©´Ï´Ù
+'   ¿¹) ±âÁ¸ÀÌ "±¸¸Å-0001..0615" ¸é ´ÙÀ½Àº "±¸¸Å-0616"
+'       ±âÁ¸ÀÌ "P001..P589"      ¸é ´ÙÀ½Àº "P590"
 '==============================================================================
-Private Function ë‹¤ìŒID(ByVal ì‹œíŠ¸ëª… As String) As String
-    Dim ws As Worksheet, pkì—´ As Long, r As Long, ë As Long, p As Long
-    Dim v As String, ì ‘ë‘ As String, ìˆ«ìžë¶€ As String, ê³µí†µì ‘ë‘ As String
-    Dim ìµœëŒ€ As Long, ìžë¦¿ìˆ˜ As Long, n As Long, ì²«ë²ˆì§¸ As Boolean
+Private Function ´ÙÀ½ID(ByVal ½ÃÆ®¸í As String) As String
+    Dim ws As Worksheet, pk¿­ As Long, r As Long, ³¡ As Long, p As Long
+    Dim v As String, Á¢µÎ As String, ¼ýÀÚºÎ As String, °øÅëÁ¢µÎ As String
+    Dim ÃÖ´ë As Long, ÀÚ¸´¼ö As Long, n As Long, Ã¹¹øÂ° As Boolean
 
-    Set ws = ì‹œíŠ¸(ì‹œíŠ¸ëª…)
+    Set ws = ½ÃÆ®(½ÃÆ®¸í)
     If ws Is Nothing Then Exit Function
-    pkì—´ = í—¤ë”ì—´(ws, í‘œ_PK(ì‹œíŠ¸ëª…))
-    ë = ë§ˆì§€ë§‰í–‰(ws, pkì—´)
-    ì²«ë²ˆì§¸ = True
+    pk¿­ = Çì´õ¿­(ws, Ç¥_PK(½ÃÆ®¸í))
+    ³¡ = ¸¶Áö¸·Çà(ws, pk¿­)
+    Ã¹¹øÂ° = True
 
-    For r = 2 To ë
-        v = Trim$(CStr(ws.Cells(r, pkì—´).Value))
+    For r = 2 To ³¡
+        v = Trim$(CStr(ws.Cells(r, pk¿­).Value))
         If Len(v) > 0 Then
-            ìˆ«ìžë¶€ = ""
+            ¼ýÀÚºÎ = ""
             For p = Len(v) To 1 Step -1
                 If Mid$(v, p, 1) Like "#" Then
-                    ìˆ«ìžë¶€ = Mid$(v, p, 1) & ìˆ«ìžë¶€
+                    ¼ýÀÚºÎ = Mid$(v, p, 1) & ¼ýÀÚºÎ
                 Else
                     Exit For
                 End If
             Next p
-            If Len(ìˆ«ìžë¶€) > 0 Then
-                ì ‘ë‘ = Left$(v, Len(v) - Len(ìˆ«ìžë¶€))
-                If ì²«ë²ˆì§¸ Then
-                    ê³µí†µì ‘ë‘ = ì ‘ë‘
-                    ì²«ë²ˆì§¸ = False
-                ElseIf ê³µí†µì ‘ë‘ <> ì ‘ë‘ Then
-                    ê³µí†µì ‘ë‘ = "?"          ' ê·œì¹™ì´ í•˜ë‚˜ê°€ ì•„ë‹˜
+            If Len(¼ýÀÚºÎ) > 0 Then
+                Á¢µÎ = Left$(v, Len(v) - Len(¼ýÀÚºÎ))
+                If Ã¹¹øÂ° Then
+                    °øÅëÁ¢µÎ = Á¢µÎ
+                    Ã¹¹øÂ° = False
+                ElseIf °øÅëÁ¢µÎ <> Á¢µÎ Then
+                    °øÅëÁ¢µÎ = "?"          ' ±ÔÄ¢ÀÌ ÇÏ³ª°¡ ¾Æ´Ô
                 End If
-                n = CLng(Val(ìˆ«ìžë¶€))
-                If n > ìµœëŒ€ Then ìµœëŒ€ = n
-                If Len(ìˆ«ìžë¶€) > ìžë¦¿ìˆ˜ Then ìžë¦¿ìˆ˜ = Len(ìˆ«ìžë¶€)
+                n = CLng(Val(¼ýÀÚºÎ))
+                If n > ÃÖ´ë Then ÃÖ´ë = n
+                If Len(¼ýÀÚºÎ) > ÀÚ¸´¼ö Then ÀÚ¸´¼ö = Len(¼ýÀÚºÎ)
             End If
         End If
     Next r
 
-    If ìžë¦¿ìˆ˜ = 0 Then ìžë¦¿ìˆ˜ = 3
-    If Len(ê³µí†µì ‘ë‘) = 0 Or ê³µí†µì ‘ë‘ = "?" Then
-        Select Case ì‹œíŠ¸ëª…                     ' ê·œì¹™ì„ ëª» ì°¾ìœ¼ë©´ ê¸°ë³¸ ì ‘ë‘
-        Case SH_PLANT:  ê³µí†µì ‘ë‘ = "P"
-        Case SH_BUY:    ê³µí†µì ‘ë‘ = "êµ¬ë§¤-"
-        Case SH_DEMAND: ê³µí†µì ‘ë‘ = "D"
-        Case SH_SELL:   ê³µí†µì ‘ë‘ = "íŒë§¤-"
-        Case SH_SITE:   ê³µí†µì ‘ë‘ = "ì „ê¸°ì‚¬ìš©ì§€-"
-        Case SH_MATCH:  ê³µí†µì ‘ë‘ = "ë§¤ì¹­-"
+    If ÀÚ¸´¼ö = 0 Then ÀÚ¸´¼ö = 3
+    If Len(°øÅëÁ¢µÎ) = 0 Or °øÅëÁ¢µÎ = "?" Then
+        Select Case ½ÃÆ®¸í                     ' ±ÔÄ¢À» ¸ø Ã£À¸¸é ±âº» Á¢µÎ
+        Case SH_PLANT:  °øÅëÁ¢µÎ = "P"
+        Case SH_BUY:    °øÅëÁ¢µÎ = "±¸¸Å-"
+        Case SH_DEMAND: °øÅëÁ¢µÎ = "D"
+        Case SH_SELL:   °øÅëÁ¢µÎ = "ÆÇ¸Å-"
+        Case SH_SITE:   °øÅëÁ¢µÎ = "Àü±â»ç¿ëÁö-"
+        Case SH_MATCH:  °øÅëÁ¢µÎ = "¸ÅÄª-"
         End Select
     End If
 
     Do
-        ìµœëŒ€ = ìµœëŒ€ + 1
-        ë‹¤ìŒID = ê³µí†µì ‘ë‘ & Format$(ìµœëŒ€, String$(ìžë¦¿ìˆ˜, "0"))
-    Loop While PKí–‰ì°¾ê¸°(ws, ë‹¤ìŒID) > 0
+        ÃÖ´ë = ÃÖ´ë + 1
+        ´ÙÀ½ID = °øÅëÁ¢µÎ & Format$(ÃÖ´ë, String$(ÀÚ¸´¼ö, "0"))
+    Loop While PKÇàÃ£±â(ws, ´ÙÀ½ID) > 0
 End Function
 
 '==============================================================================
-' ì‚­ì œ â€” í˜„ìž¬ í¼ì˜ ìˆ˜ê¸‰ë§¤ì¹­ í–‰ë§Œ ì§€ì›ë‹ˆë‹¤ (ìƒìœ„ í‘œëŠ” ê±´ë“œë¦¬ì§€ ì•ŠìŒ)
+' »èÁ¦ - ÇöÀç ÆûÀÇ ¼ö±Þ¸ÅÄª Çà¸¸ Áö¿ó´Ï´Ù (»óÀ§ Ç¥´Â °Çµå¸®Áö ¾ÊÀ½)
 '==============================================================================
-Public Sub í¼_ì‚­ì œ()
-    Dim wsM As Worksheet, ë§¤ì¹­ID As String, r As Long
-    Dim ë‹µ As VbMsgBoxResult
+Public Sub Æû_»èÁ¦()
+    Dim wsM As Worksheet, ¸ÅÄªID As String, r As Long
+    Dim ´ä As VbMsgBoxResult
 
-    ë§¤ì¹­ID = í¼ê°’(SH_MATCH, "ìˆ˜ê¸‰ë§¤ì¹­ID")
-    If Len(ë§¤ì¹­ID) = 0 Then
-        MsgBox "ì‚­ì œí•  ìˆ˜ê¸‰ë§¤ì¹­IDê°€ í¼ì— ì—†ìŠµë‹ˆë‹¤." & vbCrLf & _
-               "ë¨¼ì € [ì¡°íšŒ]ë¡œ ëŒ€ìƒì„ ë¶ˆëŸ¬ì™€ì£¼ì„¸ìš”.", vbInformation, "ì‚­ì œ"
+    ¸ÅÄªID = Æû°ª(SH_MATCH, "¼ö±Þ¸ÅÄªID")
+    If Len(¸ÅÄªID) = 0 Then
+        MsgBox "»èÁ¦ÇÒ ¼ö±Þ¸ÅÄªID°¡ Æû¿¡ ¾ø½À´Ï´Ù." & vbCrLf & _
+               "¸ÕÀú [Á¶È¸]·Î ´ë»óÀ» ºÒ·¯¿ÍÁÖ¼¼¿ä.", vbInformation, "»èÁ¦"
         Exit Sub
     End If
 
-    Set wsM = ì‹œíŠ¸(SH_MATCH)
-    r = PKí–‰ì°¾ê¸°(wsM, ë§¤ì¹­ID)
+    Set wsM = ½ÃÆ®(SH_MATCH)
+    r = PKÇàÃ£±â(wsM, ¸ÅÄªID)
     If r = 0 Then
-        MsgBox "'" & ë§¤ì¹­ID & "' ì€(ëŠ”) " & SH_MATCH & " ì— ì—†ìŠµë‹ˆë‹¤.", vbInformation, "ì‚­ì œ"
+        MsgBox "'" & ¸ÅÄªID & "' Àº(´Â) " & SH_MATCH & " ¿¡ ¾ø½À´Ï´Ù.", vbInformation, "»èÁ¦"
         Exit Sub
     End If
 
-    ë‹µ = MsgBox("ìˆ˜ê¸‰ë§¤ì¹­ '" & ë§¤ì¹­ID & "' í–‰ì„ ì‚­ì œí•©ë‹ˆë‹¤." & vbCrLf & vbCrLf & _
-                "ì „ê¸°ì‚¬ìš©ì§€: " & ì…€ê°’(wsM, r, "ì „ê¸°ì‚¬ìš©ì§€ID") & vbCrLf & _
-                "êµ¬ë§¤ê³„ì•½: " & ì…€ê°’(wsM, r, "êµ¬ë§¤ê³„ì•½ID") & vbCrLf & vbCrLf & _
-                "ë°œì „ì†ŒÂ·êµ¬ë§¤ê³„ì•½Â·íŒë§¤ê³„ì•½ ë“± ìƒìœ„ í•­ëª©ì€ ê·¸ëŒ€ë¡œ ë‘¡ë‹ˆë‹¤." & vbCrLf & _
-                "ê³„ì†í• ê¹Œìš”?", vbExclamation + vbYesNo, "ì‚­ì œ í™•ì¸")
-    If ë‹µ <> vbYes Then Exit Sub
+    ´ä = MsgBox("¼ö±Þ¸ÅÄª '" & ¸ÅÄªID & "' ÇàÀ» »èÁ¦ÇÕ´Ï´Ù." & vbCrLf & vbCrLf & _
+                "Àü±â»ç¿ëÁö: " & ¼¿°ª(wsM, r, "Àü±â»ç¿ëÁöID") & vbCrLf & _
+                "±¸¸Å°è¾à: " & ¼¿°ª(wsM, r, "±¸¸Å°è¾àID") & vbCrLf & vbCrLf & _
+                "¹ßÀü¼Ò¡¤±¸¸Å°è¾à¡¤ÆÇ¸Å°è¾à µî »óÀ§ Ç×¸ñÀº ±×´ë·Î µÓ´Ï´Ù." & vbCrLf & _
+                "°è¼ÓÇÒ±î¿ä?", vbExclamation + vbYesNo, "»èÁ¦ È®ÀÎ")
+    If ´ä <> vbYes Then Exit Sub
 
     wsM.Rows(r).Delete
-    ì¡°íšŒê²°ê³¼_ì§€ìš°ê¸°                     ' í–‰ ë²ˆí˜¸ê°€ ë°€ë¦¬ë¯€ë¡œ ì¡°íšŒ ê²°ê³¼ëŠ” ë¬´íš¨
-    í¼_ëª©ë¡ê°±ì‹ 
-    ìƒíƒœì“°ê¸° "ìˆ˜ê¸‰ë§¤ì¹­ " & ë§¤ì¹­ID & " ì„(ë¥¼) ì‚­ì œí–ˆìŠµë‹ˆë‹¤. ë‹¤ì‹œ [ì¡°íšŒ]í•´ì£¼ì„¸ìš”."
-    MsgBox "ì‚­ì œí–ˆìŠµë‹ˆë‹¤.", vbInformation, "ì‚­ì œ"
+    Á¶È¸°á°ú_Áö¿ì±â                     ' Çà ¹øÈ£°¡ ¹Ð¸®¹Ç·Î Á¶È¸ °á°ú´Â ¹«È¿
+    Æû_¸ñ·Ï°»½Å
+    »óÅÂ¾²±â "¼ö±Þ¸ÅÄª " & ¸ÅÄªID & " À»(¸¦) »èÁ¦Çß½À´Ï´Ù. ´Ù½Ã [Á¶È¸]ÇØÁÖ¼¼¿ä."
+    MsgBox "»èÁ¦Çß½À´Ï´Ù.", vbInformation, "»èÁ¦"
 End Sub
