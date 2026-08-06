@@ -55,9 +55,15 @@ Private Const COL_LABEL As Long = 2
 Private Const COL_VALUE As Long = 3
 Private Const COL_NOTE  As Long = 4
 
-Private Const ROW_SEARCH As Long = 2   ' 검색어 입력칸 (C2)
-Private Const ROW_STATUS As Long = 3   ' 상태 표시줄 (C3)
-Private Const FIRST_FIELD_ROW As Long = 5
+Private Const ROW_TARGET As Long = 2   ' 검색 대상: 표(C2) / 컬럼(D2)
+Private Const ROW_SEARCH As Long = 3   ' 검색어 입력칸 (C3)
+Private Const ROW_STATUS As Long = 4   ' 상태 표시줄 (C4)
+Private Const FIRST_FIELD_ROW As Long = 6
+
+' 검색 대상 드롭다운에서 쓰는 특별 항목
+Private Const ALL_TABLES As String = "전체 (수급매칭 기준)"
+Private Const ALL_COLS   As String = "(모든 컬럼)"
+Private Const MAX_RESULT As Long = 500        ' 결과 목록 표시 상한
 
 '---- 숨김 목록 시트의 열 배치 -----------------------------------------------
 Private Const LC_PLANT As Long = 1     ' 표별 전체 ID 목록
@@ -69,8 +75,11 @@ Private Const LC_MATCH As Long = 6
 Private Const LC_BUY_F  As Long = 8    ' 상위 선택에 따라 좁혀진 목록
 Private Const LC_SELL_F As Long = 9
 Private Const LC_SITE_F As Long = 10
-Private Const LC_RESULT As Long = 12   ' 조회 결과(수급매칭 행번호)
+Private Const LC_RESULT As Long = 12   ' 조회 결과(원본 시트의 행번호)
 Private Const LC_POS    As Long = 13   ' 조회 결과 내 현재 위치
+Private Const LC_RESTBL As Long = 14   ' 조회 결과가 어느 표의 것인지
+Private Const LC_SRCH_T As Long = 15   ' 검색 대상 표 드롭다운 원본
+Private Const LC_SRCH_C As Long = 16   ' 검색 대상 컬럼 드롭다운 원본
 
 '==============================================================================
 ' 스키마 정의 - static-dashboard/ppa_schema.py, backend의 tableDefs.ts와 동일
@@ -278,7 +287,18 @@ Public Sub 폼_만들기()
         .Font.Bold = True
     End With
 
-    ws.Cells(ROW_SEARCH, COL_LABEL).Value = "조회 (ID / 이름)"
+    ws.Cells(ROW_TARGET, COL_LABEL).Value = "검색 대상 (표 / 컬럼)"
+    ws.Cells(ROW_TARGET, COL_LABEL).Font.Bold = True
+    With ws.Range(ws.Cells(ROW_TARGET, COL_VALUE), ws.Cells(ROW_TARGET, COL_NOTE))
+        .Interior.Color = RGB(238, 237, 254)
+        .Borders.LineStyle = xlContinuous
+        .Borders.Color = RGB(200, 196, 180)
+        .NumberFormatLocal = "@"
+    End With
+    ws.Cells(ROW_TARGET, COL_VALUE).Value = ALL_TABLES
+    ws.Cells(ROW_TARGET, COL_NOTE).Value = ALL_COLS
+
+    ws.Cells(ROW_SEARCH, COL_LABEL).Value = "검색어"
     ws.Cells(ROW_SEARCH, COL_LABEL).Font.Bold = True
     With ws.Cells(ROW_SEARCH, COL_VALUE)
         .Interior.Color = RGB(255, 249, 219)
@@ -286,7 +306,7 @@ Public Sub 폼_만들기()
         .Borders.Color = RGB(200, 196, 180)
         .NumberFormatLocal = "@"
     End With
-    ws.Cells(ROW_SEARCH, COL_NOTE).Value = "값을 넣고 [조회]. 여러 건이면 [이전]/[다음]으로 넘깁니다."
+    ws.Cells(ROW_SEARCH, COL_NOTE).Value = "포함하는 값을 모두 찾습니다. 결과는 폼 아래에 목록으로 나옵니다."
     ws.Cells(ROW_SEARCH, COL_NOTE).Font.Color = RGB(110, 110, 110)
 
     ws.Cells(ROW_STATUS, COL_LABEL).Value = "상태"
@@ -356,8 +376,9 @@ Private Sub 폼_버튼만들기(ByVal ws As Worksheet)
     ws.Buttons.Delete
     On Error GoTo 0
 
-    정의 = Array("조회|폼_조회", "이전|폼_이전", "다음|폼_다음", "불러오기|폼_불러오기", _
-                 "새로 만들기|폼_초기화", "저장|폼_저장", "삭제|폼_삭제", "목록 새로고침|폼_목록갱신")
+    정의 = Array("조회|폼_조회", "선택 행 불러오기|폼_결과선택", "이전|폼_이전", "다음|폼_다음", _
+                 "불러오기|폼_불러오기", "새로 만들기|폼_초기화", "저장|폼_저장", "삭제|폼_삭제", _
+                 "목록 새로고침|폼_목록갱신")
     x = ws.Cells(1, COL_VALUE).Left
     For i = LBound(정의) To UBound(정의)
         Set b = ws.Buttons.Add(x, ws.Cells(1, 1).Top + 2, 74, 22)
@@ -401,7 +422,7 @@ End Function
 Private Function 필드행(ByVal ws As Worksheet, ByVal 필드키 As String) As Long
     Dim r As Long, 끝 As Long
     If ws Is Nothing Then Exit Function
-    끝 = ws.Cells(ws.Rows.Count, COL_KEY).End(xlUp).Row
+    끝 = 필드끝행(ws)
     For r = FIRST_FIELD_ROW To 끝
         If CStr(ws.Cells(r, COL_KEY).Value) = 필드키 Then
             필드행 = r
@@ -454,9 +475,9 @@ Public Sub 폼_초기화()
 
     이전 = Application.EnableEvents
     Application.EnableEvents = False
-    끝 = ws.Cells(ws.Rows.Count, COL_KEY).End(xlUp).Row
+    끝 = 필드끝행(ws)
     For r = FIRST_FIELD_ROW To 끝
-        If Len(CStr(ws.Cells(r, COL_KEY).Value)) > 0 Then
+        If Left$(CStr(ws.Cells(r, COL_KEY).Value), 2) = "T_" Then
             ws.Cells(r, COL_VALUE).ClearContents
             ws.Cells(r, COL_VALUE).Interior.Color = RGB(255, 255, 255)
         End If
@@ -464,6 +485,7 @@ Public Sub 폼_초기화()
     ws.Cells(ROW_SEARCH, COL_VALUE).ClearContents
     Application.EnableEvents = 이전
 
+    결과_지우기
     조회결과_지우기
     폼_기존신규표시
     상태쓰기 "새 입력 - 값을 채우고 [저장]을 누르세요."
@@ -475,9 +497,9 @@ Private Sub 폼_값만지우기()
     If ws Is Nothing Then Exit Sub
     이전 = Application.EnableEvents
     Application.EnableEvents = False
-    끝 = ws.Cells(ws.Rows.Count, COL_KEY).End(xlUp).Row
+    끝 = 필드끝행(ws)
     For r = FIRST_FIELD_ROW To 끝
-        If Len(CStr(ws.Cells(r, COL_KEY).Value)) > 0 Then ws.Cells(r, COL_VALUE).ClearContents
+        If Left$(CStr(ws.Cells(r, COL_KEY).Value), 2) = "T_" Then ws.Cells(r, COL_VALUE).ClearContents
     Next r
     Application.EnableEvents = 이전
 End Sub
@@ -486,18 +508,31 @@ End Sub
 ' 조회
 '==============================================================================
 Public Sub 폼_조회()
-    Dim ws As Worksheet, wsL As Worksheet, 검색어 As String
+    Dim ws As Worksheet, wsL As Worksheet
+    Dim 표이름 As String, 컬럼 As String, 검색어 As String
     Dim 찾은행 As Collection, i As Long
 
     Set ws = 시트(FORM_SHEET)
     If ws Is Nothing Then Exit Sub
+
     검색어 = Trim$(CStr(ws.Cells(ROW_SEARCH, COL_VALUE).Value))
     If Len(검색어) = 0 Then
-        MsgBox "조회할 ID나 이름을 입력해주세요.", vbInformation, "조회"
+        MsgBox "검색어를 입력해주세요.", vbInformation, "조회"
         Exit Sub
     End If
 
-    Set 찾은행 = 매칭검색(검색어)
+    표이름 = 검색대상표()
+    컬럼 = Trim$(CStr(ws.Cells(ROW_TARGET, COL_NOTE).Value))
+
+    If Len(표이름) = 0 Then
+        ' 전체(수급매칭 기준) - 이어진 상위 표의 ID/이름까지 함께 훑습니다
+        Set 찾은행 = 매칭검색(검색어)
+        표이름 = SH_MATCH
+    Else
+        Set 찾은행 = 컬럼검색(표이름, 컬럼, 검색어)
+    End If
+
+    결과_지우기
     If 찾은행.Count = 0 Then
         조회결과_지우기
         상태쓰기 "'" & 검색어 & "' 로 찾은 항목이 없습니다.", True
@@ -509,8 +544,200 @@ Public Sub 폼_조회()
     For i = 1 To 찾은행.Count
         wsL.Cells(i, LC_RESULT).Value = 찾은행(i)
     Next i
+    wsL.Cells(1, LC_RESTBL).Value = 표이름
     wsL.Cells(1, LC_POS).Value = 1
-    폼_결과표시
+
+    결과_그리기 표이름, 찾은행
+    상태쓰기 Replace(표이름, "T_", "") & " " & 찾은행.Count & "건을 찾았습니다. " & _
+             "아래 목록에서 행을 고르고 [선택 행 불러오기]를 누르세요."
+    On Error Resume Next
+    ws.Activate
+    ws.Cells(필드끝행(ws) + 2, COL_LABEL).Select
+    On Error GoTo 0
+End Sub
+
+' 검색 대상 표 (전체이면 "")
+Private Function 검색대상표() As String
+    Dim ws As Worksheet, v As String
+    Set ws = 시트(FORM_SHEET)
+    If ws Is Nothing Then Exit Function
+    v = Trim$(CStr(ws.Cells(ROW_TARGET, COL_VALUE).Value))
+    If Len(v) = 0 Or v = ALL_TABLES Then Exit Function
+    If Left$(v, 2) = "T_" Then
+        검색대상표 = v
+    Else
+        검색대상표 = "T_" & v
+    End If
+End Function
+
+' 지정한 표(와 컬럼)에서 값을 "포함"하는 행 번호를 모읍니다
+Private Function 컬럼검색(ByVal 표이름 As String, ByVal 컬럼 As String, _
+                          ByVal 검색어 As String) As Collection
+    Dim 결과 As New Collection
+    Dim ws As Worksheet, cols As Variant, i As Long
+    Dim pk열 As Long, r As Long, 끝 As Long, 걸림 As Boolean
+
+    Set ws = 시트(표이름)
+    If ws Is Nothing Then
+        Set 컬럼검색 = 결과
+        Exit Function
+    End If
+    cols = 표_컬럼목록(표이름)
+    pk열 = 헤더열(ws, 표_PK(표이름))
+    끝 = 마지막행(ws, pk열)
+
+    For r = 2 To 끝
+        걸림 = False
+        If Len(컬럼) = 0 Or 컬럼 = ALL_COLS Then
+            For i = LBound(cols) To UBound(cols)
+                If InStr(1, 셀값(ws, r, CStr(cols(i))), 검색어, vbTextCompare) > 0 Then
+                    걸림 = True
+                    Exit For
+                End If
+            Next i
+        Else
+            If InStr(1, 셀값(ws, r, 컬럼), 검색어, vbTextCompare) > 0 Then 걸림 = True
+        End If
+        If 걸림 Then
+            결과.Add r
+            If 결과.Count >= MAX_RESULT Then Exit For
+        End If
+    Next r
+
+    Set 컬럼검색 = 결과
+End Function
+
+'------------------------------------------------------------------------------
+' 검색 결과 목록 (폼 아래에 표로 그립니다)
+'------------------------------------------------------------------------------
+' 입력 항목이 끝나는 행 (결과 목록은 그 아래에 그립니다)
+Private Function 필드끝행(ByVal ws As Worksheet) As Long
+    Dim r As Long, 끝 As Long, k As String
+    If ws Is Nothing Then Exit Function
+    끝 = ws.Cells(ws.Rows.Count, COL_KEY).End(xlUp).Row
+    필드끝행 = FIRST_FIELD_ROW
+    For r = FIRST_FIELD_ROW To 끝
+        k = CStr(ws.Cells(r, COL_KEY).Value)
+        If Left$(k, 2) = "T_" Then 필드끝행 = r
+    Next r
+End Function
+
+Private Sub 결과_지우기()
+    Dim ws As Worksheet, 시작 As Long, 끝 As Long
+    Set ws = 시트(FORM_SHEET)
+    If ws Is Nothing Then Exit Sub
+    시작 = 필드끝행(ws) + 2
+    끝 = ws.Cells(ws.Rows.Count, COL_KEY).End(xlUp).Row
+    If 끝 < 시작 Then 끝 = 시작
+    ws.Range(ws.Rows(시작), ws.Rows(끝 + 5)).Clear
+End Sub
+
+Private Sub 결과_그리기(ByVal 표이름 As String, ByVal 행들 As Collection)
+    Dim ws As Worksheet, wsT As Worksheet, cols As Variant
+    Dim 시작 As Long, 머리 As Long, r As Long, i As Long, j As Long, 원본 As Long
+    Dim 이전 As Boolean
+
+    Set ws = 시트(FORM_SHEET)
+    Set wsT = 시트(표이름)
+    If ws Is Nothing Or wsT Is Nothing Then Exit Sub
+    cols = 표_컬럼목록(표이름)
+
+    이전 = Application.EnableEvents
+    Application.EnableEvents = False
+
+    시작 = 필드끝행(ws) + 2
+    머리 = 시작 + 1
+
+    ' 제목 줄
+    With ws.Range(ws.Cells(시작, COL_LABEL), ws.Cells(시작, COL_LABEL + UBound(cols)))
+        .Interior.Color = RGB(83, 74, 183)
+        .Font.Color = RGB(255, 255, 255)
+        .Font.Bold = True
+    End With
+    ws.Cells(시작, COL_LABEL).Value = "■ 검색 결과 - " & Replace(표이름, "T_", "") & " " & _
+        행들.Count & "건" & IIf(행들.Count >= MAX_RESULT, " (상한 " & MAX_RESULT & "건까지만 표시)", "") & _
+        "   ※ 원하는 행을 클릭한 뒤 [선택 행 불러오기]"
+
+    ' 머리글
+    For j = LBound(cols) To UBound(cols)
+        With ws.Cells(머리, COL_LABEL + j)
+            .Value = cols(j)
+            .Interior.Color = RGB(239, 238, 231)
+            .Font.Bold = True
+            .Font.Size = 9
+            .Borders.LineStyle = xlContinuous
+            .Borders.Color = RGB(214, 210, 196)
+        End With
+        If COL_LABEL + j > COL_NOTE Then ws.Columns(COL_LABEL + j).ColumnWidth = 16
+    Next j
+
+    ' 데이터
+    For i = 1 To 행들.Count
+        원본 = CLng(행들(i))
+        r = 머리 + i
+        ' 이 화면 행이 원본 어느 행인지 기억해 둡니다 (A열, 사실상 숨김)
+        ws.Cells(r, COL_KEY).Value = "ROW|" & 표이름 & "|" & 원본
+        For j = LBound(cols) To UBound(cols)
+            With ws.Cells(r, COL_LABEL + j)
+                .NumberFormatLocal = "@"
+                .Value = 셀값(wsT, 원본, CStr(cols(j)))
+                .Borders.LineStyle = xlContinuous
+                .Borders.Color = RGB(224, 221, 210)
+                .Font.Size = 9
+            End With
+        Next j
+        If i Mod 2 = 0 Then
+            ws.Range(ws.Cells(r, COL_LABEL), ws.Cells(r, COL_LABEL + UBound(cols))).Interior.Color = RGB(250, 249, 245)
+        End If
+    Next i
+
+    Application.EnableEvents = 이전
+End Sub
+
+' 결과 목록에서 지금 선택한 행을 폼으로 불러옵니다
+Public Sub 폼_결과선택()
+    Dim ws As Worksheet, k As String, 조각 As Variant
+    Set ws = 시트(FORM_SHEET)
+    If ws Is Nothing Then Exit Sub
+    If ActiveSheet.Name <> FORM_SHEET Then
+        MsgBox "입력폼 시트에서 결과 행을 먼저 선택해주세요.", vbInformation, "선택 행 불러오기"
+        Exit Sub
+    End If
+
+    k = CStr(ws.Cells(ActiveCell.Row, COL_KEY).Value)
+    If Left$(k, 4) <> "ROW|" Then
+        MsgBox "검색 결과 목록에서 행을 하나 클릭한 뒤 다시 눌러주세요." & vbCrLf & vbCrLf & _
+               "(폼 아래쪽 [검색 결과] 표의 아무 칸이나 선택하면 됩니다)", vbInformation, "선택 행 불러오기"
+        Exit Sub
+    End If
+
+    조각 = Split(k, "|")
+    결과행_불러오기 CStr(조각(1)), CLng(조각(2))
+    결과위치_맞추기 CLng(조각(2))
+End Sub
+
+Private Sub 결과행_불러오기(ByVal 표이름 As String, ByVal 원본행 As Long)
+    Dim wsT As Worksheet
+    Set wsT = 시트(표이름)
+    If wsT Is Nothing Or 원본행 < 2 Then Exit Sub
+
+    폼_값만지우기
+    표값_폼에채우기 표이름, 원본행
+    폼_불러오기 True
+    상태쓰기 Replace(표이름, "T_", "") & " " & 셀값(wsT, 원본행, 표_PK(표이름)) & " 을(를) 불러왔습니다."
+End Sub
+
+' 목록에서 고른 행이 몇 번째 결과인지 위치를 맞춰둡니다 ([이전]/[다음]용)
+Private Sub 결과위치_맞추기(ByVal 원본행 As Long)
+    Dim wsL As Worksheet, i As Long, n As Long
+    Set wsL = 목록시트()
+    n = 조회결과_개수()
+    For i = 1 To n
+        If CLng(Val(wsL.Cells(i, LC_RESULT).Value)) = 원본행 Then
+            wsL.Cells(1, LC_POS).Value = i
+            Exit For
+        End If
+    Next i
 End Sub
 
 Public Sub 폼_다음()
@@ -522,7 +749,9 @@ Public Sub 폼_이전()
 End Sub
 
 Private Sub 조회위치_이동(ByVal 증감 As Long)
-    Dim wsL As Worksheet, 개수 As Long, 현재 As Long
+    Dim wsL As Worksheet, ws As Worksheet, 개수 As Long, 현재 As Long
+    Dim 표이름 As String, 원본 As Long, r As Long, 끝 As Long
+
     Set wsL = 목록시트()
     개수 = 조회결과_개수()
     If 개수 = 0 Then
@@ -533,7 +762,25 @@ Private Sub 조회위치_이동(ByVal 증감 As Long)
     If 현재 < 1 Then 현재 = 1
     If 현재 > 개수 Then 현재 = 개수
     wsL.Cells(1, LC_POS).Value = 현재
-    폼_결과표시
+
+    표이름 = CStr(wsL.Cells(1, LC_RESTBL).Value)
+    If Len(표이름) = 0 Then 표이름 = SH_MATCH
+    원본 = CLng(Val(wsL.Cells(현재, LC_RESULT).Value))
+    결과행_불러오기 표이름, 원본
+
+    ' 결과 목록에서 해당 줄로 커서를 옮겨 어디를 보고 있는지 알 수 있게
+    Set ws = 시트(FORM_SHEET)
+    끝 = ws.Cells(ws.Rows.Count, COL_KEY).End(xlUp).Row
+    On Error Resume Next
+    ws.Activate
+    For r = 필드끝행(ws) + 2 To 끝
+        If CStr(ws.Cells(r, COL_KEY).Value) = "ROW|" & 표이름 & "|" & 원본 Then
+            ws.Cells(r, COL_LABEL).Select
+            Exit For
+        End If
+    Next r
+    On Error GoTo 0
+    상태쓰기 "결과 " & 현재 & " / " & 개수 & "건 - " & Replace(표이름, "T_", "")
 End Sub
 
 Private Function 조회결과_개수() As Long
@@ -550,6 +797,7 @@ Private Sub 조회결과_지우기()
     If wsL Is Nothing Then Exit Sub
     wsL.Columns(LC_RESULT).ClearContents
     wsL.Cells(1, LC_POS).ClearContents
+    wsL.Cells(1, LC_RESTBL).ClearContents
 End Sub
 
 ' 검색: 수급매칭을 기준으로, 그와 이어진 상위 표의 ID/이름까지 뒤져서 찾습니다
@@ -607,27 +855,6 @@ Private Function 매칭검색(ByVal 검색어 As String) As Collection
 
     Set 매칭검색 = 결과
 End Function
-
-' 현재 위치의 수급매칭 행을 폼 전체에 펼쳐 보여줍니다
-Private Sub 폼_결과표시()
-    Dim wsL As Worksheet, wsM As Worksheet
-    Dim 위치 As Long, 개수 As Long, 행 As Long
-
-    Set wsL = 목록시트()
-    개수 = 조회결과_개수()
-    If 개수 = 0 Then Exit Sub
-    위치 = CLng(Val(wsL.Cells(1, LC_POS).Value))
-    If 위치 < 1 Then 위치 = 1
-    행 = CLng(Val(wsL.Cells(위치, LC_RESULT).Value))
-    If 행 < 2 Then Exit Sub
-
-    Set wsM = 시트(SH_MATCH)
-    폼_값만지우기
-    표값_폼에채우기 SH_MATCH, 행
-    폼_불러오기 True
-
-    상태쓰기 "조회 결과 " & 위치 & " / " & 개수 & "건 - 수급매칭 " & 셀값(wsM, 행, "수급매칭ID")
-End Sub
 
 Private Sub 표값_폼에채우기(ByVal 시트명 As String, ByVal 행 As Long)
     Dim ws As Worksheet, cols As Variant, i As Long
@@ -748,8 +975,67 @@ Public Sub 폼_목록갱신()
     ID목록쓰기 wsL, LC_SITE, "목록_전기사용지", ID수집(SH_SITE, "", "")
     ID목록쓰기 wsL, LC_MATCH, "목록_수급매칭", ID수집(SH_MATCH, "", "")
 
+    검색대상목록갱신
     폼_연동목록갱신
     Application.ScreenUpdating = True
+End Sub
+
+' 검색 대상 표/컬럼 드롭다운을 만듭니다 (표를 바꾸면 컬럼 목록도 따라 바뀝니다)
+Public Sub 검색대상목록갱신()
+    Dim wsL As Worksheet, wsF As Worksheet, t As Variant
+    Dim 표목록 As New Collection, 컬럼목록 As New Collection
+    Dim 표이름 As String, cols As Variant, i As Long
+
+    Set wsL = 목록시트()
+    Set wsF = 시트(FORM_SHEET)
+    If wsF Is Nothing Then Exit Sub
+
+    표목록.Add ALL_TABLES
+    For Each t In 표_순서()
+        표목록.Add Replace(CStr(t), "T_", "")
+    Next t
+    ID목록쓰기 wsL, LC_SRCH_T, "목록_검색표", 표목록
+
+    컬럼목록.Add ALL_COLS
+    표이름 = 검색대상표()
+    If Len(표이름) > 0 Then
+        cols = 표_컬럼목록(표이름)
+        For i = LBound(cols) To UBound(cols)
+            컬럼목록.Add CStr(cols(i))
+        Next i
+    End If
+    ID목록쓰기 wsL, LC_SRCH_C, "목록_검색컬럼", 컬럼목록
+
+    검색유효성 wsF, ROW_TARGET, COL_VALUE, "목록_검색표"
+    검색유효성 wsF, ROW_TARGET, COL_NOTE, "목록_검색컬럼"
+
+    ' 표를 바꿔서 지금 컬럼이 그 표에 없으면 (모든 컬럼)으로 되돌립니다
+    If Len(표이름) = 0 Then
+        wsF.Cells(ROW_TARGET, COL_NOTE).Value = ALL_COLS
+    Else
+        Dim 현재컬럼 As String, 있음 As Boolean
+        현재컬럼 = Trim$(CStr(wsF.Cells(ROW_TARGET, COL_NOTE).Value))
+        있음 = (현재컬럼 = ALL_COLS)
+        cols = 표_컬럼목록(표이름)
+        For i = LBound(cols) To UBound(cols)
+            If CStr(cols(i)) = 현재컬럼 Then 있음 = True
+        Next i
+        If Not 있음 Then wsF.Cells(ROW_TARGET, COL_NOTE).Value = ALL_COLS
+    End If
+End Sub
+
+Private Sub 검색유효성(ByVal wsF As Worksheet, ByVal r As Long, ByVal c As Long, _
+                       ByVal 이름 As String)
+    On Error Resume Next
+    With wsF.Cells(r, c).Validation
+        .Delete
+        .Add Type:=xlValidateList, AlertStyle:=xlValidAlertInformation, _
+             Operator:=xlBetween, Formula1:="=" & 이름
+        .IgnoreBlank = True
+        .InCellDropdown = True
+        .ShowError = False
+    End With
+    On Error GoTo 0
 End Sub
 
 ' 상위에서 고른 값에 따라 하위 목록을 좁혀 다시 겁니다
@@ -856,9 +1142,22 @@ Public Sub 폼_변경감지(ByVal Target As Range)
     Set ws = 시트(FORM_SHEET)
     If ws Is Nothing Then Exit Sub
     If Target.Worksheet.Name <> FORM_SHEET Then Exit Sub
-    If Target.Column <> COL_VALUE Then Exit Sub
     If Target.Cells.Count > 1 Then Exit Sub
+
+    ' 검색 대상 표를 바꾸면 컬럼 드롭다운을 그 표의 것으로 바꿔줍니다
+    If Target.Row = ROW_TARGET And Target.Column = COL_VALUE Then
+        이전 = Application.EnableEvents
+        Application.EnableEvents = False
+        On Error Resume Next
+        검색대상목록갱신
+        On Error GoTo 0
+        Application.EnableEvents = 이전
+        Exit Sub
+    End If
+
+    If Target.Column <> COL_VALUE Then Exit Sub
     If Len(CStr(ws.Cells(Target.Row, COL_KEY).Value)) = 0 Then Exit Sub
+    If Left$(CStr(ws.Cells(Target.Row, COL_KEY).Value), 4) = "ROW|" Then Exit Sub
 
     이전 = Application.EnableEvents
     Application.EnableEvents = False
@@ -1190,6 +1489,7 @@ Public Sub 폼_삭제()
     If 답 <> vbYes Then Exit Sub
 
     wsM.Rows(r).Delete
+    결과_지우기
     조회결과_지우기                     ' 행 번호가 밀리므로 조회 결과는 무효
     폼_목록갱신
     상태쓰기 "수급매칭 " & 매칭ID & " 을(를) 삭제했습니다. 다시 [조회]해주세요."
