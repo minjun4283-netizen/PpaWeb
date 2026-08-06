@@ -203,6 +203,21 @@ td.num,th.num{text-align:right;font-family:ui-monospace,SFMono-Regular,Consolas,
 .lookuphead,.homehead{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
 .homehead{margin-bottom:14px}
 
+/* 관계형 탐색 */
+.colchip{font-size:12.5px;font-weight:600;color:var(--sub);background:var(--paper);border:1px solid var(--line);
+  border-radius:20px;padding:6px 13px;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.colchip:hover{border-color:var(--teal);color:var(--teal-d)}
+.colchip.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.colchip.transit{background:var(--paper);border-style:dashed;color:var(--sub);opacity:.8}
+.chipdist{font-size:10px;font-weight:700;opacity:.75}
+.colgroup{padding:8px 0;border-bottom:1px solid var(--line)}
+.colgroup:last-child{border-bottom:none}
+.colgrouphead{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;margin-bottom:7px}
+.thtable{display:block;font-size:9.5px;font-weight:700;color:var(--teal-d);letter-spacing:.02em;margin-bottom:1px}
+td.cellmiss{color:var(--mute);text-align:center}
+tbody tr.rowmiss td{background:var(--amber-w)}
+.tbl-wrap.stickyfirst tbody tr.rowmiss td:first-child{background:var(--amber-w)}
+
 /* 홈 위젯 */
 .unsecrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer}
 .unsecrow:last-child{border-bottom:none}.unsecrow:hover{background:var(--paper)}
@@ -861,6 +876,314 @@ function tCompare(){
       <button class="btn danger" onclick="state.pinned=[];render()">전체 해제</button></div></div>${panels}</section>`;
 }
 
+/* ── 관계형 탐색 (기준 표 · 출력 컬럼 직접 선택 + 누락 데이터) ─────────────
+   엑셀에서 VLOOKUP을 여러 번 걸어 만들던 "여러 표를 합친 목록"을 화면에서
+   바로 만듭니다. 기준 표를 정하고 연결할 표를 고르면 FK 경로를 따라 조인하며,
+   연결 상대가 없는 행도 빈칸으로 남겨두기 때문에(LEFT JOIN) "구매계약이 없는
+   발전소" 같은 누락 데이터를 그대로 찾아낼 수 있습니다. */
+
+/* 표 사이 연결 그래프 — 부모(참조 대상)·자식(참조하는 쪽) 양방향 */
+const adj={};
+DATA.tables.forEach(t=>adj[t.key]=[]);
+edges.forEach(e=>{
+  adj[e.table].push({to:e.ref,dir:'parent',col:e.col});
+  adj[e.ref].push({to:e.table,dir:'child',col:e.col});
+});
+/* 기준 표에서 각 표까지의 최단 경로(거쳐야 하는 표 포함) */
+function joinPaths(base){
+  const prev={},dist={};dist[base]=0;
+  const q=[base];
+  while(q.length){
+    const cur=q.shift();
+    (adj[cur]||[]).forEach(e=>{
+      if(dist[e.to]===undefined){
+        dist[e.to]=dist[cur]+1;prev[e.to]={from:cur,dir:e.dir,col:e.col};q.push(e.to);
+      }});
+  }
+  return {prev,dist};
+}
+/* FK 값 → 자식 행들 (조인 속도용 색인) */
+const _fkIdx={};
+function fkIndex(tableKey,col){
+  const k=tableKey+'|'+col;
+  if(_fkIdx[k]) return _fkIdx[k];
+  const m={};
+  byKey[tableKey].rows.forEach(r=>{
+    const v=String(r.cells[col]??'');
+    if(v!=='')(m[v]=m[v]||[]).push(r);
+  });
+  return _fkIdx[k]=m;
+}
+const EXPLORE_CAP=20000;
+
+function initExplore(base){
+  const t=byKey[base];
+  state.explore={base:base,tables:[],cols:t.columns.slice(0,4).map(c=>base+'|'+c),
+    q:'',sort:null,page:1,missing:''};
+}
+function setExploreBase(k){initExplore(k);render();}
+function exploreEffective(){
+  /* 사용자가 고른 표 + 거기까지 가는 데 필요한 경유 표 */
+  const ex=state.explore,{prev,dist}=joinPaths(ex.base);
+  const need=new Set([ex.base]);
+  ex.tables.forEach(tk=>{
+    if(dist[tk]===undefined) return;
+    let cur=tk;
+    while(cur!==ex.base&&prev[cur]){need.add(cur);cur=prev[cur].from;}
+  });
+  return [...need].sort((a,b)=>(dist[a]||0)-(dist[b]||0));
+}
+function toggleExploreTable(k){
+  const ex=state.explore;
+  const i=ex.tables.indexOf(k);
+  if(i>=0){
+    ex.tables.splice(i,1);
+    /* 더 이상 쓰이지 않는 표의 출력 컬럼은 같이 정리 */
+    const keep=new Set(exploreEffective());
+    ex.cols=ex.cols.filter(c=>keep.has(c.split('|')[0]));
+    if(ex.missing==='missing:'+k) ex.missing='';
+  }else{
+    ex.tables.push(k);
+    const t=byKey[k];
+    /* 새로 붙인 표는 알아보기 쉬운 컬럼 2개를 기본으로 보여줍니다 */
+    const pick=(NAME_COLS[k]||[t.columns[1]||t.pk]).slice(0,2);
+    [t.pk].concat(pick).forEach(c=>{
+      if(c&&!ex.cols.includes(k+'|'+c)) ex.cols.push(k+'|'+c);});
+  }
+  ex.page=1;render();
+}
+function toggleExploreCol(tk,col){
+  const ex=state.explore,id=tk+'|'+col;
+  const i=ex.cols.indexOf(id);
+  if(i>=0) ex.cols.splice(i,1); else ex.cols.push(id);
+  ex.page=1;render();
+}
+function exploreColsAll(tk,on){
+  const ex=state.explore,t=byKey[tk];
+  t.columns.forEach(c=>{
+    const id=tk+'|'+c,i=ex.cols.indexOf(id);
+    if(on&&i<0) ex.cols.push(id);
+    if(!on&&i>=0) ex.cols.splice(i,1);});
+  ex.page=1;render();
+}
+function setExploreQ(v){state.explore.q=v;state.explore.page=1;render();}
+function setExploreMissing(v){state.explore.missing=v;state.explore.page=1;render();}
+function setExplorePage(p){state.explore.page=p;render();}
+function doExploreSort(id){
+  const ex=state.explore;
+  ex.sort=(ex.sort&&ex.sort.key===id)?{key:id,dir:-ex.sort.dir}:{key:id,dir:1};
+  ex.page=1;render();
+}
+/* 기준 표의 각 행을 시작으로, 선택한 표들을 경로 순서대로 붙여나갑니다.
+   상대가 없으면 null로 남겨 "누락"을 볼 수 있게 합니다(LEFT JOIN). */
+function buildExplore(){
+  const ex=state.explore;
+  const eff=exploreEffective();
+  const {prev}=joinPaths(ex.base);
+  let out=byKey[ex.base].rows.map(r=>{const o={};o[ex.base]=r;return o;});
+  let truncated=false;
+  eff.filter(tk=>tk!==ex.base).forEach(tk=>{
+    const step=prev[tk];if(!step) return;
+    const parentT=byKey[step.from],childT=byKey[tk];
+    const next=[];
+    out.forEach(rec=>{
+      const src=rec[step.from];
+      let matches=[];
+      if(src){
+        if(step.dir==='child'){
+          /* tk 가 step.from 을 참조 (1:N) */
+          matches=(fkIndex(tk,step.col)[String(src.cells[parentT.pk]??'')]||[]);
+        }else{
+          /* step.from 이 tk 를 참조 (N:1) */
+          const v=String(src.cells[step.col]??'');
+          const m=v!==''&&rowIndex[tk]?rowIndex[tk][v]:null;
+          matches=m?[m]:[];
+        }
+      }
+      if(!matches.length){const o=Object.assign({},rec);o[tk]=null;next.push(o);}
+      else matches.forEach(m=>{
+        if(next.length>=EXPLORE_CAP){truncated=true;return;}
+        const o=Object.assign({},rec);o[tk]=m;next.push(o);});
+    });
+    out=next;
+  });
+  /* 누락 필터 */
+  const joined=eff.filter(tk=>tk!==ex.base);
+  if(ex.missing==='any'&&joined.length) out=out.filter(rec=>joined.some(tk=>!rec[tk]));
+  else if(ex.missing==='none'&&joined.length) out=out.filter(rec=>joined.every(tk=>!!rec[tk]));
+  else if(ex.missing.indexOf('missing:')===0){
+    const tk=ex.missing.slice(8);
+    out=out.filter(rec=>!rec[tk]);
+  }
+  /* 표시 컬럼 — 고른 순서가 아니라 "표 순서 → 그 표의 원래 컬럼 순서"로 정렬해
+     클릭 순서와 무관하게 항상 같은 모양으로 나오게 합니다. */
+  const cols=ex.cols.filter(id=>eff.includes(id.split('|')[0])).sort((a,b)=>{
+    const [at,ac]=a.split('|'),[bt,bc]=b.split('|');
+    if(at!==bt) return eff.indexOf(at)-eff.indexOf(bt);
+    return byKey[at].columns.indexOf(ac)-byKey[bt].columns.indexOf(bc);});
+  /* 검색 (표시 중인 컬럼 기준) */
+  const q=(ex.q||'').trim().toLowerCase();
+  if(q) out=out.filter(rec=>cols.some(id=>{
+    const [tk,c]=id.split('|');
+    return String((rec[tk]&&rec[tk].cells[c])??'').toLowerCase().includes(q);}));
+  /* 정렬 */
+  if(ex.sort){
+    const [stk,sc]=ex.sort.key.split('|');
+    out=[...out].sort((a,b)=>{
+      const av=(a[stk]&&a[stk].cells[sc])??'',bv=(b[stk]&&b[stk].cells[sc])??'';
+      if(av===''&&bv!=='') return 1;
+      if(bv===''&&av!=='') return -1;
+      const an=Number(av),bn=Number(bv);
+      const cmp=(av!==''&&bv!==''&&!isNaN(an)&&!isNaN(bn))?an-bn:String(av).localeCompare(String(bv),'ko');
+      return ex.sort.dir*cmp;});
+  }
+  return {rows:out,cols,eff,joined,truncated};
+}
+function exploreExport(){
+  const {rows,cols}=buildExplore();
+  const head=cols.map(id=>{const [tk,c]=id.split('|');return byKey[tk].label+'.'+c;});
+  const body=rows.map(rec=>cols.map(id=>{
+    const [tk,c]=id.split('|');
+    return String((rec[tk]&&rec[tk].cells[c])??'');}));
+  return {head,body};
+}
+function exploreName(){
+  const ex=state.explore;
+  const miss=ex.missing.indexOf('missing:')===0?('_'+byKey[ex.missing.slice(8)].label+'없음')
+    :(ex.missing==='any'?'_누락있음':(ex.missing==='none'?'_전부연결':''));
+  return 'PPA_탐색_'+byKey[ex.base].label+miss;
+}
+function exploreDesc(){
+  const ex=state.explore,{joined}=buildExplore();
+  const parts=['기준 '+byKey[ex.base].label];
+  if(joined.length) parts.push('연결 '+joined.map(k=>byKey[k].label).join('+'));
+  if(ex.missing==='any') parts.push('누락 있는 행만');
+  else if(ex.missing==='none') parts.push('전부 연결된 행만');
+  else if(ex.missing.indexOf('missing:')===0) parts.push(byKey[ex.missing.slice(8)].label+' 없음');
+  if((ex.q||'').trim()) parts.push('검색 "'+ex.q.trim()+'"');
+  return parts.join(' · ');
+}
+function downloadExplore(fmt){
+  const {head,body}=exploreExport();
+  if(!head.length){toast('출력할 컬럼을 먼저 선택해주세요.');return;}
+  const n=exploreName();
+  if(fmt==='csv') downloadCsvRows(n,head,body);
+  else if(fmt==='md') downloadMdRows(n,head,body,['- 조건: '+exploreDesc()]);
+  else downloadXlsxRows(n,head,body);
+}
+/* 스키마에서 자동으로 뽑은 "빠진 것 찾기" 질문들 */
+function missingPresets(){
+  return edges.map(e=>({
+    base:e.ref,child:e.table,
+    label:`${byKey[e.ref].label} 중 ${byKey[e.table].label} 없음`}));
+}
+function applyMissingPreset(base,child){
+  initExplore(base);
+  const ex=state.explore;
+  ex.tables=[child];
+  const ct=byKey[child];
+  ex.cols=ex.cols.concat([child+'|'+ct.pk]);
+  ex.missing='missing:'+child;
+  state.tab='탐색';render();
+}
+
+function tExplore(){
+  if(!state.explore) initExplore(DATA.tables[0].key);
+  const ex=state.explore;
+  const {rows,cols,eff,joined,truncated}=buildExplore();
+  const {dist}=joinPaths(ex.base);
+  const total=rows.length;
+  const pages=Math.max(1,Math.ceil(total/state.pageSize));
+  const page=Math.min(Math.max(1,ex.page||1),pages);
+  ex.page=page;
+  const pageRows=rows.slice((page-1)*state.pageSize,page*state.pageSize);
+
+  const baseTabs=DATA.tables.map(t=>
+    `<button class="subtab ${t.key===ex.base?'on':''}" onclick="setExploreBase('${jsq(t.key)}')">${esc(t.label)}</button>`).join('');
+  const joinChips=DATA.tables.filter(t=>t.key!==ex.base&&dist[t.key]!==undefined).map(t=>{
+    const on=ex.tables.includes(t.key);
+    const transit=!on&&eff.includes(t.key);
+    return `<button class="colchip ${on?'on':(transit?'transit':'')}" onclick="toggleExploreTable('${jsq(t.key)}')"
+      title="${transit?'다른 표를 연결하느라 자동으로 거쳐가는 표':(dist[t.key]+'단계 떨어져 있음')}">${esc(t.label)}<span class="chipdist">${dist[t.key]}</span></button>`;
+  }).join('');
+  const colGroups=eff.map(tk=>{
+    const t=byKey[tk];
+    const chips=t.columns.map(c=>
+      `<button class="colchip ${ex.cols.includes(tk+'|'+c)?'on':''}" onclick="toggleExploreCol('${jsq(tk)}','${jsq(c)}')">${esc(c)}</button>`).join('');
+    return `<div class="colgroup"><div class="colgrouphead">${esc(t.label)}${tk===ex.base?' <span class="badge mute">기준</span>':''}
+      <button class="btn" style="padding:3px 8px;font-size:11.5px" onclick="exploreColsAll('${jsq(tk)}',true)">전체</button>
+      <button class="btn" style="padding:3px 8px;font-size:11.5px" onclick="exploreColsAll('${jsq(tk)}',false)">해제</button></div>
+      <div class="chiprow">${chips}</div></div>`;}).join('');
+  const missOpts=[['','연결 여부 상관없이 전체'],['any','한 곳이라도 빠진 행만 (누락)'],['none','전부 연결된 행만']]
+    .concat(joined.map(k=>['missing:'+k,byKey[k].label+'이(가) 없는 행만']));
+  const missSel=`<select class="filtersel" onchange="setExploreMissing(this.value)">${
+    missOpts.map(([v,l])=>`<option value="${esc(v)}" ${ex.missing===v?'selected':''}>${esc(l)}</option>`).join('')}</select>`;
+  const presets=missingPresets().map(p=>
+    `<button class="btn" onclick="applyMissingPreset('${jsq(p.base)}','${jsq(p.child)}')">${esc(p.label)}</button>`).join('');
+
+  const head=cols.map(id=>{
+    const [tk,c]=id.split('|');
+    const ar=ex.sort&&ex.sort.key===id?`<span class="ar">${ex.sort.dir>0?'▲':'▼'}</span>`:'';
+    return `<th class="${isNumCol(c)?'num':''}" onclick="doExploreSort('${jsq(id)}')">
+      <span class="thtable">${esc(byKey[tk].label)}</span>${esc(c)}${ar}</th>`;}).join('');
+  const body=pageRows.map(rec=>{
+    const missAny=joined.some(tk=>!rec[tk]);
+    const tds=cols.map(id=>{
+      const [tk,c]=id.split('|');
+      if(!rec[tk]) return '<td class="cellmiss">—</td>';
+      return `<td class="${isNumCol(c)?'num':''}">${cellHtml(byKey[tk],c,rec[tk].cells[c])}</td>`;}).join('');
+    const baseIdx=rowPos[ex.base]?rowPos[ex.base][String(rec[ex.base].cells[byKey[ex.base].pk])]:undefined;
+    const click=baseIdx!==undefined?` onclick="openDetail('${jsq(ex.base)}',${baseIdx})"`:'';
+    return `<tr class="${missAny?'rowmiss':''}${click?' clickrow':''}"${click}>${tds}</tr>`;}).join('')
+    ||`<tr><td class="emptyrow" colspan="${Math.max(1,cols.length)}">조건에 맞는 데이터가 없습니다.</td></tr>`;
+
+  const missCount=joined.length?rows.filter(rec=>joined.some(tk=>!rec[tk])).length:0;
+  const pagerHtml=(()=>{
+    if(pages<=1) return `<div class="pager"><span class="pginfo">${nf(total,0)}건 전체 표시</span>
+      <select class="filtersel" onchange="setPageSize(this.value)">${pageSizeOpts()}</select></div>`;
+    const btn=(p,l,d,on)=>`<button class="pgbtn${on?' on':''}" ${d?'disabled':''} onclick="setExplorePage(${p})">${l}</button>`;
+    const nums=[];let last=0;
+    for(let p=1;p<=pages;p++){
+      if(p===1||p===pages||(p>=page-2&&p<=page+2)){
+        if(last&&p-last>1) nums.push('<span class="pgdots">…</span>');
+        nums.push(btn(p,String(p),false,p===page));last=p;}}
+    const from=(page-1)*state.pageSize+1,to=Math.min(page*state.pageSize,total);
+    return `<div class="pager">${btn(1,'«',page===1)}${btn(page-1,'‹',page===1)}${nums.join('')}${btn(page+1,'›',page===pages)}${btn(pages,'»',page===pages)}
+      <span class="pginfo">${nf(from,0)}–${nf(to,0)} / ${nf(total,0)}건</span>
+      <select class="filtersel" onchange="setPageSize(this.value)">${pageSizeOpts()}</select></div>`;})();
+
+  return `<section>${printHead('관계형 데이터 탐색',exploreDesc())}
+    <div class="kpis">
+      ${kpi('결과 행 수',nf(total,0),exploreDesc(),'accent')}
+      ${kpi('출력 컬럼',nf(cols.length,0),cols.length?'선택한 컬럼만 표시':'컬럼을 선택하세요')}
+      ${kpi('연결된 표',nf(joined.length,0),joined.length?joined.map(k=>byKey[k].label).join(' · '):'기준 표만')}
+      ${kpi('누락 있는 행',nf(missCount,0),joined.length?'연결 상대가 없는 행':'연결할 표를 골라주세요',missCount>0?'warn':'',
+        missCount>0?"setExploreMissing('any')":'')}
+    </div>
+    ${panel('빠른 조회 — 자주 찾는 누락 데이터','누르면 아래 설정이 자동으로 맞춰집니다',`<div class="chiprow">${presets}</div>`)}
+    ${panel('1. 기준 표','이 표의 각 행이 결과의 기준이 됩니다',`<div class="subtabbar">${baseTabs}</div>`)}
+    ${panel('2. 연결할 표','숫자는 기준 표에서 몇 단계 떨어져 있는지 · 회색은 경로상 자동으로 거쳐가는 표',
+      joinChips?`<div class="chiprow">${joinChips}</div>`:'<div class="nocand">연결할 수 있는 표가 없습니다.</div>')}
+    ${panel('3. 출력 컬럼','보고 싶은 컬럼만 눌러서 켜고 끄세요',colGroups)}
+    ${panel('4. 결과',truncated?`행이 너무 많아 ${nf(EXPLORE_CAP,0)}건에서 끊었습니다 — 조건을 좁혀주세요`:'',
+      `<div class="toolbar">
+        <input id="exploreSearch" class="search" placeholder="결과에서 검색…" value="${esc(ex.q||'')}" oninput="setExploreQ(this.value)">
+        ${missSel}
+        <details class="drop"><summary>내려받기</summary><div class="dropbody right">
+          <div class="nocand" style="padding:2px 2px 8px">현재 결과 <b>${nf(total,0)}건</b> · 선택 컬럼 ${cols.length}개</div>
+          <button class="dlopt" onclick="downloadExplore('csv')">CSV (.csv)<small>엑셀에서 바로 열림 (UTF-8 BOM)</small></button>
+          <button class="dlopt" onclick="downloadExplore('xlsx')">Excel (.xlsx)<small>서식 있는 실제 엑셀 파일</small></button>
+          <button class="dlopt" onclick="downloadExplore('md')">Markdown (.md)<small>메일·보고서 붙여넣기용</small></button>
+          <button class="dlopt" onclick="window.print()">PDF / 인쇄<small>브라우저 인쇄창에서 "PDF로 저장"</small></button>
+        </div></details>
+        <button class="btn" onclick="window.print()">인쇄 / PDF</button>
+        <span class="count">${nf(total,0)}건</span>
+      </div>
+      ${cols.length?`<div class="tbl-wrap stickyfirst"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${pagerHtml}`
+        :'<div class="nocand">출력할 컬럼을 하나 이상 선택해주세요.</div>'}`)}
+    </section>`;
+}
+
 /* ── 홈 (보고용 요약) ───────────────────────────────────────────────────── */
 function sumCol(tk,col){const t=byKey[tk];if(!t) return 0;
   return t.rows.reduce((s,r)=>{const n=Number(r.cells[col]);return s+(isNaN(n)?0:n);},0);}
@@ -1074,23 +1397,33 @@ function downloadMenu(k){
     <button class="dlopt" onclick="downloadMd('${jsq(k)}')">Markdown (.md)<small>메일·위키·보고서 붙여넣기용</small></button>
     <button class="dlopt" onclick="window.print()">PDF / 인쇄<small>브라우저 인쇄창에서 "PDF로 저장"</small></button>`;
 }
-function downloadCsv(k){
-  const t=byKey[k],{cols,rows}=exportRows(t);
+/* 아래 3개는 "컬럼 이름 배열 + 문자열 행 배열"만 받으므로 표 탭과 탐색 탭이
+   똑같이 씁니다 (탐색 탭은 여러 표를 조인한 결과를 그대로 넘깁니다). */
+function downloadCsvRows(name,cols,rows){
   const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
   const csv=[cols.map(q).join(',')].concat(rows.map(r=>r.map(q).join(','))).join('\r\n');
-  saveBlob(new Blob(['﻿'+csv,],{type:'text/csv;charset=utf-8'}),`PPA_${t.label}_${stamp()}.csv`);
+  saveBlob(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}),`${name}_${stamp()}.csv`);
+}
+function downloadMdRows(name,cols,rows,meta){
+  const cell=s=>String(s).replace(/\|/g,'\\|');
+  const md=[`# ${name}`,'',`- 기준 시각: ${(DATA.generated_at||'').replace('T',' ')}`]
+    .concat(meta||[])
+    .concat([`- 건수: ${rows.length}건`,'',
+      '| '+cols.map(cell).join(' | ')+' |',
+      '|'+cols.map(()=>'---').join('|')+'|'])
+    .concat(rows.map(r=>'| '+r.map(cell).join(' | ')+' |')).join('\n');
+  saveBlob(new Blob([md],{type:'text/markdown;charset=utf-8'}),`${name}_${stamp()}.md`);
+}
+function downloadXlsxRows(name,cols,rows){
+  saveBlob(buildXlsx([{name:name,cols,rows}]),`${name}_${stamp()}.xlsx`);
+}
+function downloadCsv(k){
+  const t=byKey[k],{cols,rows}=exportRows(t);
+  downloadCsvRows(`PPA_${t.label}`,cols,rows);
 }
 function downloadMd(k){
   const t=byKey[k],{cols,rows}=exportRows(t);
-  const cell=s=>String(s).replace(/\|/g,'\\|');
-  const md=[`# PPA ${t.label}`,'',
-    `- 기준 시각: ${(DATA.generated_at||'').replace('T',' ')}`,
-    `- 조건: ${filterDescription(k)}`,
-    `- 건수: ${rows.length}건`,'',
-    '| '+cols.map(cell).join(' | ')+' |',
-    '|'+cols.map(()=>'---').join('|')+'|'
-  ].concat(rows.map(r=>'| '+r.map(cell).join(' | ')+' |')).join('\n');
-  saveBlob(new Blob([md],{type:'text/markdown;charset=utf-8'}),`PPA_${t.label}_${stamp()}.md`);
+  downloadMdRows(`PPA ${t.label}`,cols,rows,[`- 조건: ${filterDescription(k)}`]);
 }
 
 /* 최소 구현 XLSX 작성기 — 외부 라이브러리 없이 압축 없는(store) ZIP을 직접
@@ -1287,6 +1620,7 @@ function parseHash(){
 function renderTabs(){
   const tabs=[['홈','홈','']];
   tabs.push(['관계조회','관계조회','']);
+  tabs.push(['탐색','탐색','']);
   if(state.pinned.length) tabs.push(['비교','비교 ('+state.pinned.length+')','']);
   DATA.tables.forEach(t=>{
     const e=t.rows.filter(r=>(r.error_cols||[]).length>0).length;
@@ -1295,7 +1629,7 @@ function renderTabs(){
   tabs.push(['변경','변경',chgTot?`<span class="tabdot info">${chgTot}</span>`:'']);
   tabs.push(['검증','검증',DATA.validation.total_errors?`<span class="tabdot">${DATA.validation.total_errors}</span>`:'']);
   document.getElementById('tabbar').innerHTML=tabs.map(([k,l,dot])=>
-    `<button class="tab${(k==='홈'||k==='관계조회'||k==='비교')?' hl':''}${k===state.tab?' on':''}" data-k="${esc(k)}" onclick="state.tab='${jsq(k)}';render()">${esc(l)}${dot}</button>`).join('');
+    `<button class="tab${(k==='홈'||k==='관계조회'||k==='탐색'||k==='비교')?' hl':''}${k===state.tab?' on':''}" data-k="${esc(k)}" onclick="state.tab='${jsq(k)}';render()">${esc(l)}${dot}</button>`).join('');
 }
 function render(){
   renderTabs();
@@ -1312,6 +1646,7 @@ function render(){
   let html;
   if(state.tab==='홈') html=tHome();
   else if(state.tab==='관계조회') html=tLookup();
+  else if(state.tab==='탐색') html=tExplore();
   else if(state.tab==='비교') html=tCompare();
   else if(state.tab==='변경') html=tChanges();
   else if(state.tab==='검증') html=tVerify();
