@@ -10,6 +10,11 @@
 서버 없이 이 스크립트를 실행할 때마다 최신 상태의 HTML 파일 하나가 생성됩니다.
 그 파일을 팀원들과 공유(사내망 공유폴더, 메일, Teams 등)하면 됩니다. 편집은
 여전히 엑셀에서 하고, 바뀐 내용을 반영하려면 이 스크립트를 다시 실행하세요.
+
+실행할 때마다 데이터 스냅샷(<출력파일>_snapshot.json)을 같은 폴더에 남깁니다.
+다음번에 실행하면 그 스냅샷과 비교해서 "지난번 대비 추가/삭제/수정된 항목"이
+대시보드의 [변경] 탭과 표 화면에 자동으로 표시됩니다. 별도 설정은 필요 없고,
+끄고 싶으면 --no-snapshot 을 붙이면 됩니다.
 """
 import argparse
 import datetime
@@ -22,13 +27,25 @@ import sys
 # import하려면 이 폴더를 직접 sys.path에 추가해줘야 합니다.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from ppa_changes import compute_changes, load_snapshot, save_snapshot
 from ppa_dashboard_render import render_dashboard
 from ppa_loader import load_from_csv_dir, load_from_xlsm
 from ppa_schema import TABLES, validate
 
 
-def build_payload(tables_data: dict[str, list[dict]], is_demo: bool) -> dict:
+def default_snapshot_path(out_path: str) -> str:
+    stem, _ = os.path.splitext(out_path)
+    return stem + "_snapshot.json"
+
+
+def build_payload(
+    tables_data: dict[str, list[dict]],
+    is_demo: bool,
+    changes: dict | None = None,
+    marks: dict | None = None,
+) -> dict:
     validation = validate(tables_data)
+    marks = marks or {}
 
     tables_payload = []
     for t in TABLES:
@@ -36,7 +53,14 @@ def build_payload(tables_data: dict[str, list[dict]], is_demo: bool) -> dict:
         rows_payload = []
         for i, r in enumerate(rows):
             err_cols = sorted(validation["error_cols"].get((t.key, i), []))
-            rows_payload.append({"cells": {c: r.get(c, "") for c in t.columns}, "error_cols": err_cols})
+            mark = marks.get((t.key, i))
+            row_obj = {"cells": {c: r.get(c, "") for c in t.columns}, "error_cols": err_cols}
+            if mark:
+                row_obj["change"] = mark["change"]
+                if mark["changed_cols"]:
+                    row_obj["changed_cols"] = mark["changed_cols"]
+                    row_obj["prev"] = mark["prev"]
+            rows_payload.append(row_obj)
         tables_payload.append(
             {
                 "key": t.key,
@@ -59,6 +83,7 @@ def build_payload(tables_data: dict[str, list[dict]], is_demo: bool) -> dict:
             "by_item": validation["summary_by_item"],
             "errors": validation["errors"],
         },
+        "changes": changes or {"has_prev": False},
     }
 
 
@@ -67,6 +92,15 @@ def main():
     parser.add_argument("--xlsm", help="원본 xlsm 파일 경로 (openpyxl 필요)")
     parser.add_argument("--csv-dir", help="표별 CSV 파일들이 있는 폴더 (T_발전소.csv 등)")
     parser.add_argument("--out", default="PPA현황.html", help="출력 HTML 파일명 (기본: PPA현황.html)")
+    parser.add_argument(
+        "--prev",
+        help="비교할 이전 스냅샷 파일 경로 (기본: <출력파일>_snapshot.json 을 자동 사용)",
+    )
+    parser.add_argument(
+        "--no-snapshot",
+        action="store_true",
+        help="이번 실행 결과를 스냅샷으로 저장하지 않음 (변경 비교 기능을 쓰지 않을 때)",
+    )
     args = parser.parse_args()
 
     if not args.xlsm and not args.csv_dir:
@@ -84,13 +118,28 @@ def main():
     else:
         tables_data = load_from_csv_dir(args.csv_dir)
 
-    payload = build_payload(tables_data, is_demo=False)
+    snapshot_path = args.prev or default_snapshot_path(args.out)
+    prev = load_snapshot(snapshot_path)
+    changes, marks = compute_changes(tables_data, prev)
+
+    payload = build_payload(tables_data, is_demo=False, changes=changes, marks=marks)
 
     with open(args.out, "w", encoding="utf-8") as f:
         f.write(render_dashboard(payload))
 
+    if not args.no_snapshot:
+        save_snapshot(default_snapshot_path(args.out), tables_data, payload["generated_at"])
+
     print(f"\n생성 완료: {args.out}")
     print(f"검증 오류: {payload['validation']['total_errors']}건")
+    if changes.get("has_prev"):
+        print(
+            f"지난 생성분 대비 변경: 추가 {changes['total_added']}건 · "
+            f"수정 {changes['total_changed']}건 · 삭제 {changes['total_removed']}건"
+        )
+    else:
+        print("이전 스냅샷이 없어 이번에는 변경 비교를 건너뛰었습니다 "
+              "(다음 실행부터 [변경] 탭에 표시됩니다).")
 
 
 if __name__ == "__main__":

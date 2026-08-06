@@ -1,52 +1,91 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>PPA 계약관리 현황</title>
 <style>
-:root{--paper:#F5F4EF;--panel:#FFF;--ink:#16262B;--sub:#5C6B6E;--line:#E3E1D8;--thead-bg:#EFEEE7;--row-hover:#FAF9F5;
---teal:#0E7C7B;--teal-d:#0A5A59;--teal-w:#E7F1F0;--amber:#B07817;--amber-w:#FAEEDA;
---purple:#534AB7;--purple-w:#EEEDFE;--pass:#1F7A54;--pass-w:#E7F3EC;--fail:#B23A3A;--fail-w:#FBEDEC;--mute:#C9C6BB;}
-:root[data-theme="dark"]{--paper:#14191B;--panel:#1C2224;--ink:#EDEFEE;--sub:#8B9A9C;--line:#2C3436;--thead-bg:#242B2D;--row-hover:#222829;
---teal:#28A6A0;--teal-d:#5CC7C1;--teal-w:#0F2E2C;--amber:#E0A94A;--amber-w:#3A2E14;
---purple:#9C93E8;--purple-w:#241F42;--pass:#4CC08A;--pass-w:#123425;--fail:#E2726B;--fail-w:#3A1616;--mute:#4A5254;}
+:root{
+  --paper:#F5F4EF;--panel:#FFF;--ink:#16262B;--sub:#5C6B6E;--line:#E3E1D8;
+  --thead-bg:#EFEEE7;--row-hover:#FAF9F5;--shadow:0 8px 24px rgba(0,0,0,.10);
+  --teal:#0E7C7B;--teal-d:#0A5A59;--teal-w:#E7F1F0;
+  --amber:#B07817;--amber-w:#FAEEDA;--purple:#534AB7;--purple-w:#EEEDFE;
+  --pass:#1F7A54;--pass-w:#E7F3EC;--fail:#B23A3A;--fail-w:#FBEDEC;
+  --info:#1E63A8;--info-w:#E6EFF8;--mute:#C9C6BB;
+}
+:root[data-theme="dark"]{
+  --paper:#14191B;--panel:#1C2224;--ink:#EDEFEE;--sub:#8B9A9C;--line:#2C3436;
+  --thead-bg:#242B2D;--row-hover:#222829;--shadow:0 8px 24px rgba(0,0,0,.45);
+  --teal:#28A6A0;--teal-d:#5CC7C1;--teal-w:#0F2E2C;
+  --amber:#E0A94A;--amber-w:#3A2E14;--purple:#9C93E8;--purple-w:#241F42;
+  --pass:#4CC08A;--pass-w:#123425;--fail:#E2726B;--fail-w:#3A1616;
+  --info:#7FB2EA;--info-w:#12263A;--mute:#4A5254;
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--paper);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic","Apple SD Gothic Neo",Pretendard,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:60px}
-.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.wrap{max-width:1200px;margin:0 auto;padding:0 22px}
-header{border-bottom:2px solid var(--ink);background:var(--paper);position:sticky;top:0;z-index:20}
-.mh{max-width:1200px;margin:0 auto;padding:20px 22px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);padding-bottom:60px;
+  font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic","Apple SD Gothic Neo",Pretendard,sans-serif;
+  -webkit-font-smoothing:antialiased}
+.mono,.kv,.ks,.count{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.wrap{max-width:1280px;margin:0 auto;padding:0 22px}
+button{font-family:inherit}
+
+/* 헤더 */
+header{border-bottom:2px solid var(--ink);background:var(--paper);position:sticky;top:0;z-index:30}
+.mh{max-width:1280px;margin:0 auto;padding:18px 22px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
 .eyebrow{font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);font-weight:700;margin:0 0 3px}
-h1{font-size:23px;margin:0;letter-spacing:-.02em;font-weight:800}.mh .sup{font-size:12.5px;color:var(--sub);margin-top:3px}
-#status{font-size:12px;font-weight:700;padding:4px 11px;border-radius:20px;white-space:nowrap}
-#status.ok{color:var(--pass);background:var(--pass-w)}#status.no{color:var(--fail);background:var(--fail-w)}
-.themebtn{border:1px solid var(--line);background:var(--panel);border-radius:20px;width:32px;height:32px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+h1{font-size:22px;margin:0;letter-spacing:-.02em;font-weight:800}
+.mh .sup{font-size:12.5px;color:var(--sub);margin-top:3px}
+.hstats{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font-size:12px;font-weight:700;padding:4px 11px;border-radius:20px;white-space:nowrap;border:none;cursor:pointer}
+.pill.ok{color:var(--pass);background:var(--pass-w)}
+.pill.no{color:var(--fail);background:var(--fail-w)}
+.pill.chg{color:var(--info);background:var(--info-w)}
+.iconbtn{border:1px solid var(--line);background:var(--panel);border-radius:20px;width:32px;height:32px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--ink)}
 .demo{background:var(--amber-w);color:var(--amber);font-size:12px;font-weight:600;padding:7px 22px;text-align:center;border-bottom:1px solid var(--line)}
-.gsearchwrap{max-width:1200px;margin:0 auto;padding:12px 22px 0;position:relative}
-.globalresults{position:absolute;left:22px;right:22px;top:100%;margin-top:2px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);max-height:360px;overflow:auto;z-index:30;display:none}
+.gsearchwrap{max-width:1280px;margin:0 auto;padding:12px 22px 0;position:relative}
+.globalresults{position:absolute;left:22px;right:22px;top:100%;margin-top:2px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);max-height:360px;overflow:auto;z-index:40;display:none}
 .globalresults.show{display:block}
 .gresrow{display:block;width:100%;text-align:left;padding:9px 16px;border:none;background:none;cursor:pointer;font-size:13px;border-bottom:1px solid var(--line);color:var(--ink)}
 .gresrow:last-child{border-bottom:none}.gresrow:hover{background:var(--teal-w)}
 .gresrow .tag{font-size:10.5px;font-weight:700;color:var(--teal-d);background:var(--teal-w);padding:1px 7px;border-radius:20px;margin-right:8px}
-.tabbar{max-width:1200px;margin:0 auto;padding:14px 22px 0;display:flex;gap:4px;flex-wrap:wrap}
-.tab{font-size:13.5px;font-weight:600;color:var(--sub);background:none;border:none;cursor:pointer;padding:9px 14px;border-radius:8px 8px 0 0;border-bottom:2.5px solid transparent}
-.tab:hover{color:var(--ink)}.tab.on{color:var(--teal-d);border-bottom-color:var(--teal);background:var(--panel)}
+.tabbar{max-width:1280px;margin:0 auto;padding:12px 22px 0;display:flex;gap:4px;flex-wrap:wrap;overflow-x:auto}
+.tab{font-size:13.5px;font-weight:600;color:var(--sub);background:none;border:none;cursor:pointer;padding:9px 14px;border-radius:8px 8px 0 0;border-bottom:2.5px solid transparent;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab.on{color:var(--teal-d);border-bottom-color:var(--teal);background:var(--panel)}
 .tab.hl{color:var(--purple)}.tab.hl.on{color:var(--purple);border-bottom-color:var(--purple)}
-section{margin-top:22px}
+.tabdot{display:inline-block;min-width:17px;padding:0 5px;margin-left:5px;font-size:10.5px;line-height:16px;border-radius:20px;background:var(--fail);color:#fff;text-align:center;font-weight:700}
+.tabdot.info{background:var(--info)}
+
+section{margin-top:20px}
 #view{animation:fadein .15s ease}
 @keyframes fadein{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:none}}
-.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
-.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 15px;display:flex;flex-direction:column;gap:3px}
-.kpi.accent{background:var(--teal);border-color:var(--teal)}.kpi.accent .kk,.kpi.accent .ks{color:#CDE8E6}.kpi.accent .kv{color:#fff}
-.kpi.warn{background:var(--fail);border-color:var(--fail)}.kpi.warn .kk,.kpi.warn .ks{color:#F9DEDC}.kpi.warn .kv{color:#fff}
-.kpi.clickable{cursor:pointer}
-.kk{font-size:11.5px;color:var(--sub);font-weight:600}.kv{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:21px;font-weight:700;letter-spacing:-.03em}
-.ks{font-size:11px;color:var(--sub);font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 15px;display:flex;flex-direction:column;gap:3px;text-align:left}
+.kpi.accent{background:var(--teal);border-color:var(--teal)}
+.kpi.accent .kk,.kpi.accent .ks{color:#CDE8E6}.kpi.accent .kv{color:#fff}
+.kpi.warn{background:var(--fail);border-color:var(--fail)}
+.kpi.warn .kk,.kpi.warn .ks{color:#F9DEDC}.kpi.warn .kv{color:#fff}
+.kpi.clickable{cursor:pointer}.kpi.clickable:hover{border-color:var(--teal)}
+.kk{font-size:11.5px;color:var(--sub);font-weight:600}
+.kv{font-size:21px;font-weight:700}
+.ks{font-size:11px;color:var(--sub)}
+
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
-.ph{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap}.ph h3{font-size:14.5px;margin:0;font-weight:700}.ph .sub{font-size:12px;color:var(--sub);margin-left:auto}
-.toolbar{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
-.search{flex:1;min-width:180px;font-size:13px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink)}
-.count{font-size:12px;color:var(--sub);font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.ph{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.ph h3{font-size:14.5px;margin:0;font-weight:700}
+.ph .sub{font-size:12px;color:var(--sub);margin-left:auto}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+/* 툴바 / 필터 */
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.search{flex:1;min-width:170px;font-size:13px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink)}
+.count{font-size:12px;color:var(--sub);white-space:nowrap}
+.btn{font-size:12.5px;font-weight:600;color:var(--sub);background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--teal);color:var(--teal-d)}
+.btn.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.btn.danger{color:var(--fail);background:var(--fail-w);border-color:transparent}
+.btn.primary{color:var(--teal-d);background:var(--teal-w);border-color:transparent}
 .filterbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center}
-.filtersel{font-size:12.5px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);max-width:200px}
-.clearbtn{font-size:12px;font-weight:700;color:var(--fail);background:var(--fail-w);border:none;border-radius:8px;padding:7px 13px;cursor:pointer;white-space:nowrap}
+.filtersel{font-size:12.5px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);max-width:210px}
 .chiprow{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 .fchip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;background:var(--purple-w);color:var(--purple);padding:4px 6px 4px 11px;border-radius:20px}
 .fchip button{border:none;background:none;color:inherit;cursor:pointer;font-size:13px;line-height:1;padding:2px}
@@ -54,31 +93,81 @@ section{margin-top:22px}
 .dflabel{color:var(--sub);font-weight:600}
 .datef input[type=date]{border:none;background:none;font-size:12.5px;color:var(--ink);font-family:inherit;padding:0}
 .dfsep{color:var(--sub)}
-.colpicker{position:relative;display:inline-block}
-.colpicker summary{list-style:none;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--sub);background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:8px 12px;white-space:nowrap}
-.colpicker summary::-webkit-details-marker{display:none}
-.colpickbody{position:absolute;z-index:15;margin-top:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;min-width:200px;max-height:280px;overflow:auto;box-shadow:0 8px 20px rgba(0,0,0,.12)}
+.drop{position:relative;display:inline-block}
+.drop summary{list-style:none;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--sub);background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:8px 12px;white-space:nowrap}
+.drop summary::-webkit-details-marker{display:none}
+.drop summary:hover{border-color:var(--teal);color:var(--teal-d)}
+.dropbody{position:absolute;z-index:25;margin-top:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;min-width:210px;max-height:300px;overflow:auto;box-shadow:var(--shadow)}
+.dropbody.right{right:0}
 .colopt{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:5px 2px;white-space:nowrap;cursor:pointer}
-.tbl-wrap{max-height:520px;overflow:auto;border:1px solid var(--line);border-radius:10px}
-table{width:100%;border-collapse:collapse;background:var(--panel)}
-th,td{padding:9px 13px;font-size:13px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
-thead th{position:sticky;top:0;background:var(--thead-bg);font-size:11px;letter-spacing:.02em;color:var(--sub);font-weight:700;text-transform:uppercase;cursor:pointer;z-index:1}
+.dlopt{display:block;width:100%;text-align:left;font-size:12.5px;padding:8px 10px;border:none;background:none;border-radius:6px;cursor:pointer;color:var(--ink)}
+.dlopt:hover{background:var(--teal-w)}
+.dlopt small{display:block;color:var(--sub);font-size:11px;margin-top:1px}
+
+/* 표 */
+.tbl-wrap{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+table{width:100%;border-collapse:separate;border-spacing:0;background:var(--panel)}
+th,td{padding:9px 13px;font-size:13px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;background:var(--panel)}
+thead th{position:sticky;top:0;background:var(--thead-bg);font-size:11px;letter-spacing:.02em;color:var(--sub);font-weight:700;cursor:pointer;z-index:2}
+thead th.nosort{cursor:default}
 thead th .ar{color:var(--teal);margin-left:3px}
-tbody tr:hover{background:var(--row-hover)}tbody tr.rowerr{background:var(--fail-w)}tbody tr.rootrow{background:var(--teal-w)}tbody tr.rootrow td{font-weight:700}
-td.cellerr{background:var(--fail-w);color:var(--fail);font-weight:700;border-radius:4px}
-td.diffcell{background:var(--amber-w);color:var(--amber);font-weight:700;border-radius:4px}
-.unpinbtn{border:none;background:rgba(120,120,120,.25);color:inherit;border-radius:999px;width:16px;height:16px;font-size:10px;line-height:1;cursor:pointer;margin-left:6px}
+tbody tr:hover td{background:var(--row-hover)}
+tbody tr.clickrow{cursor:pointer}
+tbody tr.rowerr td{background:var(--fail-w)}
+tbody tr.rowadd td{background:var(--pass-w)}
+tbody tr.rowchg td{background:var(--info-w)}
+tbody tr.rootrow td{background:var(--teal-w);font-weight:700}
+td.cellerr{color:var(--fail);font-weight:700;box-shadow:inset 3px 0 0 var(--fail)}
+td.cellchg{color:var(--info);font-weight:700;box-shadow:inset 3px 0 0 var(--info)}
+td.diffcell{background:var(--amber-w)!important;color:var(--amber);font-weight:700}
+td.num,th.num{text-align:right;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-variant-numeric:tabular-nums}
+/* 좌측 PK 열 고정 — 컬럼 많은 표(판매계약 등)에서 가로 스크롤 시 기준점 유지 */
+.tbl-wrap.stickyfirst thead th:first-child{left:0;z-index:3}
+.tbl-wrap.stickyfirst td:first-child,.tbl-wrap.stickyfirst th:first-child{position:sticky;left:0;z-index:1;box-shadow:1px 0 0 var(--line)}
+.tbl-wrap.stickyfirst tbody tr:hover td:first-child{background:var(--row-hover)}
+.tbl-wrap.stickyfirst tbody tr.rowerr td:first-child{background:var(--fail-w)}
+.tbl-wrap.stickyfirst tbody tr.rowadd td:first-child{background:var(--pass-w)}
+.tbl-wrap.stickyfirst tbody tr.rowchg td:first-child{background:var(--info-w)}
+.emptyrow{text-align:center;padding:26px;color:var(--sub)}
+
+/* 페이징 */
+.pager{display:flex;align-items:center;gap:6px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+.pgbtn{font-size:12.5px;font-weight:600;min-width:34px;padding:7px 10px;border:1px solid var(--line);background:var(--panel);color:var(--sub);border-radius:8px;cursor:pointer}
+.pgbtn:hover:not(:disabled){border-color:var(--teal);color:var(--teal-d)}
+.pgbtn.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.pgbtn:disabled{opacity:.4;cursor:default}
+.pginfo{font-size:12px;color:var(--sub);margin:0 8px}
+.pgdots{color:var(--sub);padding:0 2px}
+
+/* 배지 */
 .pkbadge,.fkbadge{font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:999px;margin-left:6px;vertical-align:middle}
-.pkbadge{background:var(--teal);color:#fff}.fkbadge{background:var(--purple-w);color:var(--purple)}
-.badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap}
-.badge.ok{color:var(--pass);background:var(--pass-w)}.badge.no{color:var(--fail);background:var(--fail-w)}
-.boolbadge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap}
-.boolbadge.yes{background:var(--pass-w);color:var(--pass)}.boolbadge.no{background:var(--fail-w);color:var(--fail)}
+.pkbadge{background:var(--teal);color:#fff}
+.fkbadge{background:var(--purple-w);color:var(--purple)}
+.badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;display:inline-block}
+.badge.ok{color:var(--pass);background:var(--pass-w)}
+.badge.no{color:var(--fail);background:var(--fail-w)}
+.badge.info{color:var(--info);background:var(--info-w)}
+.badge.warn{color:var(--amber);background:var(--amber-w)}
+.badge.mute{color:var(--sub);background:var(--paper)}
 .idlink{color:var(--teal-d);text-decoration:underline;text-underline-offset:2px;cursor:pointer;font-weight:700}
 .idlink:hover{color:var(--teal)}
 .fkname{color:var(--sub);font-weight:500;margin-left:6px}
+.datewarn{margin-left:6px;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:20px}
+.datewarn.exp{background:var(--fail-w);color:var(--fail)}
+.datewarn.soon{background:var(--amber-w);color:var(--amber)}
+
+/* 검증 / 변경 목록 */
 .chk{display:grid;grid-template-columns:1fr auto auto auto;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-left-width:4px;border-radius:8px;padding:10px 15px;margin-bottom:7px;cursor:pointer}
-.chk:hover{background:var(--teal-w)}.chk.no{border-left-color:var(--fail)}
+.chk:hover{background:var(--teal-w)}
+.chk.no{border-left-color:var(--fail)}
+.chk.add{border-left-color:var(--pass)}
+.chk.chg{border-left-color:var(--info)}
+.chk.del{border-left-color:var(--mute)}
+.chgval{font-size:12.5px}
+.chgold{color:var(--sub);text-decoration:line-through;margin-right:6px}
+.chgnew{color:var(--info);font-weight:700}
+
+/* 관계조회 */
 .subtabbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:2px}
 .subtab{font-size:12.5px;font-weight:600;color:var(--sub);background:var(--paper);border:1px solid var(--line);cursor:pointer;padding:8px 14px;border-radius:20px}
 .subtab.on{color:#fff;background:var(--teal);border-color:var(--teal)}
@@ -86,155 +175,217 @@ td.diffcell{background:var(--amber-w);color:var(--amber);font-weight:700;border-
 .candrow{text-align:left;font-size:13px;padding:10px 13px;border:1px solid var(--line);border-radius:8px;background:var(--panel);cursor:pointer;color:var(--ink)}
 .candrow:hover{background:var(--teal-w);border-color:var(--teal)}
 .nocand{font-size:12.5px;color:var(--sub);padding:10px 2px}
-.chipcount{font-size:11.5px;font-weight:700;color:var(--teal-d);background:var(--teal-w);padding:3px 10px;border-radius:20px;margin-left:6px;display:inline-block;margin-top:4px}
-.lookuphead{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
-.homehead{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px}
-#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);font-size:13px;font-weight:600;padding:10px 18px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50}
-#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.unsecrow{display:flex;justify-content:space-between;align-items:center;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+.chipcount{font-size:11.5px;font-weight:700;color:var(--teal-d);background:var(--teal-w);padding:3px 10px;border-radius:20px;margin-right:6px;display:inline-block;margin-top:4px}
+.lookuphead,.homehead{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.homehead{margin-bottom:14px}
+
+/* 홈 위젯 */
+.unsecrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer}
 .unsecrow:last-child{border-bottom:none}.unsecrow:hover{background:var(--paper)}
 .mixrow{display:flex;align-items:center;gap:10px;padding:6px 0}
 .mixlabel{width:76px;font-size:12.5px;color:var(--sub);flex-shrink:0}
 .mixbar{flex:1;height:10px;background:var(--paper);border-radius:6px;overflow:hidden}
 .mixfill{height:100%;background:var(--teal);border-radius:6px}
-.mixval{font-size:12px;width:96px;text-align:right;flex-shrink:0}
+.mixval{font-size:12px;width:110px;text-align:right;flex-shrink:0}
 .schemarow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0}
 .schematag{font-size:11px;font-weight:700;color:var(--sub);width:56px;flex-shrink:0}
 .schemabox{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12.5px;font-weight:700;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:8px 16px;cursor:pointer;color:var(--ink)}
 .schemabox:hover{border-color:var(--teal);color:var(--teal-d)}
 .schemacount{font-size:10.5px;font-weight:600;color:var(--sub)}
 .schemaarrow{color:var(--mute);font-size:16px;flex-shrink:0}
+
+/* 상세 모달 */
+.backdrop{position:fixed;inset:0;background:rgba(10,15,17,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:var(--panel);border-radius:14px;box-shadow:var(--shadow);width:min(720px,100%);max-height:88vh;display:flex;flex-direction:column}
+.modalhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:18px 20px 12px;border-bottom:1px solid var(--line)}
+.modalhead h3{margin:0;font-size:16px;font-weight:800}
+.modalhead .sub{font-size:12px;color:var(--sub);margin-top:3px}
+.modalbody{padding:6px 20px 16px;overflow:auto}
+.modalfoot{display:flex;gap:8px;padding:12px 20px 18px;flex-wrap:wrap;border-top:1px solid var(--line)}
+.drow{display:grid;grid-template-columns:190px 1fr;gap:12px;padding:9px 2px;border-bottom:1px solid var(--line);font-size:13px;align-items:baseline}
+.drow:last-child{border-bottom:none}
+.dkey{color:var(--sub);font-weight:600;font-size:12.5px}
+.drow.err .dkey{color:var(--fail)}
+.drow.chg .dkey{color:var(--info)}
+
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);font-size:13px;font-weight:600;padding:10px 18px;border-radius:8px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:80}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
 footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-size:11.5px;color:var(--sub);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
-@media(max-width:760px){.kpis{grid-template-columns:1fr 1fr}}
+.printhead{display:none}
+
+/* 반응형 — iPad 세로/휴대폰까지 */
+@media(max-width:900px){
+  .grid2{grid-template-columns:1fr}
+  .drow{grid-template-columns:130px 1fr}
+}
+@media(max-width:640px){
+  .wrap,.mh,.tabbar,.gsearchwrap{padding-left:14px;padding-right:14px}
+  h1{font-size:19px}
+  .kpis{grid-template-columns:1fr 1fr}
+  .tabbar{flex-wrap:nowrap}
+  .toolbar .search{min-width:100%}
+  .globalresults{left:14px;right:14px}
+  .mixlabel{width:60px}.mixval{width:88px}
+  .drow{grid-template-columns:1fr;gap:2px}
+  .tbl-wrap{max-height:none}
+}
+
+/* 보고용 인쇄 */
 @media print{
-  header{position:static}
-  .tabbar,.gsearchwrap,.toolbar,.filterbar,.chiprow,.candlist,.subtabbar,.clearbtn,.colpicker,#globalResults,.themebtn{display:none!important}
+  @page{size:A4 landscape;margin:11mm}
+  header,.tabbar,.gsearchwrap,.toolbar,.filterbar,.chiprow,.candlist,.subtabbar,
+  .pager,.btn,.drop,.iconbtn,.pill,#globalResults,#toast,.backdrop,footer{display:none!important}
+  body{background:#fff;color:#000;padding:0}
+  .wrap{max-width:none;padding:0}
+  section{margin-top:0}
+  .printhead{display:block;margin-bottom:10px;border-bottom:2px solid #000;padding-bottom:6px}
+  .printhead h2{margin:0 0 3px;font-size:15pt}
+  .printhead .pmeta{font-size:8.5pt;color:#333}
+  .panel{break-inside:auto;border:1px solid #999;box-shadow:none;margin-bottom:10px;padding:8px 10px}
   .tbl-wrap{max-height:none;overflow:visible;border:none}
-  body{padding-bottom:0}
-  .panel{break-inside:avoid;border:1px solid #999}
-  a.idlink{color:inherit;text-decoration:none}
+  table{font-size:8pt}
+  th,td{padding:3px 5px;background:#fff!important;border-bottom:1px solid #ccc;white-space:normal}
+  thead{display:table-header-group}
+  tr{break-inside:avoid}
+  thead th{background:#eee!important;color:#000;position:static}
+  td.cellerr{color:#000;font-weight:700;box-shadow:none;outline:1.2px solid #b23a3a}
+  td.cellchg{color:#000;font-weight:700;box-shadow:none;outline:1.2px dashed #1e63a8}
+  a.idlink{color:#000;text-decoration:none}
+  .kpi{border:1px solid #999}
+  .kpi.accent,.kpi.warn{background:#fff!important}
+  .kpi.accent .kk,.kpi.accent .kv,.kpi.accent .ks,
+  .kpi.warn .kk,.kpi.warn .kv,.kpi.warn .ks{color:#000!important}
 }
 </style></head><body>
 <header><div class="mh">
   <div><p class="eyebrow">PPA 계약관리</p><h1>데이터 현황 (조회 전용)</h1>
     <div class="sup">서버 없이 스크립트로 생성된 정적 스냅샷 · 편집은 엑셀에서 진행 후 재생성</div></div>
-  <div style="display:flex;align-items:center;gap:8px">
-    <button id="themeBtn" class="themebtn" onclick="toggleTheme()" title="화면 테마 전환">🌙</button>
-    <span id="status" onclick="state.tab='검증';render()" style="cursor:pointer" title="클릭하면 검증 탭으로 이동">—</span>
+  <div class="hstats">
+    <button id="chgpill" class="pill chg" onclick="state.tab='변경';render()" style="display:none">변경</button>
+    <button id="status" class="pill" onclick="state.tab='검증';render()">—</button>
+    <button id="themeBtn" class="iconbtn" onclick="toggleTheme()" title="화면 테마 전환">🌙</button>
   </div>
 </div><div class="demo">⚠ 데모 데이터 — 화면 확인용. 실제 xlsm/CSV로 생성하면 동일 구조로 채워집니다.</div>
-<div class="gsearchwrap"><input id="globalSearch" class="search" placeholder="전체 표에서 검색 (ID, 이름, 담당자 등)…" oninput="onGlobalSearch(this.value)" onfocus="onGlobalSearch(this.value)">
+<div class="gsearchwrap">
+  <input id="globalSearch" class="search" style="width:100%" placeholder="전체 표에서 검색 (ID, 발전소명, 기업명, 담당자 등)…"
+    oninput="onGlobalSearch(this.value)" onfocus="onGlobalSearch(this.value)">
   <div id="globalResults" class="globalresults"></div>
 </div>
 <div class="tabbar" id="tabbar"></div></header>
 <div class="wrap"><div id="view"></div>
-  <footer><span>생성 2026-08-06 01:44</span><span id="foot-src"></span></footer></div>
-<div id="toast"></div>
+  <footer><span>생성 2026-08-06 02:28</span><span id="foot-src"></span></footer></div>
+<div id="modalHost"></div><div id="toast"></div>
 <script>
-const DATA = {"generated_at": "2026-08-06T01:44:00", "is_demo": true, "tables": [{"key": "T_발전소", "label": "발전소", "pk": "발전소ID", "columns": ["발전소ID", "발전소명", "발전법인명", "설비용량(MW)", "발전원", "Readiness", "MGA_Supply"], "fk_columns": [], "fk": {}, "rows": [{"cells": {"발전소ID": "P001", "발전소명": "신안태양광1호", "발전법인명": "그린에너지(주)", "설비용량(MW)": "3.0", "발전원": "태양광", "Readiness": "New", "MGA_Supply": "0.133333333"}, "error_cols": []}, {"cells": {"발전소ID": "P002", "발전소명": "영광풍력1호", "발전법인명": "클린파워(주)", "설비용량(MW)": "5.0", "발전원": "풍력", "Readiness": "New", "MGA_Supply": "0.133333333"}, "error_cols": []}]}, {"key": "T_구매계약", "label": "구매계약", "pk": "구매계약ID", "columns": ["구매계약ID", "발전소ID", "구매계약용량(MW)", "구매단가(원/kWh)", "공급기한_구매", "계약기간(년)", "수요기업 미확보", "구매 담당자"], "fk_columns": ["발전소ID"], "fk": {"발전소ID": "T_발전소"}, "rows": [{"cells": {"구매계약ID": "구매-P001-2024-01", "발전소ID": "P001", "구매계약용량(MW)": "3.0", "구매단가(원/kWh)": "140", "공급기한_구매": "2030-12-31", "계약기간(년)": "10", "수요기업 미확보": "FALSE", "구매 담당자": "최기철"}, "error_cols": []}, {"cells": {"구매계약ID": "구매-BAD-2024-01", "발전소ID": "P999", "구매계약용량(MW)": "1.0", "구매단가(원/kWh)": "150", "공급기한_구매": "2029-12-31", "계약기간(년)": "5", "수요기업 미확보": "TRUE", "구매 담당자": "박창옥"}, "error_cols": ["발전소ID"]}]}, {"key": "T_수요기업", "label": "수요기업", "pk": "수요기업ID", "columns": ["수요기업ID", "기업명"], "fk_columns": [], "fk": {}, "rows": [{"cells": {"수요기업ID": "D001", "기업명": "㈜그린전자"}, "error_cols": []}]}, {"key": "T_판매계약", "label": "판매계약", "pk": "판매계약ID", "columns": ["판매계약ID", "수요기업ID", "판매계약용량(MW)", "계약일", "공급기한_판매", "계약유형", "판매단가(원/kWh)", "공급자원 미확보", "판매 담당자", "계약기간(년)", "Requirement", "MGA_Demand"], "fk_columns": ["수요기업ID"], "fk": {"수요기업ID": "T_수요기업"}, "rows": [{"cells": {"판매계약ID": "판매-D001-2024-01", "수요기업ID": "D001", "판매계약용량(MW)": "1.0", "계약일": "2024-01-01", "공급기한_판매": "2027-01-01", "계약유형": "D", "판매단가(원/kWh)": "160", "공급자원 미확보": "FALSE", "판매 담당자": "홍원정", "계약기간(년)": "10", "Requirement": "New", "MGA_Demand": "0.1"}, "error_cols": ["판매계약ID"]}, {"cells": {"판매계약ID": "판매-D001-2024-01", "수요기업ID": "D001", "판매계약용량(MW)": "1.2", "계약일": "2024-06-01", "공급기한_판매": "2027-06-01", "계약유형": "V", "판매단가(원/kWh)": "158", "공급자원 미확보": "FALSE", "판매 담당자": "홍원정", "계약기간(년)": "10", "Requirement": "New", "MGA_Demand": "0.1"}, "error_cols": ["판매계약ID"]}]}, {"key": "T_전기사용지", "label": "전기사용지", "pk": "전기사용지ID", "columns": ["전기사용지ID", "판매계약ID", "전기사용지명", "전기사용지계약용량(MW)"], "fk_columns": ["판매계약ID"], "fk": {"판매계약ID": "T_판매계약"}, "rows": [{"cells": {"전기사용지ID": "전기사용지-D001-2024-01", "판매계약ID": "판매-D001-2024-01", "전기사용지명": "그린전자 본사", "전기사용지계약용량(MW)": "1.0"}, "error_cols": []}]}, {"key": "T_수급매칭", "label": "수급매칭", "pk": "수급매칭ID", "columns": ["수급매칭ID", "전기사용지ID", "구매계약ID", "현황"], "fk_columns": ["전기사용지ID", "구매계약ID"], "fk": {"전기사용지ID": "T_전기사용지", "구매계약ID": "T_구매계약"}, "rows": [{"cells": {"수급매칭ID": "매칭-001", "전기사용지ID": "전기사용지-D001-2024-01", "구매계약ID": "구매-P001-2024-01", "현황": "1. 공급 중"}, "error_cols": ["구매계약ID", "전기사용지ID"]}, {"cells": {"수급매칭ID": "매칭-002", "전기사용지ID": "전기사용지-D001-2024-01", "구매계약ID": "구매-P001-2024-01", "현황": "1. 공급 중"}, "error_cols": ["구매계약ID", "전기사용지ID"]}]}], "validation": {"total_errors": 5, "by_table": {"T_구매계약": 1, "T_판매계약": 2, "T_수급매칭": 2}, "by_item": {"발전소ID 참조": 1, "PK 중복": 2, "조합중복": 2}, "errors": [{"table": "T_구매계약", "row_index": 1, "pk_value": "구매-BAD-2024-01", "error_item": "발전소ID 참조"}, {"table": "T_판매계약", "row_index": 0, "pk_value": "판매-D001-2024-01", "error_item": "PK 중복"}, {"table": "T_판매계약", "row_index": 1, "pk_value": "판매-D001-2024-01", "error_item": "PK 중복"}, {"table": "T_수급매칭", "row_index": 0, "pk_value": "매칭-001", "error_item": "조합중복"}, {"table": "T_수급매칭", "row_index": 1, "pk_value": "매칭-002", "error_item": "조합중복"}]}};
-const byKey={};DATA.tables.forEach(t=>byKey[t.key]=t);
+const DATA = {"generated_at": "2026-08-06T02:28:37", "is_demo": true, "tables": [{"key": "T_발전소", "label": "발전소", "pk": "발전소ID", "columns": ["발전소ID", "발전소명", "발전법인명", "설비용량(MW)", "발전원", "Readiness", "MGA_Supply"], "fk_columns": [], "fk": {}, "rows": [{"cells": {"발전소ID": "P001", "발전소명": "신안태양광1호", "발전법인명": "그린에너지(주)", "설비용량(MW)": "3.0", "발전원": "태양광", "Readiness": "New", "MGA_Supply": "0.133333333"}, "error_cols": []}, {"cells": {"발전소ID": "P002", "발전소명": "영광풍력1호", "발전법인명": "클린파워(주)", "설비용량(MW)": "5.0", "발전원": "풍력", "Readiness": "New", "MGA_Supply": "0.133333333"}, "error_cols": []}, {"cells": {"발전소ID": "P003", "발전소명": "완도해상풍력", "발전법인명": "오션윈드(주)", "설비용량(MW)": "8.0", "발전원": "풍력", "Readiness": "Ready", "MGA_Supply": "0.12"}, "error_cols": [], "change": "added"}]}, {"key": "T_구매계약", "label": "구매계약", "pk": "구매계약ID", "columns": ["구매계약ID", "발전소ID", "구매계약용량(MW)", "구매단가(원/kWh)", "공급기한_구매", "계약기간(년)", "수요기업 미확보", "구매 담당자"], "fk_columns": ["발전소ID"], "fk": {"발전소ID": "T_발전소"}, "rows": [{"cells": {"구매계약ID": "구매-P001-2024-01", "발전소ID": "P001", "구매계약용량(MW)": "3.0", "구매단가(원/kWh)": "142", "공급기한_구매": "2030-12-31", "계약기간(년)": "10", "수요기업 미확보": "FALSE", "구매 담당자": "최기철"}, "error_cols": [], "change": "changed", "changed_cols": ["구매단가(원/kWh)", "구매 담당자"], "prev": {"구매단가(원/kWh)": "138", "구매 담당자": "박창옥"}}, {"cells": {"구매계약ID": "구매-BAD-2024-01", "발전소ID": "P999", "구매계약용량(MW)": "1.0", "구매단가(원/kWh)": "150", "공급기한_구매": "2026-09-30", "계약기간(년)": "5", "수요기업 미확보": "TRUE", "구매 담당자": "박창옥"}, "error_cols": ["발전소ID"]}, {"cells": {"구매계약ID": "구매-P003-2026-01", "발전소ID": "P003", "구매계약용량(MW)": "8.0", "구매단가(원/kWh)": "138", "공급기한_구매": "2032-06-30", "계약기간(년)": "15", "수요기업 미확보": "TRUE", "구매 담당자": "최기철"}, "error_cols": [], "change": "added"}]}, {"key": "T_수요기업", "label": "수요기업", "pk": "수요기업ID", "columns": ["수요기업ID", "기업명"], "fk_columns": [], "fk": {}, "rows": [{"cells": {"수요기업ID": "D001", "기업명": "㈜그린전자"}, "error_cols": []}, {"cells": {"수요기업ID": "D002", "기업명": "한빛반도체㈜"}, "error_cols": []}]}, {"key": "T_판매계약", "label": "판매계약", "pk": "판매계약ID", "columns": ["판매계약ID", "수요기업ID", "판매계약용량(MW)", "계약일", "공급기한_판매", "계약유형", "판매단가(원/kWh)", "공급자원 미확보", "판매 담당자", "계약기간(년)", "Requirement", "MGA_Demand"], "fk_columns": ["수요기업ID"], "fk": {"수요기업ID": "T_수요기업"}, "rows": [{"cells": {"판매계약ID": "판매-D001-2024-01", "수요기업ID": "D001", "판매계약용량(MW)": "1.0", "계약일": "2024-01-01", "공급기한_판매": "2027-01-01", "계약유형": "D", "판매단가(원/kWh)": "160", "공급자원 미확보": "FALSE", "판매 담당자": "홍원정", "계약기간(년)": "10", "Requirement": "New", "MGA_Demand": "0.1"}, "error_cols": ["판매계약ID"]}, {"cells": {"판매계약ID": "판매-D001-2024-01", "수요기업ID": "D001", "판매계약용량(MW)": "1.2", "계약일": "2024-06-01", "공급기한_판매": "2027-06-01", "계약유형": "V", "판매단가(원/kWh)": "158", "공급자원 미확보": "FALSE", "판매 담당자": "홍원정", "계약기간(년)": "10", "Requirement": "New", "MGA_Demand": "0.1"}, "error_cols": ["판매계약ID"], "change": "changed", "changed_cols": ["판매계약용량(MW)", "계약일", "공급기한_판매", "계약유형", "판매단가(원/kWh)"], "prev": {"판매계약용량(MW)": "1.0", "계약일": "2024-01-01", "공급기한_판매": "2027-01-01", "계약유형": "D", "판매단가(원/kWh)": "160"}}, {"cells": {"판매계약ID": "판매-D002-2026-01", "수요기업ID": "D002", "판매계약용량(MW)": "4.0", "계약일": "2026-02-01", "공급기한_판매": "2026-11-30", "계약유형": "D", "판매단가(원/kWh)": "165", "공급자원 미확보": "TRUE", "판매 담당자": "김서연", "계약기간(년)": "8", "Requirement": "New", "MGA_Demand": "0.11"}, "error_cols": []}]}, {"key": "T_전기사용지", "label": "전기사용지", "pk": "전기사용지ID", "columns": ["전기사용지ID", "판매계약ID", "전기사용지명", "전기사용지계약용량(MW)"], "fk_columns": ["판매계약ID"], "fk": {"판매계약ID": "T_판매계약"}, "rows": [{"cells": {"전기사용지ID": "전기사용지-D001-2024-01", "판매계약ID": "판매-D001-2024-01", "전기사용지명": "그린전자 본사", "전기사용지계약용량(MW)": "1.0"}, "error_cols": []}, {"cells": {"전기사용지ID": "전기사용지-D002-2026-01", "판매계약ID": "판매-D002-2026-01", "전기사용지명": "한빛반도체 청주캠퍼스", "전기사용지계약용량(MW)": "4.0"}, "error_cols": []}]}, {"key": "T_수급매칭", "label": "수급매칭", "pk": "수급매칭ID", "columns": ["수급매칭ID", "전기사용지ID", "구매계약ID", "현황"], "fk_columns": ["전기사용지ID", "구매계약ID"], "fk": {"전기사용지ID": "T_전기사용지", "구매계약ID": "T_구매계약"}, "rows": [{"cells": {"수급매칭ID": "매칭-001", "전기사용지ID": "전기사용지-D001-2024-01", "구매계약ID": "구매-P001-2024-01", "현황": "1. 공급 중"}, "error_cols": ["구매계약ID", "전기사용지ID"]}, {"cells": {"수급매칭ID": "매칭-002", "전기사용지ID": "전기사용지-D001-2024-01", "구매계약ID": "구매-P001-2024-01", "현황": "1. 공급 중"}, "error_cols": ["구매계약ID", "전기사용지ID"]}, {"cells": {"수급매칭ID": "매칭-003", "전기사용지ID": "전기사용지-D002-2026-01", "구매계약ID": "구매-P003-2026-01", "현황": "2. 공급 예정"}, "error_cols": []}]}], "validation": {"total_errors": 5, "by_table": {"T_구매계약": 1, "T_판매계약": 2, "T_수급매칭": 2}, "by_item": {"발전소ID 참조": 1, "PK 중복": 2, "조합중복": 2}, "errors": [{"table": "T_구매계약", "row_index": 1, "pk_value": "구매-BAD-2024-01", "error_item": "발전소ID 참조"}, {"table": "T_판매계약", "row_index": 0, "pk_value": "판매-D001-2024-01", "error_item": "PK 중복"}, {"table": "T_판매계약", "row_index": 1, "pk_value": "판매-D001-2024-01", "error_item": "PK 중복"}, {"table": "T_수급매칭", "row_index": 0, "pk_value": "매칭-001", "error_item": "조합중복"}, {"table": "T_수급매칭", "row_index": 1, "pk_value": "매칭-002", "error_item": "조합중복"}]}, "changes": {"has_prev": true, "prev_generated_at": "2026-07-30T02:28:37", "summary": {"T_발전소": {"added": 1, "removed": 0, "changed": 0}, "T_구매계약": {"added": 1, "removed": 0, "changed": 1}, "T_수요기업": {"added": 0, "removed": 1, "changed": 0}, "T_판매계약": {"added": 0, "removed": 0, "changed": 1}, "T_전기사용지": {"added": 0, "removed": 0, "changed": 0}, "T_수급매칭": {"added": 0, "removed": 0, "changed": 0}}, "total_added": 2, "total_removed": 1, "total_changed": 2, "removed_rows": {"T_발전소": [], "T_구매계약": [], "T_수요기업": [{"수요기업ID": "D009", "기업명": "종료된거래처㈜"}], "T_판매계약": [], "T_전기사용지": [], "T_수급매칭": []}, "details": [{"table": "T_구매계약", "pk": "구매-P001-2024-01", "col": "구매단가(원/kWh)", "old": "138", "new": "142"}, {"table": "T_구매계약", "pk": "구매-P001-2024-01", "col": "구매 담당자", "old": "박창옥", "new": "최기철"}, {"table": "T_판매계약", "pk": "판매-D001-2024-01", "col": "판매계약용량(MW)", "old": "1.0", "new": "1.2"}, {"table": "T_판매계약", "pk": "판매-D001-2024-01", "col": "계약일", "old": "2024-01-01", "new": "2024-06-01"}, {"table": "T_판매계약", "pk": "판매-D001-2024-01", "col": "공급기한_판매", "old": "2027-01-01", "new": "2027-06-01"}, {"table": "T_판매계약", "pk": "판매-D001-2024-01", "col": "계약유형", "old": "D", "new": "V"}, {"table": "T_판매계약", "pk": "판매-D001-2024-01", "col": "판매단가(원/kWh)", "old": "160", "new": "158"}], "truncated": false}};
 
-// PK 값으로 행을 바로 찾기 위한 색인, 그리고 FK 관계 그래프(엣지) — 관계조회 탭에서 사용.
-const rowIndex={};
+/* ── 색인: PK로 행 찾기, FK 관계 그래프 ─────────────────────────────────── */
+const byKey={};DATA.tables.forEach(t=>byKey[t.key]=t);
+const CHANGES=DATA.changes||{has_prev:false};
+const rowIndex={},rowPos={};
 DATA.tables.forEach(t=>{
-  rowIndex[t.key]={};
-  t.rows.forEach(r=>{
+  rowIndex[t.key]={};rowPos[t.key]={};
+  t.rows.forEach((r,i)=>{
     const pkv=r.cells[t.pk];
-    if(pkv!==undefined&&pkv!=='') rowIndex[t.key][String(pkv)]=r;
+    if(pkv!==undefined&&pkv!==''&&rowIndex[t.key][String(pkv)]===undefined){
+      rowIndex[t.key][String(pkv)]=r;rowPos[t.key][String(pkv)]=i;
+    }
   });
 });
 const edges=[];
-DATA.tables.forEach(t=>{
-  Object.entries(t.fk||{}).forEach(([col,ref])=>edges.push({table:t.key,col,ref}));
-});
+DATA.tables.forEach(t=>Object.entries(t.fk||{}).forEach(([col,ref])=>edges.push({table:t.key,col,ref})));
+const TODAY=(DATA.generated_at||'').slice(0,10);
 
-function readLS(k,fallback){try{const v=localStorage.getItem(k);return v===null?fallback:v;}catch(e){return fallback;}}
+/* ── 저장소(브라우저 한정 기억) ─────────────────────────────────────────── */
+function readLS(k,f){try{const v=localStorage.getItem(k);return v===null?f:v;}catch(e){return f;}}
 function writeLS(k,v){try{localStorage.setItem(k,v);}catch(e){}}
 
 let state={
-  tab:'홈', sort:{}, q:{}, filters:{}, dateFilters:{},
-  hidden:{}, colPickerOpen:{},
-  lookup:null, lookupTable:DATA.tables[0].key, lookupQ:'',
-  recent:[], pinned:[],
-  theme: readLS('ppa_theme','light'),
+  tab:'홈',sort:{},q:{},filters:{},dateFilters:{},colQ:{},
+  hidden:{},page:{},pageSize:Number(readLS('ppa_pagesize','50'))||50,
+  onlyErr:{},onlyChg:{},
+  lookup:null,lookupTable:DATA.tables[0].key,lookupQ:'',lookupDepth:Number(readLS('ppa_depth','2')),
+  recent:[],pinned:[],modal:null,
+  theme:readLS('ppa_theme','light'),
 };
 
+/* ── 문자열 유틸 ────────────────────────────────────────────────────────── */
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function jsq(s){return String(s??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
+function nf(n,d){return Number(n).toLocaleString('ko-KR',{maximumFractionDigits:d===undefined?1:d});}
 
-const NUMCOL=/\(MW\)|\(원\/kWh\)/;
+/* ── 셀 표현: 숫자 서식, 불린 배지, 상태 색, 기한 경고, FK 이름 ─────────── */
+const NUMCOL=/\(MW\)|\(원\/kWh\)|\(년\)|MGA/;
+const DEADLINE_COL=/기한/;
+const SOON_DAYS=180;
+function isNumCol(c){return NUMCOL.test(c);}
 function fmtVal(col,val){
-  if(NUMCOL.test(col)&&val!==''){
-    const n=Number(val);
-    if(!isNaN(n)) return n.toLocaleString('ko-KR',{maximumFractionDigits:4});
-  }
+  if(isNumCol(col)&&val!==''){const n=Number(val);if(!isNaN(n)) return nf(n,4);}
   return val;
 }
 function boolLabel(col,val){
-  const bad=val==='TRUE';
-  if(col.indexOf('미확보')>=0) return bad?'미확보':'확보완료';
-  return bad?'예':'아니오';
+  const on=val==='TRUE';
+  if(col.indexOf('미확보')>=0) return on?'미확보':'확보완료';
+  return on?'예':'아니오';
 }
-// ID만 봐서는 뭔지 알기 어려운 표(발전소/수요기업/전기사용지)는 FK로 참조될 때
-// 이름 컬럼을 같이 보여줍니다 — 구매계약ID"발전소ID" 칸에 "P001"만 있으면 어느
-// 발전소인지 클릭해봐야 알 수 있던 것을, "P001 신안태양광1호 (그린에너지(주))"처럼
-// 바로 알아볼 수 있게. 판매계약/구매계약/수급매칭은 PK 자체가 이미 설명적이라 제외.
+function daysBetween(a,b){return Math.round((new Date(b)-new Date(a))/86400000);}
+function deadlineFlag(col,val){
+  if(!DEADLINE_COL.test(col)||!/^\d{4}-\d{2}-\d{2}$/.test(val)||!TODAY) return null;
+  const d=daysBetween(TODAY,val);
+  if(d<0) return {cls:'exp',text:'만료'};
+  if(d<=SOON_DAYS) return {cls:'soon',text:'D-'+d};
+  return null;
+}
+function statusClass(val){
+  const v=String(val);
+  if(/공급\s*중|완료|정상/.test(v)) return 'ok';
+  if(/예정|준비|협의|검토|추진/.test(v)) return 'warn';
+  if(/종료|해지|중단|취소|보류/.test(v)) return 'mute';
+  return null;
+}
+/* ID만 봐서는 뭔지 알기 어려운 표는 FK로 참조될 때 이름을 같이 보여줍니다. */
 const NAME_COLS={"T_발전소":["발전소명","발전법인명"],"T_수요기업":["기업명"],"T_전기사용지":["전기사용지명"]};
 function displayNameFor(tableKey,pkVal){
-  const cols=NAME_COLS[tableKey];
-  if(!cols) return null;
-  const row=rowIndex[tableKey]&&rowIndex[tableKey][String(pkVal)];
-  if(!row) return null;
+  const cols=NAME_COLS[tableKey];if(!cols) return null;
+  const row=rowIndex[tableKey]&&rowIndex[tableKey][String(pkVal)];if(!row) return null;
   const parts=cols.map(c=>row.cells[c]).filter(v=>v!==undefined&&v!=='');
   return parts.length?parts.join(' · '):null;
 }
 function cellHtml(t,col,rawVal){
   const val=rawVal??'';
   if(val==='') return '';
-  if(val==='TRUE'||val==='FALSE'){
-    const bad=val==='TRUE';
-    return `<span class="boolbadge ${bad?'no':'yes'}">${esc(boolLabel(col,val))}</span>`;
-  }
-  const isPk=col===t.pk;
-  const refKey=(t.fk||{})[col];
-  const display=fmtVal(col,val);
+  if(val==='TRUE'||val==='FALSE')
+    return `<span class="badge ${val==='TRUE'?'no':'ok'}">${esc(boolLabel(col,val))}</span>`;
+  const isPk=col===t.pk,refKey=(t.fk||{})[col];
   if(isPk||refKey){
     const target=refKey||t.key;
-    const link=`<a class="idlink" onclick="jumpTo('${jsq(target)}','${jsq(val)}')">${esc(display)}</a>`;
-    if(refKey){
-      const nm=displayNameFor(refKey,val);
-      if(nm) return `${link}<span class="fkname">${esc(nm)}</span>`;
-    }
+    const link=`<a class="idlink" onclick="event.stopPropagation();jumpTo('${jsq(target)}','${jsq(val)}')">${esc(val)}</a>`;
+    if(refKey){const nm=displayNameFor(refKey,val);if(nm) return link+`<span class="fkname">${esc(nm)}</span>`;}
     return link;
   }
-  return esc(display);
+  const flag=deadlineFlag(col,val);
+  if(flag) return esc(val)+`<span class="datewarn ${flag.cls}">${esc(flag.text)}</span>`;
+  if(col==='현황'){const sc=statusClass(val);if(sc) return `<span class="badge ${sc}">${esc(val)}</span>`;}
+  return esc(fmtVal(col,val));
 }
 
-// ── 컬럼 표시/숨김 (표별로 기억, localStorage에 저장 — 파일을 다시 열어도 유지되지만
-// 다른 PC/브라우저에서 열면 초기화되는 "이번 브라우저 한정" 편의 기능입니다) ──
+/* ── 컬럼 표시/숨김 (브라우저에 기억) ───────────────────────────────────── */
 function isColHidden(t,col){return (state.hidden[t.key]||new Set()).has(col);}
 function visibleColumns(t){return t.columns.filter(c=>!isColHidden(t,c));}
 function toggleCol(tk,col){
   state.hidden[tk]=state.hidden[tk]||new Set();
-  if(state.hidden[tk].has(col)) state.hidden[tk].delete(col); else state.hidden[tk].add(col);
-  writeLS('ppa_hidden_'+tk, JSON.stringify([...state.hidden[tk]]));
-  render();
+  const s=state.hidden[tk];s.has(col)?s.delete(col):s.add(col);
+  writeLS('ppa_hidden_'+tk,JSON.stringify([...s]));render();
 }
+function showAllCols(tk){state.hidden[tk]=new Set();writeLS('ppa_hidden_'+tk,'[]');render();}
 function loadHidden(){
   DATA.tables.forEach(t=>{
     const raw=readLS('ppa_hidden_'+t.key,null);
-    if(raw){ try{ state.hidden[t.key]=new Set(JSON.parse(raw)); }catch(e){} }
+    if(raw){try{state.hidden[t.key]=new Set(JSON.parse(raw));}catch(e){}}
   });
 }
-function colPicker(t){
-  const isOpen=!!state.colPickerOpen[t.key];
-  const opts=t.columns.filter(c=>c!==t.pk).map(c=>{
-    const checked=!isColHidden(t,c)?'checked':'';
-    return `<label class="colopt"><input type="checkbox" ${checked} onchange="toggleCol('${jsq(t.key)}','${jsq(c)}')">${esc(c)}</label>`;
-  }).join('');
-  return `<details class="colpicker" ${isOpen?'open':''} ontoggle="state.colPickerOpen['${jsq(t.key)}']=this.open"><summary>컬럼 선택</summary><div class="colpickbody">${opts}</div></details>`;
-}
 
+/* ── 필터 ───────────────────────────────────────────────────────────────── */
 function uniqueValues(t,col){
   const s=new Set();
   t.rows.forEach(r=>{const v=r.cells[col];if(v!==undefined&&v!=='') s.add(String(v));});
@@ -246,466 +397,875 @@ function filterableColumns(t){
   return t.columns.filter(c=>{
     if(c===t.pk) return false;
     const n=uniqueValues(t,c).length;
-    return n>=2&&n<=20&&n<t.rows.length;
+    return n>=2&&n<=25&&n<t.rows.length;
   });
 }
-function filterBar(t){
-  const cols=filterableColumns(t);
-  const cur=state.filters[t.key]||{};
-  const activeEntries=Object.entries(cur).filter(([,v])=>v);
-  const chips=activeEntries.map(([col,val])=>{
-    const label=(val==='TRUE'||val==='FALSE')?boolLabel(col,val):val;
-    return `<span class="fchip">${esc(col)}: ${esc(label)}<button onclick="setFilter('${jsq(t.key)}','${jsq(col)}','')">✕</button></span>`;
-  }).join('');
-  const chipRow=chips?`<div class="chiprow">${chips}</div>`:'';
-  if(!cols.length) return chipRow;
-  const selects=cols.map(c=>{
-    const vals=uniqueValues(t,c);
-    const sel=cur[c]||'';
-    const opts=[`<option value="">${esc(c)}: 전체</option>`].concat(
-      vals.map(v=>`<option value="${esc(v)}" ${v===sel?'selected':''}>${esc(v==='TRUE'||v==='FALSE'?boolLabel(c,v):v)}</option>`));
-    return `<select class="filtersel" onchange="setFilter('${jsq(t.key)}','${jsq(c)}',this.value)">${opts.join('')}</select>`;
-  }).join('');
-  const clearBtn=activeEntries.length>1?`<button class="clearbtn" onclick="clearFilters('${jsq(t.key)}')">전체 초기화</button>`:'';
-  return `<div class="filterbar">${selects}${clearBtn}</div>${chipRow}`;
-}
-function setFilter(k,col,val){state.filters[k]=state.filters[k]||{};if(val)state.filters[k][col]=val;else delete state.filters[k][col];render();}
-function clearFilters(k){state.filters[k]={};render();}
-
-// ── 날짜 범위 필터: 값이 YYYY-MM-DD 형태인 컬럼을 자동 감지 (공급기한_구매/판매, 계약일 등) ──
 function isDateCol(t,col){
-  const sample=t.rows.find(r=>r.cells[col]);
-  return !!sample && /^\d{4}-\d{2}-\d{2}$/.test(String(sample.cells[col]));
+  const s=t.rows.find(r=>r.cells[col]);
+  return !!s&&/^\d{4}-\d{2}-\d{2}$/.test(String(s.cells[col]));
 }
-function dateFilterBar(t){
-  const cols=t.columns.filter(c=>isDateCol(t,c));
-  if(!cols.length) return '';
-  const df=state.dateFilters[t.key]||{};
-  const parts=cols.map(c=>{
-    const range=df[c]||{};
-    return `<span class="datef"><span class="dflabel">${esc(c)}</span>
-      <input type="date" value="${esc(range.from||'')}" onchange="setDateFilter('${jsq(t.key)}','${jsq(c)}','from',this.value)">
-      <span class="dfsep">~</span>
-      <input type="date" value="${esc(range.to||'')}" onchange="setDateFilter('${jsq(t.key)}','${jsq(c)}','to',this.value)"></span>`;
-  }).join('');
-  return `<div class="filterbar">${parts}</div>`;
+function setFilter(k,col,val){
+  state.filters[k]=state.filters[k]||{};
+  if(val) state.filters[k][col]=val; else delete state.filters[k][col];
+  state.page[k]=1;render();
+}
+function setColQ(k,col,val){
+  state.colQ[k]=state.colQ[k]||{};
+  if(val) state.colQ[k][col]=val; else delete state.colQ[k][col];
+  state.page[k]=1;render();
 }
 function setDateFilter(k,col,edge,val){
   state.dateFilters[k]=state.dateFilters[k]||{};
   state.dateFilters[k][col]=state.dateFilters[k][col]||{};
   state.dateFilters[k][col][edge]=val;
-  render();
+  state.page[k]=1;render();
 }
-function applyDateFilter(rows,t){
-  const df=state.dateFilters[t.key]||{};
-  Object.entries(df).forEach(([col,range])=>{
-    if(!range.from&&!range.to) return;
-    rows=rows.filter(r=>{
+function clearAllFilters(k){
+  state.filters[k]={};state.colQ[k]={};state.dateFilters[k]={};
+  state.q[k]='';state.onlyErr[k]=false;state.onlyChg[k]=false;
+  state.page[k]=1;render();
+}
+function activeFilterCount(k){
+  let n=0;
+  n+=Object.values(state.filters[k]||{}).filter(v=>v).length;
+  n+=Object.values(state.colQ[k]||{}).filter(v=>v).length;
+  Object.values(state.dateFilters[k]||{}).forEach(r=>{if(r&&(r.from||r.to)) n++;});
+  if((state.q[k]||'').trim()) n++;
+  if(state.onlyErr[k]) n++;
+  if(state.onlyChg[k]) n++;
+  return n;
+}
+function filterDescription(k){
+  const parts=[];
+  const q=(state.q[k]||'').trim();
+  if(q) parts.push('검색 "'+q+'"');
+  Object.entries(state.filters[k]||{}).forEach(([c,v])=>{
+    if(v) parts.push(c+'='+((v==='TRUE'||v==='FALSE')?boolLabel(c,v):v));});
+  Object.entries(state.colQ[k]||{}).forEach(([c,v])=>{if(v) parts.push(c+'~"'+v+'"');});
+  Object.entries(state.dateFilters[k]||{}).forEach(([c,r])=>{
+    if(r&&(r.from||r.to)) parts.push(c+' '+(r.from||'')+'~'+(r.to||''));});
+  if(state.onlyErr[k]) parts.push('검증오류만');
+  if(state.onlyChg[k]) parts.push('변경분만');
+  return parts.length?parts.join(' · '):'전체';
+}
+
+/* 필터·검색·정렬을 모두 적용한 행 목록 (페이징 전) — 화면과 내려받기가 공유 */
+function filteredRows(t){
+  const k=t.key;
+  const q=(state.q[k]||'').trim().toLowerCase();
+  let rows=t.rows.map((r,i)=>({r,i}));
+  if(q) rows=rows.filter(({r})=>t.columns.some(c=>String(r.cells[c]??'').toLowerCase().includes(q)));
+  Object.entries(state.filters[k]||{}).forEach(([col,val])=>{
+    if(val) rows=rows.filter(({r})=>String(r.cells[col]??'')===val);});
+  Object.entries(state.colQ[k]||{}).forEach(([col,val])=>{
+    const s=String(val).trim().toLowerCase();
+    if(s) rows=rows.filter(({r})=>String(r.cells[col]??'').toLowerCase().includes(s));});
+  Object.entries(state.dateFilters[k]||{}).forEach(([col,range])=>{
+    if(!range||(!range.from&&!range.to)) return;
+    rows=rows.filter(({r})=>{
       const v=String(r.cells[col]||'');
       if(!v) return false;
       if(range.from&&v<range.from) return false;
       if(range.to&&v>range.to) return false;
-      return true;
-    });
-  });
+      return true;});});
+  if(state.onlyErr[k]) rows=rows.filter(({r})=>(r.error_cols||[]).length>0);
+  if(state.onlyChg[k]) rows=rows.filter(({r})=>!!r.change);
+  const sc=state.sort[k];
+  if(sc) rows=[...rows].sort((a,b)=>{
+    const av=a.r.cells[sc.key]??'',bv=b.r.cells[sc.key]??'';
+    if(av===''&&bv!=='') return 1;
+    if(bv===''&&av!=='') return -1;
+    const an=Number(av),bn=Number(bv);
+    const cmp=(av!==''&&bv!==''&&!isNaN(an)&&!isNaN(bn))?an-bn:String(av).localeCompare(String(bv),'ko');
+    return sc.dir*cmp;});
   return rows;
+}
+function doSort(k,c){
+  const s=state.sort[k];
+  state.sort[k]=(s&&s.key===c)?{key:c,dir:-s.dir}:{key:c,dir:1};
+  state.page[k]=1;render();
+}
+function setQ(k,v){state.q[k]=v;state.page[k]=1;render();}
+function toggleOnlyErr(k){state.onlyErr[k]=!state.onlyErr[k];state.page[k]=1;render();}
+function toggleOnlyChg(k){state.onlyChg[k]=!state.onlyChg[k];state.page[k]=1;render();}
+function setPage(k,p){state.page[k]=p;render();
+  const el=document.getElementById('tbl-'+k);if(el) el.scrollTop=0;}
+function setPageSize(v){
+  state.pageSize=Number(v)||50;writeLS('ppa_pagesize',String(state.pageSize));
+  Object.keys(state.page).forEach(k=>state.page[k]=1);render();
+}
+
+/* ── 공통 조각 ──────────────────────────────────────────────────────────── */
+const kpi=(k,v,s,cls,onclick)=>
+  `<div class="kpi${cls?' '+cls:''}${onclick?' clickable':''}"${onclick?` onclick="${onclick}"`:''}>
+     <span class="kk">${k}</span><span class="kv">${v}</span><span class="ks">${s||''}</span></div>`;
+const panel=(t,s,inner)=>`<div class="panel"><div class="ph"><h3>${t}</h3><span class="sub">${s||''}</span></div>${inner}</div>`;
+
+function pager(t,total,page,pages){
+  if(pages<=1&&total<=state.pageSize)
+    return `<div class="pager"><span class="pginfo">${nf(total,0)}건 전체 표시</span>
+      <select class="filtersel" onchange="setPageSize(this.value)">${pageSizeOpts()}</select></div>`;
+  const btn=(p,label,dis,on)=>
+    `<button class="pgbtn${on?' on':''}" ${dis?'disabled':''} onclick="setPage('${jsq(t.key)}',${p})">${label}</button>`;
+  const nums=[];
+  const win=2;
+  let last=0;
+  for(let p=1;p<=pages;p++){
+    if(p===1||p===pages||(p>=page-win&&p<=page+win)){
+      if(last&&p-last>1) nums.push('<span class="pgdots">…</span>');
+      nums.push(btn(p,String(p),false,p===page));last=p;
+    }
+  }
+  const from=(page-1)*state.pageSize+1,to=Math.min(page*state.pageSize,total);
+  return `<div class="pager">
+    ${btn(1,'«',page===1)}${btn(page-1,'‹',page===1)}${nums.join('')}${btn(page+1,'›',page===pages)}${btn(pages,'»',page===pages)}
+    <span class="pginfo">${nf(from,0)}–${nf(to,0)} / ${nf(total,0)}건</span>
+    <select class="filtersel" onchange="setPageSize(this.value)">${pageSizeOpts()}</select></div>`;
+}
+function pageSizeOpts(){
+  return [25,50,100,200,1000].map(n=>
+    `<option value="${n}" ${n===state.pageSize?'selected':''}>${n===1000?'1000 (전체)':n+'개씩'}</option>`).join('');
+}
+
+/* ── 표 화면 ────────────────────────────────────────────────────────────── */
+function filterBar(t){
+  const k=t.key;
+  const cols=filterableColumns(t);
+  const cur=state.filters[k]||{};
+  const selects=cols.map(c=>{
+    const sel=cur[c]||'';
+    const opts=[`<option value="">${esc(c)}: 전체</option>`].concat(
+      uniqueValues(t,c).map(v=>
+        `<option value="${esc(v)}" ${v===sel?'selected':''}>${esc((v==='TRUE'||v==='FALSE')?boolLabel(c,v):v)}</option>`));
+    return `<select class="filtersel" onchange="setFilter('${jsq(k)}','${jsq(c)}',this.value)">${opts.join('')}</select>`;
+  }).join('');
+  const dcols=t.columns.filter(c=>isDateCol(t,c));
+  const df=state.dateFilters[k]||{};
+  const dates=dcols.map(c=>{
+    const r=df[c]||{};
+    return `<span class="datef"><span class="dflabel">${esc(c)}</span>
+      <input type="date" id="df-${esc(k)}-${esc(c)}-from" value="${esc(r.from||'')}" onchange="setDateFilter('${jsq(k)}','${jsq(c)}','from',this.value)">
+      <span class="dfsep">~</span>
+      <input type="date" id="df-${esc(k)}-${esc(c)}-to" value="${esc(r.to||'')}" onchange="setDateFilter('${jsq(k)}','${jsq(c)}','to',this.value)"></span>`;
+  }).join('');
+  const chips=[];
+  Object.entries(cur).forEach(([col,val])=>{if(!val) return;
+    chips.push(`<span class="fchip">${esc(col)}: ${esc((val==='TRUE'||val==='FALSE')?boolLabel(col,val):val)}<button onclick="setFilter('${jsq(k)}','${jsq(col)}','')">✕</button></span>`);});
+  Object.entries(state.colQ[k]||{}).forEach(([col,val])=>{if(!val) return;
+    chips.push(`<span class="fchip">${esc(col)} ~ "${esc(val)}"<button onclick="setColQ('${jsq(k)}','${jsq(col)}','')">✕</button></span>`);});
+  Object.entries(df).forEach(([col,r])=>{if(!r||(!r.from&&!r.to)) return;
+    chips.push(`<span class="fchip">${esc(col)} ${esc(r.from||'')}~${esc(r.to||'')}<button onclick="setDateFilter('${jsq(k)}','${jsq(col)}','from','');setDateFilter('${jsq(k)}','${jsq(col)}','to','')">✕</button></span>`);});
+  const chipRow=chips.length?`<div class="chiprow">${chips.join('')}</div>`:'';
+  const bar=(selects||dates)?`<div class="filterbar">${selects}${dates}</div>`:'';
+  return bar+chipRow;
 }
 
 function tableView(t){
-  const raw=state.q[t.key]||'';
-  const q=raw.trim().toLowerCase();
-  const sc=state.sort[t.key];
-  const filt=state.filters[t.key]||{};
-  let rows=t.rows.map((r,idx)=>({...r,_idx:idx}));
-  if(q) rows=rows.filter(r=>t.columns.some(c=>String(r.cells[c]??'').toLowerCase().includes(q)));
-  Object.entries(filt).forEach(([col,val])=>{rows=rows.filter(r=>String(r.cells[col]??'')===val);});
-  rows=applyDateFilter(rows,t);
-  if(sc){rows=[...rows].sort((a,b)=>{
-    const av=a.cells[sc.key]??'',bv=b.cells[sc.key]??'';
-    const an=Number(av),bn=Number(bv);
-    let cmp;
-    if(av!==''&&bv!==''&&!isNaN(an)&&!isNaN(bn)) cmp=an-bn;
-    else cmp=String(av).localeCompare(String(bv),'ko');
-    return sc.dir*cmp;});}
+  const k=t.key;
+  const raw=state.q[k]||'';
+  const rows=filteredRows(t);
+  const total=rows.length;
+  const pages=Math.max(1,Math.ceil(total/state.pageSize));
+  const page=Math.min(Math.max(1,state.page[k]||1),pages);
+  state.page[k]=page;
+  const pageRows=rows.slice((page-1)*state.pageSize,page*state.pageSize);
   const cols=visibleColumns(t);
+  const sc=state.sort[k];
+  const errN=t.rows.filter(r=>(r.error_cols||[]).length>0).length;
+  const chgN=t.rows.filter(r=>!!r.change).length;
+  const hiddenN=(state.hidden[k]||new Set()).size;
+  const nFilters=activeFilterCount(k);
+
   const head=cols.map(c=>{
     const ar=sc&&sc.key===c?`<span class="ar">${sc.dir>0?'▲':'▼'}</span>`:'';
     const pk=c===t.pk?'<span class="pkbadge">PK</span>':'';
     const fk=(t.fk||{})[c]?'<span class="fkbadge">FK</span>':'';
-    return `<th onclick="doSort('${jsq(t.key)}','${jsq(c)}')">${esc(c)}${pk}${fk}${ar}</th>`;}).join('');
-  const body=rows.map(r=>{
+    return `<th class="${isNumCol(c)?'num':''}" onclick="doSort('${jsq(k)}','${jsq(c)}')">${esc(c)}${pk}${fk}${ar}</th>`;
+  }).join('');
+  const body=pageRows.map(({r,i})=>{
     const err=(r.error_cols||[]).length>0;
+    const cls=err?'rowerr':(r.change==='added'?'rowadd':(r.change==='changed'?'rowchg':''));
     const tds=cols.map(c=>{
       const bad=(r.error_cols||[]).includes(c);
-      return `<td class="${bad?'cellerr':''}">${cellHtml(t,c,r.cells[c])}</td>`;}).join('');
-    return `<tr class="${err?'rowerr':''}">${tds}</tr>`;}).join('');
-  return `<div class="toolbar"><input id="search-${esc(t.key)}" class="search" placeholder="검색…" value="${esc(raw)}" oninput="setQ('${jsq(t.key)}',this.value)">
-    ${colPicker(t)}
-    <span class="count">${rows.length.toLocaleString('ko-KR')} / ${t.rows.length.toLocaleString('ko-KR')}건</span></div>
-    ${filterBar(t)}${dateFilterBar(t)}
-    <div class="tbl-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body||`<tr><td colspan="${cols.length}" style="text-align:center;padding:24px;color:var(--sub)">데이터 없음</td></tr>`}</tbody></table></div>`;
+      const chg=(r.changed_cols||[]).includes(c);
+      const title=chg&&r.prev?` title="이전값: ${esc(r.prev[c]||'(공란)')}"`:'';
+      return `<td class="${bad?'cellerr':(chg?'cellchg':'')}${isNumCol(c)?' num':''}"${title}>${cellHtml(t,c,r.cells[c])}</td>`;
+    }).join('');
+    return `<tr class="clickrow ${cls}" onclick="openDetail('${jsq(k)}',${i})">${tds}</tr>`;
+  }).join('')||`<tr><td class="emptyrow" colspan="${cols.length}">조건에 맞는 데이터가 없습니다.</td></tr>`;
+
+  const colOpts=t.columns.filter(c=>c!==t.pk).map(c=>
+    `<label class="colopt"><input type="checkbox" ${isColHidden(t,c)?'':'checked'} onchange="toggleCol('${jsq(k)}','${jsq(c)}')">${esc(c)}</label>`).join('');
+  const colSearchOpts=t.columns.map(c=>
+    `<label class="colopt" style="display:block"><span class="dkey">${esc(c)}</span>
+      <input id="cq-${esc(k)}-${esc(c)}" class="search" style="width:100%;min-width:0;margin-top:3px"
+        value="${esc((state.colQ[k]||{})[c]||'')}" placeholder="이 컬럼에서 찾기…"
+        oninput="setColQ('${jsq(k)}','${jsq(c)}',this.value)"></label>`).join('');
+
+  return `<div class="toolbar">
+      <input id="search-${esc(k)}" class="search" placeholder="${esc(t.label)} 전체 컬럼 검색…" value="${esc(raw)}" oninput="setQ('${jsq(k)}',this.value)">
+      ${errN?`<button class="btn ${state.onlyErr[k]?'on':''}" onclick="toggleOnlyErr('${jsq(k)}')">검증오류만 ${errN}</button>`:''}
+      ${chgN?`<button class="btn ${state.onlyChg[k]?'on':''}" onclick="toggleOnlyChg('${jsq(k)}')">변경분만 ${chgN}</button>`:''}
+      <details class="drop"><summary>컬럼별 찾기</summary><div class="dropbody">${colSearchOpts}</div></details>
+      <details class="drop"><summary>컬럼 선택${hiddenN?' ('+hiddenN+' 숨김)':''}</summary>
+        <div class="dropbody">${colOpts}<button class="btn" style="width:100%;margin-top:8px" onclick="showAllCols('${jsq(k)}')">전체 표시</button></div></details>
+      <details class="drop"><summary>내려받기</summary><div class="dropbody right">${downloadMenu(k)}</div></details>
+      ${nFilters?`<button class="btn danger" onclick="clearAllFilters('${jsq(k)}')">조건 초기화 (${nFilters})</button>`:''}
+      <span class="count">${nf(total,0)} / ${nf(t.rows.length,0)}건</span>
+    </div>
+    ${filterBar(t)}
+    <div class="tbl-wrap stickyfirst" id="tbl-${esc(k)}"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>
+    ${pager(t,total,page,pages)}`;
 }
-function doSort(k,c){const s=state.sort[k];state.sort[k]=(s&&s.key===c)?{key:c,dir:-s.dir}:{key:c,dir:1};render();}
-function setQ(k,v){state.q[k]=v;render();}
-const kpi=(k,v,s,cls,onclick)=>`<div class="kpi${cls?' '+cls:''}${onclick?' clickable':''}"${onclick?` onclick="${onclick}"`:''}><span class="kk">${k}</span><span class="kv">${v}</span><span class="ks">${s||''}</span></div>`;
-const panel=(t,s,inner)=>`<div class="panel"><div class="ph"><h3>${t}</h3><span class="sub">${s||''}</span></div>${inner}</div>`;
 
 function tData(t){
   const errRows=t.rows.filter(r=>(r.error_cols||[]).length>0).length;
-  const hiddenN=(state.hidden[t.key]||new Set()).size;
-  return `<section><div class="kpis">
-    ${kpi('전체 행 수',t.rows.length.toLocaleString('ko-KR'),t.label,'accent')}
-    ${kpi('오류 있는 행',errRows.toLocaleString('ko-KR'),errRows>0?'검증 탭 참고':'문제 없음',errRows>0?'warn':'',errRows>0?"state.tab='검증';render()":'')}
-    ${kpi('컬럼 수',t.columns.length,hiddenN?hiddenN+'개 숨김':'')}
-    ${kpi('참조 관계',t.fk_columns.length>0?t.fk_columns.join(', '):'없음')}</div>
-    ${panel(t.label+' 전체 목록','PK/FK 값 클릭 시 관계조회 · 클릭으로 정렬 · 빨간 셀은 검증 오류',tableView(t))}</section>`;
+  const chgRows=t.rows.filter(r=>!!r.change).length;
+  const s=(CHANGES.summary||{})[t.key]||{};
+  return `<section>${printHead(t.label+' 목록',filterDescription(t.key))}<div class="kpis">
+    ${kpi('전체 행 수',nf(t.rows.length,0),t.label,'accent')}
+    ${kpi('검증 오류 행',nf(errRows,0),errRows>0?'클릭 시 오류만 보기':'문제 없음',errRows>0?'warn':'',errRows>0?`toggleOnlyErr('${jsq(t.key)}')`:'')}
+    ${kpi('지난 대비 변경',CHANGES.has_prev?nf(chgRows,0):'—',CHANGES.has_prev?`추가 ${s.added||0} · 수정 ${s.changed||0} · 삭제 ${s.removed||0}`:'이전 스냅샷 없음',
+      '',chgRows>0?`toggleOnlyChg('${jsq(t.key)}')`:'')}
+    ${kpi('컬럼 수',t.columns.length,(state.hidden[t.key]||new Set()).size?((state.hidden[t.key]||new Set()).size+'개 숨김'):'전체 표시')}
+    </div>
+    ${panel(t.label+' 전체 목록','행 클릭 시 상세 · PK/FK 클릭 시 관계조회 · 머리글 클릭 시 정렬',tableView(t))}</section>`;
 }
 
-// ── 관계조회: 표를 넘나들지 않고, PK 하나를 고르면 FK로 이어진 다른 표의
-// 행들을 전부 한 화면에 모아 보여줍니다 (발전소↔구매계약↔수급매칭↔전기사용지↔판매계약↔수요기업).
-function relatedChain(startTable,startPk){
-  const visited={};
-  const startKey=String(startPk);
+/* ── 상세 모달 ──────────────────────────────────────────────────────────── */
+function openDetail(tk,i){state.modal={t:tk,i:i};render();}
+function closeDetail(){state.modal=null;render();}
+function modalHtml(){
+  if(!state.modal) return '';
+  const t=byKey[state.modal.t];if(!t) return '';
+  const r=t.rows[state.modal.i];if(!r) return '';
+  const pkv=r.cells[t.pk];
+  /* 모달에서는 "이 레코드에 바로 붙어 있는 것"만 — 1단계 직접 연결 */
+  const chain=relatedChain(t.key,pkv,1);
+  const rel=DATA.tables.map(x=>{
+    const n=chain[x.key]?chain[x.key].size:0;
+    return n>0&&x.key!==t.key?`<span class="chipcount">${esc(x.label)} ${nf(n,0)}</span>`:'';}).join('');
+  const rows=t.columns.map(c=>{
+    const bad=(r.error_cols||[]).includes(c);
+    const chg=(r.changed_cols||[]).includes(c);
+    const prev=chg&&r.prev?`<div class="chgval"><span class="chgold">${esc(r.prev[c]||'(공란)')}</span>→ <span class="chgnew">${esc(r.cells[c]||'(공란)')}</span></div>`:'';
+    return `<div class="drow ${bad?'err':''} ${chg?'chg':''}">
+      <span class="dkey">${esc(c)}${c===t.pk?'<span class="pkbadge">PK</span>':''}${(t.fk||{})[c]?'<span class="fkbadge">FK</span>':''}</span>
+      <span>${cellHtml(t,c,r.cells[c])||'<span style="color:var(--sub)">(공란)</span>'}${prev}</span></div>`;
+  }).join('');
+  const errs=(r.error_cols||[]).length
+    ? `<div class="badge no" style="margin-top:8px">검증 오류: ${esc((r.error_cols||[]).join(', '))}</div>`:'';
+  const chgb=r.change==='added'?'<div class="badge ok" style="margin-top:8px">지난 생성분 이후 추가된 항목</div>'
+    :(r.change==='changed'?`<div class="badge info" style="margin-top:8px">지난 생성분 대비 ${(r.changed_cols||[]).length}개 항목 변경</div>`:'');
+  return `<div class="backdrop" onclick="if(event.target===this)closeDetail()">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modalhead">
+        <div><h3>${esc(t.label)} 상세</h3>
+          <div class="sub">${esc(String(pkv||'(PK 공란)'))}</div>${errs}${chgb}
+          <div style="margin-top:8px">${rel||'<span class="nocand">연결된 다른 표 데이터 없음</span>'}</div></div>
+        <button class="iconbtn" onclick="closeDetail()" aria-label="닫기">✕</button>
+      </div>
+      <div class="modalbody">${rows}</div>
+      <div class="modalfoot">
+        <button class="btn primary" onclick="closeDetail();jumpTo('${jsq(t.key)}','${jsq(pkv)}')">관계조회로 보기</button>
+        <button class="btn" onclick="togglePin('${jsq(t.key)}','${jsq(pkv)}')">${isPinned(t.key,pkv)?'비교에서 제거':'비교에 추가'}</button>
+        <button class="btn" onclick="copyText(detailText('${jsq(t.key)}',${state.modal.i}))">내용 복사</button>
+        <button class="btn" onclick="closeDetail()">닫기</button>
+      </div></div></div>`;
+}
+function detailText(tk,i){
+  const t=byKey[tk],r=t.rows[i];
+  return `[${t.label}] ${r.cells[t.pk]||''}\n`+
+    t.columns.map(c=>'- '+c+': '+(r.cells[c]||'')).join('\n');
+}
+
+/* ── 관계조회 ───────────────────────────────────────────────────────────────
+   FK를 따라 양방향(참조하는 쪽·참조받는 쪽)으로 퍼져나가며 연결된 레코드를
+   모읍니다. 다만 이 스키마는 한 전기사용지가 여러 구매계약에서 공급받고
+   한 구매계약이 여러 전기사용지에 공급하는 다대다 구조라, 제한 없이 퍼뜨리면
+   실데이터에서 사실상 전체가 하나로 이어져 수백 건이 딸려옵니다. 그래서
+   "몇 단계까지 따라갈지"를 사용자가 고를 수 있게 하고(기본 2단계), 안전장치로
+   총 노드 수 상한도 둡니다. */
+const CHAIN_NODE_CAP=4000;
+function relatedChain(startTable,startPk,maxDepth){
+  const depth=(maxDepth===undefined)?(state.lookupDepth||0):maxDepth;
+  const visited={},startKey=String(startPk);
   visited[startTable]=new Set([startKey]);
-  const queue=[[startTable,startKey]];
+  let count=1;
+  const queue=[[startTable,startKey,0]];
+  const seen=k=>visited[k]||(visited[k]=new Set());
   while(queue.length){
-    const [tk,pkv]=queue.shift();
+    const [tk,pkv,d]=queue.shift();
+    if(depth>0&&d>=depth) continue;
+    if(count>=CHAIN_NODE_CAP) break;
     const row=rowIndex[tk]&&rowIndex[tk][pkv];
     if(!row) continue;
     const t=byKey[tk];
+    /* 이 행이 참조하는 부모(FK → PK) */
     Object.entries(t.fk||{}).forEach(([col,refKey])=>{
-      const refPkv=row.cells[col];
-      if(refPkv!==undefined&&refPkv!==''){
-        const rk=String(refPkv);
-        visited[refKey]=visited[refKey]||new Set();
-        if(!visited[refKey].has(rk)){visited[refKey].add(rk);queue.push([refKey,rk]);}
-      }
-    });
+      const v=row.cells[col];
+      if(v!==undefined&&v!==''){
+        const rk=String(v),s=seen(refKey);
+        if(!s.has(rk)){s.add(rk);count++;queue.push([refKey,rk,d+1]);}
+      }});
+    /* 이 행을 참조하는 자식(PK ← FK) */
     edges.filter(e=>e.ref===tk).forEach(e=>{
-      const childT=byKey[e.table];
+      const childT=byKey[e.table],s=seen(e.table);
       childT.rows.forEach(cr=>{
         if(String(cr.cells[e.col]??'')===pkv){
-          const childPk=cr.cells[childT.pk];
-          if(childPk!==undefined&&childPk!==''){
-            const ck=String(childPk);
-            visited[e.table]=visited[e.table]||new Set();
-            if(!visited[e.table].has(ck)){visited[e.table].add(ck);queue.push([e.table,ck]);}
-          }
-        }
-      });
-    });
+          const cpk=cr.cells[childT.pk];
+          if(cpk!==undefined&&cpk!==''){
+            const ck=String(cpk);
+            if(!s.has(ck)){s.add(ck);count++;queue.push([e.table,ck,d+1]);}
+          }}});});
   }
   return visited;
 }
+function setLookupDepth(v){state.lookupDepth=Number(v);writeLS('ppa_depth',String(v));render();}
 function miniTable(t,rows,highlightPk){
   const cols=visibleColumns(t);
   const head=cols.map(c=>{
     const pk=c===t.pk?'<span class="pkbadge">PK</span>':'';
     const fk=(t.fk||{})[c]?'<span class="fkbadge">FK</span>':'';
-    return `<th>${esc(c)}${pk}${fk}</th>`;}).join('');
-  const body=rows.map(r=>{
+    return `<th class="nosort ${isNumCol(c)?'num':''}">${esc(c)}${pk}${fk}</th>`;}).join('');
+  const body=rows.map(({r,i})=>{
     const isRoot=highlightPk!==null&&String(r.cells[t.pk])===String(highlightPk);
-    const tds=cols.map(c=>`<td>${cellHtml(t,c,r.cells[c])}</td>`).join('');
-    return `<tr class="${isRoot?'rootrow':''}">${tds}</tr>`;}).join('');
-  return `<div class="tbl-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+    const err=(r.error_cols||[]).length>0;
+    const cls=isRoot?'rootrow':(err?'rowerr':(r.change?'rowchg':''));
+    const tds=cols.map(c=>{
+      const bad=(r.error_cols||[]).includes(c);
+      const chg=(r.changed_cols||[]).includes(c);
+      return `<td class="${bad?'cellerr':(chg?'cellchg':'')}${isNumCol(c)?' num':''}">${cellHtml(t,c,r.cells[c])}</td>`;}).join('');
+    return `<tr class="clickrow ${cls}" onclick="openDetail('${jsq(t.key)}',${i})">${tds}</tr>`;}).join('');
+  return `<div class="tbl-wrap stickyfirst"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 function setLookupTable(k){state.lookupTable=k;state.lookupQ='';render();}
 function setLookupQ(v){state.lookupQ=v;render();}
 function setLookup(table,pk){
   state.lookup={table,pk};
-  const t=byKey[table];
-  const row=rowIndex[table]&&rowIndex[table][String(pk)];
-  const shortLabel=row?t.columns.slice(0,2).map(c=>row.cells[c]).filter(v=>v!==undefined&&v!=='').join(' · '):String(pk);
+  const t=byKey[table],row=rowIndex[table]&&rowIndex[table][String(pk)];
+  const short=row?t.columns.slice(0,2).map(c=>row.cells[c]).filter(v=>v!==undefined&&v!=='').join(' · '):String(pk);
   state.recent=state.recent.filter(r=>!(r.table===table&&String(r.pk)===String(pk)));
-  state.recent.unshift({table,pk,label:t.label+' · '+shortLabel});
+  state.recent.unshift({table,pk,label:t.label+' · '+short});
   state.recent=state.recent.slice(0,5);
 }
 function chooseLookup(table,pk){setLookup(table,pk);state.lookupQ='';render();}
 function clearLookup(){state.lookup=null;state.lookupQ='';render();}
-function jumpTo(table,pk){state.tab='관계조회';state.lookupTable=table;setLookup(table,pk);render();}
-
+function jumpTo(table,pk){state.tab='관계조회';state.lookupTable=table;setLookup(table,pk);state.modal=null;render();}
 function isPinned(table,pk){return state.pinned.some(p=>p.table===table&&String(p.pk)===String(pk));}
 function togglePin(table,pk){
-  const idx=state.pinned.findIndex(p=>p.table===table&&String(p.pk)===String(pk));
-  if(idx>=0) state.pinned.splice(idx,1);
+  const i=state.pinned.findIndex(p=>p.table===table&&String(p.pk)===String(pk));
+  if(i>=0) state.pinned.splice(i,1);
   else{state.pinned.push({table,pk});if(state.pinned.length>3) state.pinned.shift();}
   render();
 }
-function recentChips(){
-  if(!state.recent.length) return '';
-  const chips=state.recent.map(r=>`<button class="candrow" onclick="chooseLookup('${jsq(r.table)}','${jsq(r.pk)}')">${esc(r.label)}</button>`).join('');
-  return panel('최근 조회','',`<div class="candlist" style="max-height:none">${chips}</div>`);
-}
-
 function tLookup(){
   const activeT=byKey[state.lookupTable];
   const pickTabs=DATA.tables.map(t=>
     `<button class="subtab ${t.key===state.lookupTable?'on':''}" onclick="setLookupTable('${jsq(t.key)}')">${esc(t.label)}</button>`).join('');
   const q=(state.lookupQ||'').trim().toLowerCase();
   const matches=q?activeT.rows.filter(r=>activeT.columns.some(c=>String(r.cells[c]??'').toLowerCase().includes(q))):activeT.rows;
-  const shown=matches.slice(0,25);
-  const candHtml=shown.map(r=>{
+  const cand=matches.slice(0,25).map(r=>{
     const pkv=r.cells[activeT.pk];
     const label=activeT.columns.slice(0,3).map(c=>r.cells[c]).filter(v=>v!==undefined&&v!=='').join(' · ');
     return `<button class="candrow" onclick="chooseLookup('${jsq(activeT.key)}','${jsq(pkv)}')">${esc(label)}</button>`;
   }).join('')||'<div class="nocand">일치하는 항목이 없습니다.</div>';
-  const moreNote=matches.length>25?`<div class="nocand">${(matches.length-25).toLocaleString('ko-KR')}건 더 있음 — 검색어를 추가해 좁혀보세요.</div>`:'';
-
+  const more=matches.length>25?`<div class="nocand">${nf(matches.length-25,0)}건 더 있음 — 검색어를 추가해 좁혀보세요.</div>`:'';
+  const recent=state.recent.length
+    ? panel('최근 조회','',`<div class="candlist" style="max-height:none">${state.recent.map(r=>
+        `<button class="candrow" onclick="chooseLookup('${jsq(r.table)}','${jsq(r.pk)}')">${esc(r.label)}</button>`).join('')}</div>`):'';
   const picker=`<div class="panel"><div class="ph"><h3>1. 표 선택</h3></div>
     <div class="subtabbar">${pickTabs}</div>
     <div class="ph" style="margin-top:16px"><h3>2. 검색해서 선택</h3><span class="sub">비워두면 목록이 그대로 보입니다</span></div>
     <input id="lookupSearchInput" class="search" style="width:100%" placeholder="${esc(activeT.label)} 검색 (ID, 이름 등)…" value="${esc(state.lookupQ||'')}" oninput="setLookupQ(this.value)">
-    <div class="candlist">${candHtml}</div>${moreNote}</div>`;
+    <div class="candlist">${cand}</div>${more}</div>`;
 
-  if(!state.lookup) return `<section>${recentChips()}${picker}</section>`;
+  if(!state.lookup) return `<section>${recent}${picker}</section>`;
 
   const rootT=byKey[state.lookup.table];
   const rootRow=rowIndex[state.lookup.table]&&rowIndex[state.lookup.table][String(state.lookup.pk)];
-  if(!rootRow){
-    return `<section><div class="panel lookuphead">
-        <div><div class="ph" style="margin-bottom:4px"><h3>조회 중: ${esc(rootT.label)} · ${esc(state.lookup.pk)}</h3></div>
-        <span class="badge no">이 ID를 가진 실제 레코드가 없습니다 — 오타나 참조 오류일 수 있습니다 (검증 탭 확인).</span></div>
-        <button class="clearbtn" onclick="clearLookup()">다른 항목 조회</button>
-      </div></section>`;
-  }
+  if(!rootRow) return `<section><div class="panel lookuphead">
+      <div><div class="ph" style="margin-bottom:4px"><h3>조회 중: ${esc(rootT.label)} · ${esc(state.lookup.pk)}</h3></div>
+      <span class="badge no">이 ID를 가진 실제 레코드가 없습니다 — 오타나 참조 오류일 수 있습니다 (검증 탭 확인).</span></div>
+      <button class="btn danger" onclick="clearLookup()">다른 항목 조회</button></div></section>`;
+
   const chain=relatedChain(state.lookup.table,state.lookup.pk);
   const rootLabel=rootT.columns.slice(0,3).map(c=>rootRow.cells[c]).filter(v=>v!==undefined&&v!=='').join(' · ');
+  const CAP=50;
   const chainRows=DATA.tables.map(t=>{
-    const pkset=chain[t.key];
-    const rows=pkset&&pkset.size>0?t.rows.filter(r=>pkset.has(String(r.cells[t.pk]))):[];
-    return {t,rows};
-  });
-  const summary=chainRows.map(({t,rows})=>
-    rows.length>0?`<span class="chipcount">${esc(t.label)} ${rows.length}</span>`:'').join('');
+    const set=chain[t.key];
+    const rows=set&&set.size?t.rows.map((r,i)=>({r,i})).filter(({r})=>set.has(String(r.cells[t.pk]))):[];
+    return {t,rows};});
+  const summary=chainRows.map(({t,rows})=>rows.length?`<span class="chipcount">${esc(t.label)} ${nf(rows.length,0)}</span>`:'').join('');
   const panels=chainRows.map(({t,rows})=>{
     if(!rows.length) return '';
-    const highlight=state.lookup.table===t.key?state.lookup.pk:null;
-    return panel(`${esc(t.label)} (${rows.length}건 연결)`,'',miniTable(t,rows,highlight));
-  }).join('');
-  const pinned=isPinned(state.lookup.table,state.lookup.pk);
-
-  return `<section><div class="panel lookuphead">
+    const shown=rows.slice(0,CAP);
+    const more=rows.length>CAP
+      ? `<div class="nocand">많아서 ${CAP}건만 표시했습니다 (전체 ${nf(rows.length,0)}건).
+         단계를 줄이거나 <a class="idlink" onclick="state.tab='${jsq(t.key)}';render()">${esc(t.label)} 탭</a>에서 조건을 걸어 확인하세요.</div>`:'';
+    return panel(`${esc(t.label)} (${nf(rows.length,0)}건 연결)`,'',
+      miniTable(t,shown,state.lookup.table===t.key?state.lookup.pk:null)+more);}).join('');
+  const depthSel=`<span class="datef"><span class="dflabel">연결 범위</span>
+      <select class="filtersel" style="border:none;background:none;padding:0" onchange="setLookupDepth(this.value)"
+        title="FK를 몇 단계까지 따라갈지 — 넓힐수록 간접적으로 이어진 레코드까지 딸려옵니다">
+      ${[[1,'직접 연결만'],[2,'2단계'],[3,'3단계'],[0,'전체 (제한 없음)']].map(([v,l])=>
+        `<option value="${v}" ${Number(state.lookupDepth)===v?'selected':''}>${l}</option>`).join('')}</select></span>`;
+  return `<section>${printHead('관계조회 — '+rootT.label+' '+rootLabel,'연결된 전 표 데이터')}
+    <div class="panel lookuphead">
       <div><div class="ph" style="margin-bottom:4px"><h3>조회 중: ${esc(rootT.label)} · ${esc(rootLabel)}</h3></div>${summary}</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="clearbtn" style="background:var(--teal-w);color:var(--teal-d)" onclick="togglePin('${jsq(state.lookup.table)}','${jsq(state.lookup.pk)}')">${pinned?'비교에서 제거':'비교에 추가 ('+state.pinned.length+'/3)'}</button>
-        <button class="clearbtn" onclick="clearLookup()">다른 항목 조회</button>
-      </div>
-    </div>${panels}</section>`;
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        ${depthSel}
+        <button class="btn primary" onclick="togglePin('${jsq(state.lookup.table)}','${jsq(state.lookup.pk)}')">${isPinned(state.lookup.table,state.lookup.pk)?'비교에서 제거':'비교에 추가 ('+state.pinned.length+'/3)'}</button>
+        <button class="btn" onclick="window.print()">인쇄 / PDF</button>
+        <button class="btn danger" onclick="clearLookup()">다른 항목 조회</button>
+      </div></div>${panels}</section>`;
 }
 
+/* ── 비교 ───────────────────────────────────────────────────────────────── */
 function tCompare(){
-  if(!state.pinned.length){
+  if(!state.pinned.length)
     return `<section><div class="panel"><div class="ph"><h3>비교할 레코드가 없습니다</h3></div>
-      <div class="nocand">관계조회에서 레코드를 연 뒤 "비교에 추가"를 누르면 여기서 최대 3건까지 나란히 비교할 수 있습니다.</div></div></section>`;
-  }
+      <div class="nocand">표에서 행을 눌러 상세를 열거나 관계조회에서 레코드를 연 뒤 "비교에 추가"를 누르면
+      여기서 최대 3건까지 나란히 비교할 수 있습니다.</div></div></section>`;
   const groups={};
-  state.pinned.forEach(p=>{groups[p.table]=groups[p.table]||[];groups[p.table].push(p.pk);});
+  state.pinned.forEach(p=>{(groups[p.table]=groups[p.table]||[]).push(p.pk);});
   const panels=Object.entries(groups).map(([tk,pks])=>{
     const t=byKey[tk];
     const rows=pks.map(pk=>rowIndex[tk]&&rowIndex[tk][String(pk)]).filter(Boolean);
     if(!rows.length) return '';
     const cols=visibleColumns(t);
-    const head=`<th>항목</th>`+rows.map(r=>
-      `<th>${esc(r.cells[t.pk])}<button class="unpinbtn" onclick="togglePin('${jsq(tk)}','${jsq(r.cells[t.pk])}')">✕</button></th>`).join('');
+    const head='<th class="nosort">항목</th>'+rows.map(r=>
+      `<th class="nosort">${esc(r.cells[t.pk])}<button class="iconbtn" style="width:18px;height:18px;font-size:10px;display:inline-flex;margin-left:6px" onclick="togglePin('${jsq(tk)}','${jsq(r.cells[t.pk])}')">✕</button></th>`).join('');
     const body=cols.map(c=>{
-      const vals=rows.map(r=>r.cells[c]);
-      const differ=new Set(vals.map(v=>String(v??''))).size>1;
-      const tds=rows.map(r=>`<td class="${differ?'diffcell':''}">${cellHtml(t,c,r.cells[c])}</td>`).join('');
+      const differ=new Set(rows.map(r=>String(r.cells[c]??''))).size>1;
+      const tds=rows.map(r=>`<td class="${differ?'diffcell':''}${isNumCol(c)?' num':''}">${cellHtml(t,c,r.cells[c])}</td>`).join('');
       const pk=c===t.pk?'<span class="pkbadge">PK</span>':'';
       const fk=(t.fk||{})[c]?'<span class="fkbadge">FK</span>':'';
-      return `<tr><td>${esc(c)}${pk}${fk}</td>${tds}</tr>`;
-    }).join('');
-    return panel(`${esc(t.label)} 비교 (${rows.length}건)`,'다른 값은 강조 표시됩니다',
-      `<div class="tbl-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`);
+      return `<tr><td><span class="dkey">${esc(c)}</span>${pk}${fk}</td>${tds}</tr>`;}).join('');
+    return panel(`${esc(t.label)} 비교 (${rows.length}건)`,'값이 다른 항목은 강조 표시됩니다',
+      `<div class="tbl-wrap stickyfirst"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`);
   }).join('');
-  return `<section><div class="panel lookuphead"><div class="ph" style="margin-bottom:0"><h3>비교 중 (${state.pinned.length}건)</h3></div>
-    <button class="clearbtn" onclick="state.pinned=[];render()">전체 해제</button></div>${panels}</section>`;
+  return `<section>${printHead('레코드 비교','핀 '+state.pinned.length+'건')}
+    <div class="panel lookuphead"><div class="ph" style="margin-bottom:0"><h3>비교 중 (${state.pinned.length}건)</h3></div>
+      <div style="display:flex;gap:8px"><button class="btn" onclick="window.print()">인쇄 / PDF</button>
+      <button class="btn danger" onclick="state.pinned=[];render()">전체 해제</button></div></div>${panels}</section>`;
 }
 
-function sumCol(tableKey,col){
-  const t=byKey[tableKey];if(!t) return 0;
-  return t.rows.reduce((s,r)=>{const n=Number(r.cells[col]);return s+(isNaN(n)?0:n);},0);
-}
-function countWhere(tableKey,col,val){
-  const t=byKey[tableKey];if(!t) return 0;
-  return t.rows.filter(r=>String(r.cells[col]??'')===val).length;
-}
-function groupSum(tableKey,groupCol,sumColName){
-  const t=byKey[tableKey];if(!t) return [];
+/* ── 홈 (보고용 요약) ───────────────────────────────────────────────────── */
+function sumCol(tk,col){const t=byKey[tk];if(!t) return 0;
+  return t.rows.reduce((s,r)=>{const n=Number(r.cells[col]);return s+(isNaN(n)?0:n);},0);}
+function countWhere(tk,col,val){const t=byKey[tk];if(!t) return 0;
+  return t.rows.filter(r=>String(r.cells[col]??'')===val).length;}
+function groupSum(tk,gcol,scol){const t=byKey[tk];if(!t) return [];
   const m={};
-  t.rows.forEach(r=>{
-    const g=r.cells[groupCol]||'(미지정)';
-    const n=Number(r.cells[sumColName]);
-    m[g]=(m[g]||0)+(isNaN(n)?0:n);
-  });
-  return Object.entries(m).sort((a,b)=>b[1]-a[1]);
-}
-function jumpToFilter(tableKey,col,val){
-  state.tab=tableKey;
-  state.filters[tableKey]=state.filters[tableKey]||{};
-  state.filters[tableKey][col]=val;
-  render();
-}
-function schemaBox(tableKey){
-  const t=byKey[tableKey];
-  return `<button class="schemabox" onclick="state.tab='${jsq(tableKey)}';render()">${esc(t.label)}<span class="schemacount mono">${t.rows.length}</span></button>`;
-}
+  t.rows.forEach(r=>{const g=r.cells[gcol]||'(미지정)';const n=Number(r.cells[scol]);m[g]=(m[g]||0)+(isNaN(n)?0:n);});
+  return Object.entries(m).sort((a,b)=>b[1]-a[1]);}
+function countExpiring(tk,col,days){
+  const t=byKey[tk];if(!t||!TODAY) return 0;
+  return t.rows.filter(r=>{
+    const v=String(r.cells[col]||'');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+    const d=daysBetween(TODAY,v);
+    return d>=0&&d<=days;}).length;}
+function jumpToFilter(tk,col,val){
+  state.tab=tk;state.filters[tk]=state.filters[tk]||{};state.filters[tk][col]=val;state.page[tk]=1;render();}
+function jumpToDateWindow(tk,col,days){
+  state.tab=tk;state.dateFilters[tk]=state.dateFilters[tk]||{};
+  const end=new Date(TODAY);end.setDate(end.getDate()+days);
+  state.dateFilters[tk][col]={from:TODAY,to:end.toISOString().slice(0,10)};
+  state.page[tk]=1;render();}
+function schemaBox(tk){const t=byKey[tk];
+  return `<button class="schemabox" onclick="state.tab='${jsq(tk)}';render()">${esc(t.label)}<span class="schemacount mono">${nf(t.rows.length,0)}</span></button>`;}
 function schemaDiagram(){
-  const has=k=>!!byKey[k];
-  if(!has('T_발전소')||!has('T_구매계약')||!has('T_수급매칭')||!has('T_수요기업')||!has('T_판매계약')||!has('T_전기사용지')) return '';
+  const need=['T_발전소','T_구매계약','T_수급매칭','T_수요기업','T_판매계약','T_전기사용지'];
+  if(!need.every(k=>byKey[k])) return '';
   return `<div class="schemarow"><span class="schematag">공급측</span>${schemaBox('T_발전소')}<span class="schemaarrow">→</span>${schemaBox('T_구매계약')}<span class="schemaarrow">→</span>${schemaBox('T_수급매칭')}</div>
-    <div class="schemarow"><span class="schematag">수요측</span>${schemaBox('T_수요기업')}<span class="schemaarrow">→</span>${schemaBox('T_판매계약')}<span class="schemaarrow">→</span>${schemaBox('T_전기사용지')}<span class="schemaarrow">→</span>${schemaBox('T_수급매칭')}</div>`;
+    <div class="schemarow"><span class="schematag">수요측</span>${schemaBox('T_수요기업')}<span class="schemaarrow">→</span>${schemaBox('T_판매계약')}<span class="schemaarrow">→</span>${schemaBox('T_전기사용지')}<span class="schemaarrow">→</span>${schemaBox('T_수급매칭')}</div>`;}
+
+function tHome(){
+  const P=byKey['T_발전소'],B=byKey['T_구매계약'],S=byKey['T_판매계약'];
+  const supplyMW=P?sumCol('T_발전소','설비용량(MW)'):0;
+  const purchMW=B?sumCol('T_구매계약','구매계약용량(MW)'):0;
+  const saleMW=S?sumCol('T_판매계약','판매계약용량(MW)'):0;
+  const bUn=B?countWhere('T_구매계약','수요기업 미확보','TRUE'):0;
+  const sUn=S?countWhere('T_판매계약','공급자원 미확보','TRUE'):0;
+  const bExp=B?countExpiring('T_구매계약','공급기한_구매',SOON_DAYS):0;
+  const sExp=S?countExpiring('T_판매계약','공급기한_판매',SOON_DAYS):0;
+  const mix=P?groupSum('T_발전소','발전원','설비용량(MW)'):[];
+  const mixMax=mix.length?mix[0][1]:0;
+  const mixBars=mix.map(([g,v])=>`<div class="mixrow"><span class="mixlabel">${esc(g)}</span>
+      <div class="mixbar"><div class="mixfill" style="width:${mixMax>0?(v/mixMax*100):0}%"></div></div>
+      <span class="mixval mono">${nf(v)} MW (${mixMax>0?nf(v/mix.reduce((s,x)=>s+x[1],0)*100,0):0}%)</span></div>`).join('')
+      ||'<div class="nocand">데이터 없음</div>';
+  const ok=DATA.validation.total_errors===0;
+  const balance=purchMW-saleMW;
+  const chgTotal=CHANGES.has_prev?(CHANGES.total_added+CHANGES.total_changed+CHANGES.total_removed):0;
+
+  return `<section>${printHead('PPA 계약관리 현황 요약','')}
+    <div class="homehead"><span class="sub mono">기준 시각: ${esc((DATA.generated_at||'').replace('T',' '))}</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn primary" onclick="copySummary()">요약 복사 (보고용)</button>
+        <details class="drop"><summary>전체 내려받기</summary><div class="dropbody right">
+          <button class="dlopt" onclick="downloadAllXlsx()">Excel (.xlsx)<small>6개 표 전체 · 시트별 분리</small></button>
+          <button class="dlopt" onclick="downloadSummaryMd()">Markdown (.md)<small>보고서용 요약 + 표별 건수</small></button>
+        </div></details>
+        <button class="btn" onclick="window.print()">인쇄 / PDF</button>
+      </div></div>
+    <div class="kpis">
+    ${kpi('발전소 설비용량 합계',nf(supplyMW)+' MW',P?nf(P.rows.length,0)+'개 발전소':'','accent',"state.tab='T_발전소';render()")}
+    ${kpi('구매계약 총 용량',nf(purchMW)+' MW',B?nf(B.rows.length,0)+'건':'','',"state.tab='T_구매계약';render()")}
+    ${kpi('판매계약 총 용량',nf(saleMW)+' MW',S?nf(S.rows.length,0)+'건':'','',"state.tab='T_판매계약';render()")}
+    ${kpi('구매 − 판매 밸런스',(balance>=0?'+':'')+nf(balance)+' MW',balance>=0?'구매 우위(여유)':'판매 우위(부족)',balance<0?'warn':'')}
+    </div>
+    <div class="kpis">
+    ${kpi('검증 오류',nf(DATA.validation.total_errors,0),ok?'전 표 정상':'클릭해서 확인',ok?'':'warn',"state.tab='검증';render()")}
+    ${kpi('지난 대비 변경',CHANGES.has_prev?nf(chgTotal,0):'—',
+      CHANGES.has_prev?`추가 ${CHANGES.total_added} · 수정 ${CHANGES.total_changed} · 삭제 ${CHANGES.total_removed}`:'이전 스냅샷 없음',
+      '',CHANGES.has_prev?"state.tab='변경';render()":'')}
+    ${kpi('미확보 계약',nf(bUn+sUn,0),`구매 ${bUn} · 판매 ${sUn}`,(bUn+sUn)>0?'warn':'')}
+    ${kpi(SOON_DAYS+'일 내 공급기한',nf(bExp+sExp,0),`구매 ${bExp} · 판매 ${sExp}`,'')}
+    </div>
+    <div class="grid2">
+      ${panel('발전원별 설비용량 비중','',mixBars)}
+      ${panel('점검이 필요한 항목','클릭하면 해당 표로 이동 + 조건 자동 적용',`
+        <div class="unsecrow" onclick="jumpToFilter('T_구매계약','수요기업 미확보','TRUE')"><span>구매계약 — 수요기업 미확보</span><span class="badge ${bUn?'no':'ok'}">${bUn}건</span></div>
+        <div class="unsecrow" onclick="jumpToFilter('T_판매계약','공급자원 미확보','TRUE')"><span>판매계약 — 공급자원 미확보</span><span class="badge ${sUn?'no':'ok'}">${sUn}건</span></div>
+        <div class="unsecrow" onclick="jumpToDateWindow('T_구매계약','공급기한_구매',${SOON_DAYS})"><span>구매계약 — ${SOON_DAYS}일 내 공급기한 도래</span><span class="badge ${bExp?'warn':'ok'}">${bExp}건</span></div>
+        <div class="unsecrow" onclick="jumpToDateWindow('T_판매계약','공급기한_판매',${SOON_DAYS})"><span>판매계약 — ${SOON_DAYS}일 내 공급기한 도래</span><span class="badge ${sExp?'warn':'ok'}">${sExp}건</span></div>
+        <div class="unsecrow" onclick="state.tab='검증';render()"><span>검증 오류 (PK/FK/조합중복)</span><span class="badge ${ok?'ok':'no'}">${DATA.validation.total_errors}건</span></div>`)}
+    </div>
+    ${schemaDiagram()?panel('표 관계 구조','박스를 누르면 해당 표로 이동합니다',schemaDiagram()):''}</section>`;
 }
+
+/* ── 변경 탭 ────────────────────────────────────────────────────────────── */
+function tChanges(){
+  if(!CHANGES.has_prev)
+    return `<section><div class="panel"><div class="ph"><h3>이전 스냅샷이 없습니다</h3></div>
+      <div class="nocand">대시보드를 만들 때마다 그 시점의 데이터가 <b>스냅샷 파일</b>로 옆에 저장됩니다.
+      <b>다음번에 다시 생성하면</b> 이 탭에 "지난번 대비 추가 / 수정 / 삭제된 항목"이 자동으로 표시됩니다.</div></div></section>`;
+  const rowsBy=(k)=>(CHANGES.summary||{})[k]||{added:0,removed:0,changed:0};
+  const tableRows=DATA.tables.map(t=>{
+    const s=rowsBy(t.key);
+    const tot=s.added+s.changed+s.removed;
+    return `<tr class="${tot?'clickrow':''}" ${tot?`onclick="state.tab='${jsq(t.key)}';state.onlyChg['${jsq(t.key)}']=true;state.page['${jsq(t.key)}']=1;render()"`:''}>
+      <td>${esc(t.label)}</td><td class="num">${s.added}</td><td class="num">${s.changed}</td><td class="num">${s.removed}</td></tr>`;}).join('');
+  const details=(CHANGES.details||[]).map(d=>{
+    const t=byKey[d.table];
+    return `<div class="chk chg" onclick="jumpTo('${jsq(d.table)}','${jsq(d.pk)}')">
+      <span>${esc(t?t.label:d.table)} · ${esc(d.pk)} <span class="dkey">${esc(d.col)}</span></span>
+      <span class="chgval"><span class="chgold">${esc(d.old||'(공란)')}</span>→ <span class="chgnew">${esc(d.new||'(공란)')}</span></span>
+      <span></span><span class="badge info">수정</span></div>`;}).join('')
+    ||'<div class="nocand">값이 수정된 항목은 없습니다.</div>';
+  const trunc=CHANGES.truncated?`<div class="nocand">표시 한도를 넘어 일부만 보여줍니다 (집계 건수는 정확합니다).</div>`:'';
+  const removed=DATA.tables.map(t=>{
+    const list=(CHANGES.removed_rows||{})[t.key]||[];
+    if(!list.length) return '';
+    return list.map(cells=>`<div class="chk del">
+      <span>${esc(t.label)} · ${esc(cells[t.pk]||'(PK 공란)')}</span>
+      <span class="chgval">${esc(t.columns.slice(1,3).map(c=>cells[c]).filter(Boolean).join(' · '))}</span>
+      <span></span><span class="badge mute">삭제</span></div>`).join('');}).join('')
+    ||'<div class="nocand">삭제된 항목은 없습니다.</div>';
+  const added=DATA.tables.map(t=>
+    t.rows.map((r,i)=>({r,i})).filter(({r})=>r.change==='added').map(({r,i})=>
+      `<div class="chk add" onclick="openDetail('${jsq(t.key)}',${i})">
+        <span>${esc(t.label)} · ${esc(r.cells[t.pk]||'')}</span>
+        <span class="chgval">${esc(t.columns.slice(1,3).map(c=>r.cells[c]).filter(Boolean).join(' · '))}</span>
+        <span></span><span class="badge ok">추가</span></div>`).join('')).join('')
+    ||'<div class="nocand">추가된 항목은 없습니다.</div>';
+
+  return `<section>${printHead('변경 내역','기준: '+esc((CHANGES.prev_generated_at||'').replace('T',' '))+' → '+esc((DATA.generated_at||'').replace('T',' ')))}
+    <div class="kpis">
+      ${kpi('추가',nf(CHANGES.total_added,0),'새로 생긴 행','')}
+      ${kpi('수정',nf(CHANGES.total_changed,0),'값이 바뀐 행 ('+nf((CHANGES.details||[]).length,0)+'개 항목)','')}
+      ${kpi('삭제',nf(CHANGES.total_removed,0),'사라진 행','')}
+      ${kpi('비교 기준',esc((CHANGES.prev_generated_at||'—').slice(0,16).replace('T',' ')),'직전 생성 시점','')}
+    </div>
+    ${panel('표별 변경 건수(행 기준)','행을 클릭하면 그 표의 변경분만 보기로 이동합니다',
+      `<table><thead><tr><th class="nosort">표</th><th class="nosort num">추가</th><th class="nosort num">수정</th><th class="nosort num">삭제</th></tr></thead><tbody>${tableRows}</tbody></table>`)}
+    ${panel(`수정된 항목 (이전값 → 새값) · ${nf((CHANGES.details||[]).length,0)}개`,'클릭하면 관계조회로 이동',details+trunc)}
+    <div class="grid2">${panel('추가된 항목','',added)}${panel('삭제된 항목','',removed)}</div></section>`;
+}
+
+/* ── 검증 탭 ────────────────────────────────────────────────────────────── */
+function tVerify(){
+  const v=DATA.validation;
+  const byTable=Object.entries(v.by_table).map(([k,c])=>
+    `<tr class="clickrow" onclick="state.tab='${jsq(k)}';state.onlyErr['${jsq(k)}']=true;state.page['${jsq(k)}']=1;render()">
+      <td>${esc(byKey[k]?byKey[k].label:k)}</td><td class="num">${c}</td></tr>`).join('')
+    ||'<tr><td colspan="2" class="emptyrow">오류 없음</td></tr>';
+  const byItem=Object.entries(v.by_item).map(([k,c])=>
+    `<tr><td>${esc(k)}</td><td class="num">${c}</td></tr>`).join('')
+    ||'<tr><td colspan="2" class="emptyrow">오류 없음</td></tr>';
+  const detail=v.errors.map(e=>{
+    const pkv=e.pk_value;
+    const act=pkv?`jumpTo('${jsq(e.table)}','${jsq(pkv)}')`
+      :`state.tab='${jsq(e.table)}';state.onlyErr['${jsq(e.table)}']=true;render()`;
+    return `<div class="chk no" onclick="${act}">
+      <span>${esc(byKey[e.table]?byKey[e.table].label:e.table)} · PK=${esc(pkv||'(공란)')}</span>
+      <span class="mono">행 ${e.row_index+1}</span><span>${esc(e.error_item)}</span>
+      <span class="badge no">클릭해서 확인</span></div>`;}).join('')
+    ||'<div class="nocand" style="text-align:center;padding:20px">오류가 없습니다.</div>';
+  return `<section>${printHead('검증 결과','총 '+v.total_errors+'건')}
+    <div class="kpis">${kpi('총 오류 건수',nf(v.total_errors,0),v.total_errors>0?'표별 세부는 아래':'전 표 정상',v.total_errors>0?'warn':'accent')}</div>
+    <div class="grid2">
+      ${panel('표별 오류 건수','행 클릭 시 오류만 보기',`<table><thead><tr><th class="nosort">표</th><th class="nosort num">건수</th></tr></thead><tbody>${byTable}</tbody></table>`)}
+      ${panel('오류항목별 건수','',`<table><thead><tr><th class="nosort">오류항목</th><th class="nosort num">건수</th></tr></thead><tbody>${byItem}</tbody></table>`)}
+    </div>
+    ${panel('상세 오류 목록','행을 클릭하면 문제의 레코드로 이동합니다',detail)}</section>`;
+}
+
+/* ── 전역 검색 ──────────────────────────────────────────────────────────── */
+function onGlobalSearch(v){
+  const box=document.getElementById('globalResults');
+  const q=(v||'').trim().toLowerCase();
+  if(!q){box.classList.remove('show');box.innerHTML='';return;}
+  const res=[];
+  DATA.tables.forEach(t=>t.rows.forEach((r,i)=>{
+    if(t.columns.some(c=>String(r.cells[c]??'').toLowerCase().includes(q))){
+      res.push({table:t.key,tlabel:t.label,pk:r.cells[t.pk],idx:i,
+        text:t.columns.slice(0,3).map(c=>r.cells[c]).filter(x=>x!==undefined&&x!=='').join(' · ')});}}));
+  const shown=res.slice(0,20);
+  box.innerHTML=shown.length
+    ? shown.map(r=>`<button class="gresrow" onclick="closeGlobalSearch();openDetail('${jsq(r.table)}',${r.idx})">
+        <span class="tag">${esc(r.tlabel)}</span>${esc(r.text)}</button>`).join('')
+      +(res.length>20?`<div class="nocand" style="padding:8px 16px">${nf(res.length-20,0)}건 더 있음 — 검색어를 좁혀보세요.</div>`:'')
+    : '<div class="nocand" style="padding:10px 16px">일치하는 항목이 없습니다.</div>';
+  box.classList.add('show');
+}
+function closeGlobalSearch(){
+  const i=document.getElementById('globalSearch');if(i) i.value='';
+  const b=document.getElementById('globalResults');if(b){b.classList.remove('show');b.innerHTML='';}
+}
+
+/* ── 내려받기 (현재 조건이 적용된 데이터 기준) ──────────────────────────── */
+function exportRows(t){
+  const cols=visibleColumns(t);
+  const rows=filteredRows(t).map(({r})=>cols.map(c=>String(r.cells[c]??'')));
+  return {cols,rows};
+}
+function stamp(){
+  const d=new Date();
+  const p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+}
+function saveBlob(blob,name){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},0);
+  toast(name+' 내려받기를 시작했습니다.');
+}
+function downloadMenu(k){
+  const t=byKey[k];
+  const n=filteredRows(t).length;
+  return `<div class="nocand" style="padding:2px 2px 8px">현재 조건 <b>${nf(n,0)}건</b> · 표시 중인 컬럼 기준</div>
+    <button class="dlopt" onclick="downloadCsv('${jsq(k)}')">CSV (.csv)<small>엑셀에서 바로 열림 (UTF-8 BOM)</small></button>
+    <button class="dlopt" onclick="downloadXlsx('${jsq(k)}')">Excel (.xlsx)<small>서식 있는 실제 엑셀 파일</small></button>
+    <button class="dlopt" onclick="downloadMd('${jsq(k)}')">Markdown (.md)<small>메일·위키·보고서 붙여넣기용</small></button>
+    <button class="dlopt" onclick="window.print()">PDF / 인쇄<small>브라우저 인쇄창에서 "PDF로 저장"</small></button>`;
+}
+function downloadCsv(k){
+  const t=byKey[k],{cols,rows}=exportRows(t);
+  const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
+  const csv=[cols.map(q).join(',')].concat(rows.map(r=>r.map(q).join(','))).join('\r\n');
+  saveBlob(new Blob(['﻿'+csv,],{type:'text/csv;charset=utf-8'}),`PPA_${t.label}_${stamp()}.csv`);
+}
+function downloadMd(k){
+  const t=byKey[k],{cols,rows}=exportRows(t);
+  const cell=s=>String(s).replace(/\|/g,'\\|');
+  const md=[`# PPA ${t.label}`,'',
+    `- 기준 시각: ${(DATA.generated_at||'').replace('T',' ')}`,
+    `- 조건: ${filterDescription(k)}`,
+    `- 건수: ${rows.length}건`,'',
+    '| '+cols.map(cell).join(' | ')+' |',
+    '|'+cols.map(()=>'---').join('|')+'|'
+  ].concat(rows.map(r=>'| '+r.map(cell).join(' | ')+' |')).join('\n');
+  saveBlob(new Blob([md],{type:'text/markdown;charset=utf-8'}),`PPA_${t.label}_${stamp()}.md`);
+}
+
+/* 최소 구현 XLSX 작성기 — 외부 라이브러리 없이 압축 없는(store) ZIP을 직접
+   만들어 실제 .xlsx 파일을 생성합니다. 사내망에 CDN을 못 쓰기 때문에 필요. */
+const CRC_TABLE=(()=>{const t=new Uint32Array(256);
+  for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
+function crc32(buf){let c=0xFFFFFFFF;
+  for(let i=0;i<buf.length;i++)c=CRC_TABLE[(c^buf[i])&0xFF]^(c>>>8);
+  return (c^0xFFFFFFFF)>>>0;}
+function u8(s){return new TextEncoder().encode(s);}
+function zipStore(files){
+  const now=new Date();
+  const dosTime=((now.getHours()&31)<<11)|((now.getMinutes()&63)<<5)|((now.getSeconds()/2)&31);
+  const dosDate=(((now.getFullYear()-1980)&127)<<9)|(((now.getMonth()+1)&15)<<5)|(now.getDate()&31);
+  const locals=[],centrals=[];let offset=0,total=0;
+  files.forEach(f=>{
+    const name=u8(f.name),data=f.data,crc=crc32(data);
+    const lh=new Uint8Array(30+name.length),lv=new DataView(lh.buffer);
+    lv.setUint32(0,0x04034b50,true);lv.setUint16(4,20,true);lv.setUint16(6,0x0800,true);
+    lv.setUint16(8,0,true);lv.setUint16(10,dosTime,true);lv.setUint16(12,dosDate,true);
+    lv.setUint32(14,crc,true);lv.setUint32(18,data.length,true);lv.setUint32(22,data.length,true);
+    lv.setUint16(26,name.length,true);lv.setUint16(28,0,true);lh.set(name,30);
+    const cd=new Uint8Array(46+name.length),cv=new DataView(cd.buffer);
+    cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);
+    cv.setUint16(8,0x0800,true);cv.setUint16(10,0,true);cv.setUint16(12,dosTime,true);
+    cv.setUint16(14,dosDate,true);cv.setUint32(16,crc,true);cv.setUint32(20,data.length,true);
+    cv.setUint32(24,data.length,true);cv.setUint16(28,name.length,true);cv.setUint32(42,offset,true);
+    cd.set(name,46);
+    locals.push(lh,data);centrals.push(cd);
+    offset+=lh.length+data.length;total+=lh.length+data.length;
+  });
+  const cdSize=centrals.reduce((s,c)=>s+c.length,0);
+  const eo=new Uint8Array(22),ev=new DataView(eo.buffer);
+  ev.setUint32(0,0x06054b50,true);ev.setUint16(8,files.length,true);ev.setUint16(10,files.length,true);
+  ev.setUint32(12,cdSize,true);ev.setUint32(16,offset,true);
+  const out=new Uint8Array(total+cdSize+22);let p=0;
+  locals.concat(centrals).concat([eo]).forEach(c=>{out.set(c,p);p+=c.length;});
+  return out;
+}
+function xesc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'');}
+function colLetter(n){let s='';n++;while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;}
+function sheetXml(cols,rows){
+  const isNum=cols.map(c=>isNumCol(c));
+  const head='<row r="1">'+cols.map((c,j)=>
+    `<c r="${colLetter(j)}1" s="1" t="inlineStr"><is><t xml:space="preserve">${xesc(c)}</t></is></c>`).join('')+'</row>';
+  const body=rows.map((r,i)=>'<row r="'+(i+2)+'">'+r.map((v,j)=>{
+    const ref=colLetter(j)+(i+2);
+    if(v==='') return '';
+    if(isNum[j]&&/^-?\d+(\.\d+)?$/.test(v)) return `<c r="${ref}"><v>${v}</v></c>`;
+    return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xesc(v)}</t></is></c>`;
+  }).join('')+'</row>').join('');
+  const widths=cols.map((c,j)=>`<col min="${j+1}" max="${j+1}" width="${Math.min(42,Math.max(11,c.length*1.9+4))}" customWidth="1"/>`).join('');
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+<cols>${widths}</cols><sheetData>${head}${body}</sheetData></worksheet>`;
+}
+function safeSheetName(name,used){
+  let n=String(name).replace(/[\\\/\?\*\[\]:]/g,'_').slice(0,31)||'Sheet';
+  let base=n,i=2;while(used.has(n)){n=(base.slice(0,28)+'_'+i);i++;}
+  used.add(n);return n;
+}
+function buildXlsx(sheets){
+  const used=new Set();
+  const names=sheets.map(s=>safeSheetName(s.name,used));
+  const files=[
+    {name:'[Content_Types].xml',data:u8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+${sheets.map((s,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}
+</Types>`)},
+    {name:'_rels/.rels',data:u8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`)},
+    {name:'xl/workbook.xml',data:u8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheets>${names.map((n,i)=>`<sheet name="${xesc(n)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')}</sheets></workbook>`)},
+    {name:'xl/_rels/workbook.xml.rels',data:u8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+${sheets.map((s,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')}
+<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`)},
+    {name:'xl/styles.xml',data:u8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<fonts count="2"><font><sz val="11"/><name val="맑은 고딕"/></font><font><b/><sz val="11"/><name val="맑은 고딕"/></font></fonts>
+<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFEFEEE7"/><bgColor indexed="64"/></patternFill></fill></fills>
+<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+<dxfs count="0"/>
+</styleSheet>`)},
+  ].concat(sheets.map((s,i)=>({name:`xl/worksheets/sheet${i+1}.xml`,data:u8(sheetXml(s.cols,s.rows))})));
+  return new Blob([zipStore(files)],
+    {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+function downloadXlsx(k){
+  const t=byKey[k],{cols,rows}=exportRows(t);
+  saveBlob(buildXlsx([{name:t.label,cols,rows}]),`PPA_${t.label}_${stamp()}.xlsx`);
+}
+function downloadAllXlsx(){
+  const sheets=DATA.tables.map(t=>({name:t.label,cols:t.columns,rows:t.rows.map(r=>t.columns.map(c=>String(r.cells[c]??'')))}));
+  saveBlob(buildXlsx(sheets),`PPA_전체_${stamp()}.xlsx`);
+}
+function downloadSummaryMd(){
+  const lines=[buildSummaryText(),'','## 표별 건수','','| 표 | 건수 | 검증오류 | 변경 |','|---|---|---|---|'];
+  DATA.tables.forEach(t=>{
+    const e=t.rows.filter(r=>(r.error_cols||[]).length>0).length;
+    const c=t.rows.filter(r=>!!r.change).length;
+    lines.push(`| ${t.label} | ${t.rows.length} | ${e} | ${CHANGES.has_prev?c:'-'} |`);});
+  saveBlob(new Blob([lines.join('\n')],{type:'text/markdown;charset=utf-8'}),`PPA_요약_${stamp()}.md`);
+}
+
+/* ── 보고용 요약 텍스트 / 클립보드 ──────────────────────────────────────── */
 function toast(msg){
-  const el=document.getElementById('toast');
-  if(!el) return;
-  el.textContent=msg;
-  el.classList.add('show');
+  const el=document.getElementById('toast');if(!el) return;
+  el.textContent=msg;el.classList.add('show');
   clearTimeout(window._toastTimer);
   window._toastTimer=setTimeout(()=>el.classList.remove('show'),2200);
 }
 function fallbackCopy(text){
   const ta=document.createElement('textarea');
-  ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';ta.style.top='0';
+  ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';
   document.body.appendChild(ta);ta.focus();ta.select();
-  try{document.execCommand('copy');toast('요약을 클립보드에 복사했습니다.');}
+  try{document.execCommand('copy');toast('클립보드에 복사했습니다.');}
   catch(e){toast('복사에 실패했습니다 — 직접 선택해서 복사해주세요.');}
   document.body.removeChild(ta);
 }
 function copyText(text){
-  if(navigator.clipboard&&navigator.clipboard.writeText){
-    navigator.clipboard.writeText(text).then(()=>toast('요약을 클립보드에 복사했습니다.')).catch(()=>fallbackCopy(text));
-  }else{
-    fallbackCopy(text);
-  }
+  if(navigator.clipboard&&navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(()=>toast('클립보드에 복사했습니다.')).catch(()=>fallbackCopy(text));
+  else fallbackCopy(text);
 }
 function buildSummaryText(){
-  const hasPlant=byKey['T_발전소'],hasPurch=byKey['T_구매계약'],hasSale=byKey['T_판매계약'];
-  const supplyMW=hasPlant?sumCol('T_발전소','설비용량(MW)'):0;
-  const purchMW=hasPurch?sumCol('T_구매계약','구매계약용량(MW)'):0;
-  const saleMW=hasSale?sumCol('T_판매계약','판매계약용량(MW)'):0;
-  const purchUnsecured=hasPurch?countWhere('T_구매계약','수요기업 미확보','TRUE'):0;
-  const saleUnsecured=hasSale?countWhere('T_판매계약','공급자원 미확보','TRUE'):0;
-  const mix=hasPlant?groupSum('T_발전소','발전원','설비용량(MW)'):[];
-  const ok=DATA.validation.total_errors===0;
-  const lines=[];
-  lines.push('[PPA 계약관리 현황 요약]');
-  lines.push('기준: '+DATA.generated_at.replace('T',' '));
-  lines.push('');
-  lines.push('- 발전소 '+(hasPlant?hasPlant.rows.length:0)+'개, 설비용량 합계 '+supplyMW.toLocaleString('ko-KR',{maximumFractionDigits:1})+' MW');
-  lines.push('- 구매계약 '+(hasPurch?hasPurch.rows.length:0)+'건, 총 '+purchMW.toLocaleString('ko-KR',{maximumFractionDigits:1})+' MW');
-  lines.push('- 판매계약 '+(hasSale?hasSale.rows.length:0)+'건, 총 '+saleMW.toLocaleString('ko-KR',{maximumFractionDigits:1})+' MW');
-  if(mix.length) lines.push('- 발전원 비중: '+mix.map(([g,v])=>g+' '+v.toLocaleString('ko-KR',{maximumFractionDigits:1})+'MW').join(', '));
-  lines.push('- 미확보: 구매계약 '+purchUnsecured+'건, 판매계약 '+saleUnsecured+'건');
-  lines.push('- 검증 오류: '+DATA.validation.total_errors+'건'+(ok?' (전 표 정상)':' (관계조회/검증 탭에서 확인 필요)'));
-  return lines.join('\n');
+  const P=byKey['T_발전소'],B=byKey['T_구매계약'],S=byKey['T_판매계약'];
+  const supplyMW=P?sumCol('T_발전소','설비용량(MW)'):0;
+  const purchMW=B?sumCol('T_구매계약','구매계약용량(MW)'):0;
+  const saleMW=S?sumCol('T_판매계약','판매계약용량(MW)'):0;
+  const bUn=B?countWhere('T_구매계약','수요기업 미확보','TRUE'):0;
+  const sUn=S?countWhere('T_판매계약','공급자원 미확보','TRUE'):0;
+  const bExp=B?countExpiring('T_구매계약','공급기한_구매',SOON_DAYS):0;
+  const sExp=S?countExpiring('T_판매계약','공급기한_판매',SOON_DAYS):0;
+  const mix=P?groupSum('T_발전소','발전원','설비용량(MW)'):[];
+  const L=[];
+  L.push('[PPA 계약관리 현황 요약]');
+  L.push('기준: '+(DATA.generated_at||'').replace('T',' '));
+  L.push('');
+  L.push('- 발전소 '+(P?P.rows.length:0)+'개 · 설비용량 합계 '+nf(supplyMW)+' MW');
+  L.push('- 구매계약 '+(B?B.rows.length:0)+'건 · 총 '+nf(purchMW)+' MW');
+  L.push('- 판매계약 '+(S?S.rows.length:0)+'건 · 총 '+nf(saleMW)+' MW');
+  L.push('- 구매-판매 밸런스: '+((purchMW-saleMW)>=0?'+':'')+nf(purchMW-saleMW)+' MW');
+  if(mix.length) L.push('- 발전원 비중: '+mix.map(([g,v])=>g+' '+nf(v)+'MW').join(', '));
+  L.push('- 미확보: 구매계약 '+bUn+'건 · 판매계약 '+sUn+'건');
+  L.push('- '+SOON_DAYS+'일 내 공급기한 도래: 구매 '+bExp+'건 · 판매 '+sExp+'건');
+  L.push('- 검증 오류: '+DATA.validation.total_errors+'건'+(DATA.validation.total_errors?' (검증 탭 확인 필요)':' (전 표 정상)'));
+  if(CHANGES.has_prev)
+    L.push('- 직전 대비 변경: 추가 '+CHANGES.total_added+' · 수정 '+CHANGES.total_changed+' · 삭제 '+CHANGES.total_removed);
+  return L.join('\n');
 }
 function copySummary(){copyText(buildSummaryText());}
 
-function tHome(){
-  const hasPlant=byKey['T_발전소'],hasPurch=byKey['T_구매계약'],hasSale=byKey['T_판매계약'];
-  const supplyMW=hasPlant?sumCol('T_발전소','설비용량(MW)'):0;
-  const purchMW=hasPurch?sumCol('T_구매계약','구매계약용량(MW)'):0;
-  const saleMW=hasSale?sumCol('T_판매계약','판매계약용량(MW)'):0;
-  const purchUnsecured=hasPurch?countWhere('T_구매계약','수요기업 미확보','TRUE'):0;
-  const saleUnsecured=hasSale?countWhere('T_판매계약','공급자원 미확보','TRUE'):0;
-  const mix=hasPlant?groupSum('T_발전소','발전원','설비용량(MW)'):[];
-  const mixMax=mix.length?mix[0][1]:0;
-  const mixBars=mix.map(([g,v])=>`<div class="mixrow"><span class="mixlabel">${esc(g)}</span>
-      <div class="mixbar"><div class="mixfill" style="width:${mixMax>0?(v/mixMax*100):0}%"></div></div>
-      <span class="mixval mono">${v.toLocaleString('ko-KR',{maximumFractionDigits:1})} MW</span></div>`).join('')||'<div class="nocand">데이터 없음</div>';
-  const ok=DATA.validation.total_errors===0;
-  const schema=schemaDiagram();
-
-  return `<section>
-    <div class="homehead"><span class="sub mono">기준 시각: ${esc(DATA.generated_at.replace('T',' '))}</span>
-      <button class="clearbtn" style="background:var(--teal-w);color:var(--teal-d)" onclick="copySummary()">요약 복사 (보고용)</button></div>
-    <div class="kpis">
-    ${kpi('발전소 설비용량 합계',supplyMW.toLocaleString('ko-KR',{maximumFractionDigits:1})+' MW',hasPlant?hasPlant.rows.length+'개 발전소':'','accent')}
-    ${kpi('구매계약 총 용량',purchMW.toLocaleString('ko-KR',{maximumFractionDigits:1})+' MW',hasPurch?hasPurch.rows.length+'건':'')}
-    ${kpi('판매계약 총 용량',saleMW.toLocaleString('ko-KR',{maximumFractionDigits:1})+' MW',hasSale?hasSale.rows.length+'건':'')}
-    ${kpi('검증 오류',DATA.validation.total_errors,ok?'전 표 정상':'클릭해서 확인',ok?'':'warn',"state.tab='검증';render()")}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-      ${panel('발전원별 설비용량 비중','',mixBars)}
-      ${panel('미확보 현황','클릭하면 해당 표로 이동 + 필터 적용',`
-        <div class="unsecrow" onclick="jumpToFilter('T_구매계약','수요기업 미확보','TRUE')"><span>구매계약 — 수요기업 미확보</span><span class="badge ${purchUnsecured>0?'no':'ok'}">${purchUnsecured}건</span></div>
-        <div class="unsecrow" onclick="jumpToFilter('T_판매계약','공급자원 미확보','TRUE')"><span>판매계약 — 공급자원 미확보</span><span class="badge ${saleUnsecured>0?'no':'ok'}">${saleUnsecured}건</span></div>`)}
-    </div>
-    ${schema?panel('표 관계 구조','발전소부터 수요기업까지 이어지는 참조 관계 — 박스를 누르면 해당 탭으로 이동합니다',schema):''}
-    </section>`;
+/* ── 인쇄 머리글 (화면에는 숨김, 인쇄할 때만 보임) ──────────────────────── */
+function printHead(title,cond){
+  return `<div class="printhead"><h2>${esc(title)}</h2>
+    <div class="pmeta">PPA 계약관리 · 기준 ${esc((DATA.generated_at||'').replace('T',' '))}${cond?' · 조건: '+esc(cond):''}</div></div>`;
 }
 
-function tVerify(){
-  const v=DATA.validation;
-  const byTable=Object.entries(v.by_table).map(([k,c])=>
-    `<tr onclick="state.tab='${jsq(k)}';render()" style="cursor:pointer"><td>${esc(byKey[k]?byKey[k].label:k)}</td><td class="mono">${c}</td></tr>`
-  ).join('')||'<tr><td colspan="2" style="text-align:center;color:var(--sub)">오류 없음</td></tr>';
-  const byItem=Object.entries(v.by_item).map(([k,c])=>`<tr><td>${esc(k)}</td><td class="mono">${c}</td></tr>`).join('')||'<tr><td colspan="2" style="text-align:center;color:var(--sub)">오류 없음</td></tr>';
-  const detail=v.errors.map(e=>{
-    const pkv=e.pk_value;
-    const onclickAttr=pkv?`jumpTo('${jsq(e.table)}','${jsq(pkv)}')`:`state.tab='${jsq(e.table)}';render()`;
-    return `<div class="chk no" onclick="${onclickAttr}">
-      <span>${esc(byKey[e.table]?byKey[e.table].label:e.table)} · PK=${esc(pkv||'(공란)')}</span>
-      <span class="mono">행 ${e.row_index+1}</span>
-      <span>${esc(e.error_item)}</span>
-      <span class="badge no">오류 · 클릭해서 확인</span></div>`;
-  }).join('')||'<div style="text-align:center;color:var(--sub);padding:20px">오류가 없습니다.</div>';
-  return `<section><div class="kpis">
-    ${kpi('총 오류 건수',v.total_errors,v.total_errors>0?'표별 세부는 아래':'전 표 정상',v.total_errors>0?'warn':'accent')}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-      ${panel('표별 오류 건수','',`<table><thead><tr><th>표</th><th>건수</th></tr></thead><tbody>${byTable}</tbody></table>`)}
-      ${panel('오류항목별 건수','',`<table><thead><tr><th>오류항목</th><th>건수</th></tr></thead><tbody>${byItem}</tbody></table>`)}
-    </div>
-    ${panel('상세 오류 목록','행을 클릭하면 문제의 레코드로 이동합니다',detail)}</section>`;
-}
-
-function onGlobalSearch(v){
-  const box=document.getElementById('globalResults');
-  const q=(v||'').trim().toLowerCase();
-  if(!q){box.classList.remove('show');box.innerHTML='';return;}
-  const results=[];
-  DATA.tables.forEach(t=>{
-    t.rows.forEach(r=>{
-      if(t.columns.some(c=>String(r.cells[c]??'').toLowerCase().includes(q))){
-        const label=t.columns.slice(0,3).map(c=>r.cells[c]).filter(x=>x!==undefined&&x!=='').join(' · ');
-        results.push({table:t.key,tlabel:t.label,pk:r.cells[t.pk],text:label});
-      }
-    });
-  });
-  const shown=results.slice(0,20);
-  box.innerHTML = shown.length
-    ? shown.map(r=>`<button class="gresrow" onclick="closeGlobalSearch();jumpTo('${jsq(r.table)}','${jsq(r.pk)}')"><span class="tag">${esc(r.tlabel)}</span>${esc(r.text)}</button>`).join('') +
-      (results.length>20?`<div class="nocand" style="padding:8px 16px">${(results.length-20).toLocaleString('ko-KR')}건 더 있음 — 검색어를 좁혀보세요.</div>`:'')
-    : '<div class="nocand" style="padding:10px 16px">일치하는 항목이 없습니다.</div>';
-  box.classList.add('show');
-}
-function closeGlobalSearch(){
-  const inp=document.getElementById('globalSearch');if(inp) inp.value='';
-  const box=document.getElementById('globalResults');if(box){box.classList.remove('show');box.innerHTML='';}
-}
-document.addEventListener('click',e=>{
-  const wrap=document.querySelector('.gsearchwrap');
-  if(wrap&&!wrap.contains(e.target)) closeGlobalSearch();
-});
-
+/* ── 테마 / URL / 렌더 ──────────────────────────────────────────────────── */
 function applyTheme(){
   document.documentElement.setAttribute('data-theme',state.theme);
-  const btn=document.getElementById('themeBtn');
-  if(btn) btn.textContent=state.theme==='dark'?'☀️':'🌙';
+  const b=document.getElementById('themeBtn');if(b) b.textContent=state.theme==='dark'?'☀️':'🌙';
 }
-function toggleTheme(){
-  state.theme=state.theme==='dark'?'light':'dark';
-  writeLS('ppa_theme',state.theme);
-  applyTheme();
-}
-
+function toggleTheme(){state.theme=state.theme==='dark'?'light':'dark';writeLS('ppa_theme',state.theme);applyTheme();}
 function syncHash(){
   if(state.tab==='관계조회'&&state.lookup){
     const h='#lookup='+encodeURIComponent(state.lookup.table)+':'+encodeURIComponent(state.lookup.pk);
     if(location.hash!==h) history.replaceState(null,'',h);
-  }else if(location.hash){
-    history.replaceState(null,'',location.pathname+location.search);
-  }
+  }else if(location.hash) history.replaceState(null,'',location.pathname+location.search);
 }
 function parseHash(){
   const m=location.hash.match(/^#lookup=([^:]+):(.+)$/);
@@ -714,56 +1274,68 @@ function parseHash(){
     if(byKey[table]){state.tab='관계조회';state.lookupTable=table;setLookup(table,pk);}
   }
 }
-
 function renderTabs(){
-  const tabs=[['홈','홈'],['관계조회','관계조회']];
-  if(state.pinned.length) tabs.push(['비교','비교 ('+state.pinned.length+')']);
-  DATA.tables.forEach(t=>tabs.push([t.key,t.label]));
-  tabs.push(['검증','검증']);
-  document.getElementById('tabbar').innerHTML=tabs.map(([k,l])=>
-    `<button class="tab${(k==='홈'||k==='관계조회'||k==='비교')?' hl':''}${k===state.tab?' on':''}" data-k="${esc(k)}" onclick="state.tab='${jsq(k)}';render()">${esc(l)}</button>`).join('');
+  const tabs=[['홈','홈','']];
+  tabs.push(['관계조회','관계조회','']);
+  if(state.pinned.length) tabs.push(['비교','비교 ('+state.pinned.length+')','']);
+  DATA.tables.forEach(t=>{
+    const e=t.rows.filter(r=>(r.error_cols||[]).length>0).length;
+    tabs.push([t.key,t.label,e?`<span class="tabdot">${e}</span>`:'']);});
+  const chgTot=CHANGES.has_prev?(CHANGES.total_added+CHANGES.total_changed+CHANGES.total_removed):0;
+  tabs.push(['변경','변경',chgTot?`<span class="tabdot info">${chgTot}</span>`:'']);
+  tabs.push(['검증','검증',DATA.validation.total_errors?`<span class="tabdot">${DATA.validation.total_errors}</span>`:'']);
+  document.getElementById('tabbar').innerHTML=tabs.map(([k,l,dot])=>
+    `<button class="tab${(k==='홈'||k==='관계조회'||k==='비교')?' hl':''}${k===state.tab?' on':''}" data-k="${esc(k)}" onclick="state.tab='${jsq(k)}';render()">${esc(l)}${dot}</button>`).join('');
 }
-
 function render(){
   renderTabs();
   const view=document.getElementById('view');
-  // innerHTML을 통째로 새로 그리면 그 안에 있던 입력창(검색 등)은 매번 새로
-  // 생성되어 포커스가 풀립니다 — 그대로 두면 한 글자 입력할 때마다 커서가
-  // 빠져나가 "검색이 전혀 안 되는" 것처럼 보이는 문제가 생깁니다. 그래서
-  // 다시 그리기 전에 어떤 입력창에 포커스가 있었는지(및 커서 위치) 기억해뒀다가
-  // 다시 그린 뒤 같은 id를 가진 입력창에 포커스/커서를 복원합니다.
-  const active=document.activeElement;
-  let focusId=null,selStart=null,selEnd=null;
-  if(active&&view.contains(active)&&active.id){
-    focusId=active.id;
-    if(typeof active.selectionStart==='number'){selStart=active.selectionStart;selEnd=active.selectionEnd;}
+  /* innerHTML을 새로 그리면 입력창이 매번 재생성되어 포커스가 풀립니다 —
+     그대로 두면 한 글자 칠 때마다 커서가 빠져 "검색이 안 되는" 것처럼 보입니다.
+     그래서 포커스/커서 위치를 기억했다가 같은 id의 요소에 복원합니다. */
+  const act=document.activeElement;
+  let fid=null,ss=null,se=null;
+  if(act&&act.id&&act!==document.body){
+    fid=act.id;
+    if(typeof act.selectionStart==='number'){ss=act.selectionStart;se=act.selectionEnd;}
   }
   let html;
   if(state.tab==='홈') html=tHome();
   else if(state.tab==='관계조회') html=tLookup();
   else if(state.tab==='비교') html=tCompare();
+  else if(state.tab==='변경') html=tChanges();
   else if(state.tab==='검증') html=tVerify();
   else html=tData(byKey[state.tab]);
   view.innerHTML=html;
-  view.classList.remove('fadein');void view.offsetWidth;view.classList.add('fadein');
-  if(focusId){
-    const el=document.getElementById(focusId);
-    if(el){
-      el.focus();
-      if(selStart!==null&&el.setSelectionRange){try{el.setSelectionRange(selStart,selEnd);}catch(e){}}
-    }
+  document.getElementById('modalHost').innerHTML=modalHtml();
+  if(fid){
+    const el=document.getElementById(fid);
+    if(el){el.focus();if(ss!==null&&el.setSelectionRange){try{el.setSelectionRange(ss,se);}catch(e){}}}
   }
   const st=document.getElementById('status');
   const ok=DATA.validation.total_errors===0;
-  st.className=ok?'ok':'no';st.textContent=ok?'전 표 검증 통과':`검증 오류 ${DATA.validation.total_errors}건`;
+  st.className='pill '+(ok?'ok':'no');
+  st.textContent=ok?'검증 통과':`검증 오류 ${DATA.validation.total_errors}건`;
+  const cp=document.getElementById('chgpill');
+  const chgTot=CHANGES.has_prev?(CHANGES.total_added+CHANGES.total_changed+CHANGES.total_removed):0;
+  cp.style.display=chgTot?'':'none';
+  cp.textContent=`변경 ${chgTot}건`;
   syncHash();
 }
+document.addEventListener('click',e=>{
+  const w=document.querySelector('.gsearchwrap');
+  if(w&&!w.contains(e.target)) closeGlobalSearch();
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(state.modal){closeDetail();return;}
+    closeGlobalSearch();
+  }
+});
 (function(){
-  loadHidden();
-  applyTheme();
-  parseHash();
-  document.getElementById('foot-src').textContent=(DATA.is_demo?'데모 데이터':'실 데이터') +
-    ' · ' + DATA.tables.map(t=>t.label+' '+t.rows.length).join(' · ');
+  loadHidden();applyTheme();parseHash();
+  document.getElementById('foot-src').textContent=(DATA.is_demo?'데모 데이터':'실 데이터')+
+    ' · '+DATA.tables.map(t=>t.label+' '+t.rows.length).join(' · ');
   render();
 })();
 </script></body></html>
