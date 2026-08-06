@@ -107,6 +107,7 @@ td.diffcell{background:var(--amber-w);color:var(--amber);font-weight:700;border-
 .boolbadge.yes{background:var(--pass-w);color:var(--pass)}.boolbadge.no{background:var(--fail-w);color:var(--fail)}
 .idlink{color:var(--teal-d);text-decoration:underline;text-underline-offset:2px;cursor:pointer;font-weight:700}
 .idlink:hover{color:var(--teal)}
+.fkname{color:var(--sub);font-weight:500;margin-left:6px}
 .chk{display:grid;grid-template-columns:1fr auto auto auto;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-left-width:4px;border-radius:8px;padding:10px 15px;margin-bottom:7px;cursor:pointer}
 .chk:hover{background:var(--teal-w)}.chk.no{border-left-color:var(--fail)}
 .subtabbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:2px}
@@ -118,6 +119,9 @@ td.diffcell{background:var(--amber-w);color:var(--amber);font-weight:700;border-
 .nocand{font-size:12.5px;color:var(--sub);padding:10px 2px}
 .chipcount{font-size:11.5px;font-weight:700;color:var(--teal-d);background:var(--teal-w);padding:3px 10px;border-radius:20px;margin-left:6px;display:inline-block;margin-top:4px}
 .lookuphead{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.homehead{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);font-size:13px;font-weight:600;padding:10px 18px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .unsecrow{display:flex;justify-content:space-between;align-items:center;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer}
 .unsecrow:last-child{border-bottom:none}.unsecrow:hover{background:var(--paper)}
 .mixrow{display:flex;align-items:center;gap:10px;padding:6px 0}
@@ -156,6 +160,7 @@ footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-si
 <div class="tabbar" id="tabbar"></div></header>
 <div class="wrap"><div id="view"></div>
   <footer><span>생성 {{NOW}}</span><span id="foot-src"></span></footer></div>
+<div id="toast"></div>
 <script>
 /*__DATA__*/
 const byKey={};DATA.tables.forEach(t=>byKey[t.key]=t);
@@ -201,6 +206,19 @@ function boolLabel(col,val){
   if(col.indexOf('미확보')>=0) return bad?'미확보':'확보완료';
   return bad?'예':'아니오';
 }
+// ID만 봐서는 뭔지 알기 어려운 표(발전소/수요기업/전기사용지)는 FK로 참조될 때
+// 이름 컬럼을 같이 보여줍니다 — 구매계약ID"발전소ID" 칸에 "P001"만 있으면 어느
+// 발전소인지 클릭해봐야 알 수 있던 것을, "P001 신안태양광1호 (그린에너지(주))"처럼
+// 바로 알아볼 수 있게. 판매계약/구매계약/수급매칭은 PK 자체가 이미 설명적이라 제외.
+const NAME_COLS={"T_발전소":["발전소명","발전법인명"],"T_수요기업":["기업명"],"T_전기사용지":["전기사용지명"]};
+function displayNameFor(tableKey,pkVal){
+  const cols=NAME_COLS[tableKey];
+  if(!cols) return null;
+  const row=rowIndex[tableKey]&&rowIndex[tableKey][String(pkVal)];
+  if(!row) return null;
+  const parts=cols.map(c=>row.cells[c]).filter(v=>v!==undefined&&v!=='');
+  return parts.length?parts.join(' · '):null;
+}
 function cellHtml(t,col,rawVal){
   const val=rawVal??'';
   if(val==='') return '';
@@ -213,7 +231,12 @@ function cellHtml(t,col,rawVal){
   const display=fmtVal(col,val);
   if(isPk||refKey){
     const target=refKey||t.key;
-    return `<a class="idlink" onclick="jumpTo('${jsq(target)}','${jsq(val)}')">${esc(display)}</a>`;
+    const link=`<a class="idlink" onclick="jumpTo('${jsq(target)}','${jsq(val)}')">${esc(display)}</a>`;
+    if(refKey){
+      const nm=displayNameFor(refKey,val);
+      if(nm) return `${link}<span class="fkname">${esc(nm)}</span>`;
+    }
+    return link;
   }
   return esc(display);
 }
@@ -320,7 +343,8 @@ function applyDateFilter(rows,t){
 }
 
 function tableView(t){
-  const q=(state.q[t.key]||'').trim().toLowerCase();
+  const raw=state.q[t.key]||'';
+  const q=raw.trim().toLowerCase();
   const sc=state.sort[t.key];
   const filt=state.filters[t.key]||{};
   let rows=t.rows.map((r,idx)=>({...r,_idx:idx}));
@@ -346,7 +370,7 @@ function tableView(t){
       const bad=(r.error_cols||[]).includes(c);
       return `<td class="${bad?'cellerr':''}">${cellHtml(t,c,r.cells[c])}</td>`;}).join('');
     return `<tr class="${err?'rowerr':''}">${tds}</tr>`;}).join('');
-  return `<div class="toolbar"><input class="search" placeholder="검색…" value="${esc(q)}" oninput="setQ('${jsq(t.key)}',this.value)">
+  return `<div class="toolbar"><input id="search-${esc(t.key)}" class="search" placeholder="검색…" value="${esc(raw)}" oninput="setQ('${jsq(t.key)}',this.value)">
     ${colPicker(t)}
     <span class="count">${rows.length.toLocaleString('ko-KR')} / ${t.rows.length.toLocaleString('ko-KR')}건</span></div>
     ${filterBar(t)}${dateFilterBar(t)}
@@ -461,7 +485,7 @@ function tLookup(){
   const picker=`<div class="panel"><div class="ph"><h3>1. 표 선택</h3></div>
     <div class="subtabbar">${pickTabs}</div>
     <div class="ph" style="margin-top:16px"><h3>2. 검색해서 선택</h3><span class="sub">비워두면 목록이 그대로 보입니다</span></div>
-    <input class="search" style="width:100%" placeholder="${esc(activeT.label)} 검색 (ID, 이름 등)…" value="${esc(state.lookupQ||'')}" oninput="setLookupQ(this.value)">
+    <input id="lookupSearchInput" class="search" style="width:100%" placeholder="${esc(activeT.label)} 검색 (ID, 이름 등)…" value="${esc(state.lookupQ||'')}" oninput="setLookupQ(this.value)">
     <div class="candlist">${candHtml}</div>${moreNote}</div>`;
 
   if(!state.lookup) return `<section>${recentChips()}${picker}</section>`;
@@ -563,6 +587,52 @@ function schemaDiagram(){
   return `<div class="schemarow"><span class="schematag">공급측</span>${schemaBox('T_발전소')}<span class="schemaarrow">→</span>${schemaBox('T_구매계약')}<span class="schemaarrow">→</span>${schemaBox('T_수급매칭')}</div>
     <div class="schemarow"><span class="schematag">수요측</span>${schemaBox('T_수요기업')}<span class="schemaarrow">→</span>${schemaBox('T_판매계약')}<span class="schemaarrow">→</span>${schemaBox('T_전기사용지')}<span class="schemaarrow">→</span>${schemaBox('T_수급매칭')}</div>`;
 }
+function toast(msg){
+  const el=document.getElementById('toast');
+  if(!el) return;
+  el.textContent=msg;
+  el.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer=setTimeout(()=>el.classList.remove('show'),2200);
+}
+function fallbackCopy(text){
+  const ta=document.createElement('textarea');
+  ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';ta.style.top='0';
+  document.body.appendChild(ta);ta.focus();ta.select();
+  try{document.execCommand('copy');toast('요약을 클립보드에 복사했습니다.');}
+  catch(e){toast('복사에 실패했습니다 — 직접 선택해서 복사해주세요.');}
+  document.body.removeChild(ta);
+}
+function copyText(text){
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>toast('요약을 클립보드에 복사했습니다.')).catch(()=>fallbackCopy(text));
+  }else{
+    fallbackCopy(text);
+  }
+}
+function buildSummaryText(){
+  const hasPlant=byKey['T_발전소'],hasPurch=byKey['T_구매계약'],hasSale=byKey['T_판매계약'];
+  const supplyMW=hasPlant?sumCol('T_발전소','설비용량(MW)'):0;
+  const purchMW=hasPurch?sumCol('T_구매계약','구매계약용량(MW)'):0;
+  const saleMW=hasSale?sumCol('T_판매계약','판매계약용량(MW)'):0;
+  const purchUnsecured=hasPurch?countWhere('T_구매계약','수요기업 미확보','TRUE'):0;
+  const saleUnsecured=hasSale?countWhere('T_판매계약','공급자원 미확보','TRUE'):0;
+  const mix=hasPlant?groupSum('T_발전소','발전원','설비용량(MW)'):[];
+  const ok=DATA.validation.total_errors===0;
+  const lines=[];
+  lines.push('[PPA 계약관리 현황 요약]');
+  lines.push('기준: '+DATA.generated_at.replace('T',' '));
+  lines.push('');
+  lines.push('- 발전소 '+(hasPlant?hasPlant.rows.length:0)+'개, 설비용량 합계 '+supplyMW.toLocaleString('ko-KR',{maximumFractionDigits:1})+' MW');
+  lines.push('- 구매계약 '+(hasPurch?hasPurch.rows.length:0)+'건, 총 '+purchMW.toLocaleString('ko-KR',{maximumFractionDigits:1})+' MW');
+  lines.push('- 판매계약 '+(hasSale?hasSale.rows.length:0)+'건, 총 '+saleMW.toLocaleString('ko-KR',{maximumFractionDigits:1})+' MW');
+  if(mix.length) lines.push('- 발전원 비중: '+mix.map(([g,v])=>g+' '+v.toLocaleString('ko-KR',{maximumFractionDigits:1})+'MW').join(', '));
+  lines.push('- 미확보: 구매계약 '+purchUnsecured+'건, 판매계약 '+saleUnsecured+'건');
+  lines.push('- 검증 오류: '+DATA.validation.total_errors+'건'+(ok?' (전 표 정상)':' (관계조회/검증 탭에서 확인 필요)'));
+  return lines.join('\n');
+}
+function copySummary(){copyText(buildSummaryText());}
+
 function tHome(){
   const hasPlant=byKey['T_발전소'],hasPurch=byKey['T_구매계약'],hasSale=byKey['T_판매계약'];
   const supplyMW=hasPlant?sumCol('T_발전소','설비용량(MW)'):0;
@@ -578,7 +648,10 @@ function tHome(){
   const ok=DATA.validation.total_errors===0;
   const schema=schemaDiagram();
 
-  return `<section><div class="kpis">
+  return `<section>
+    <div class="homehead"><span class="sub mono">기준 시각: ${esc(DATA.generated_at.replace('T',' '))}</span>
+      <button class="clearbtn" style="background:var(--teal-w);color:var(--teal-d)" onclick="copySummary()">요약 복사 (보고용)</button></div>
+    <div class="kpis">
     ${kpi('발전소 설비용량 합계',supplyMW.toLocaleString('ko-KR',{maximumFractionDigits:1})+' MW',hasPlant?hasPlant.rows.length+'개 발전소':'','accent')}
     ${kpi('구매계약 총 용량',purchMW.toLocaleString('ko-KR',{maximumFractionDigits:1})+' MW',hasPurch?hasPurch.rows.length+'건':'')}
     ${kpi('판매계약 총 용량',saleMW.toLocaleString('ko-KR',{maximumFractionDigits:1})+' MW',hasSale?hasSale.rows.length+'건':'')}
@@ -685,6 +758,17 @@ function renderTabs(){
 function render(){
   renderTabs();
   const view=document.getElementById('view');
+  // innerHTML을 통째로 새로 그리면 그 안에 있던 입력창(검색 등)은 매번 새로
+  // 생성되어 포커스가 풀립니다 — 그대로 두면 한 글자 입력할 때마다 커서가
+  // 빠져나가 "검색이 전혀 안 되는" 것처럼 보이는 문제가 생깁니다. 그래서
+  // 다시 그리기 전에 어떤 입력창에 포커스가 있었는지(및 커서 위치) 기억해뒀다가
+  // 다시 그린 뒤 같은 id를 가진 입력창에 포커스/커서를 복원합니다.
+  const active=document.activeElement;
+  let focusId=null,selStart=null,selEnd=null;
+  if(active&&view.contains(active)&&active.id){
+    focusId=active.id;
+    if(typeof active.selectionStart==='number'){selStart=active.selectionStart;selEnd=active.selectionEnd;}
+  }
   let html;
   if(state.tab==='홈') html=tHome();
   else if(state.tab==='관계조회') html=tLookup();
@@ -693,6 +777,13 @@ function render(){
   else html=tData(byKey[state.tab]);
   view.innerHTML=html;
   view.classList.remove('fadein');void view.offsetWidth;view.classList.add('fadein');
+  if(focusId){
+    const el=document.getElementById(focusId);
+    if(el){
+      el.focus();
+      if(selStart!==null&&el.setSelectionRange){try{el.setSelectionRange(selStart,selEnd);}catch(e){}}
+    }
+  }
   const st=document.getElementById('status');
   const ok=DATA.validation.total_errors===0;
   st.className=ok?'ok':'no';st.textContent=ok?'전 표 검증 통과':`검증 오류 ${DATA.validation.total_errors}건`;
