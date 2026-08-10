@@ -86,12 +86,37 @@ Private Const C_TEALD  As Long = 5856266      ' RGB(10,90,89)
 Private Const C_PURPLE As Long = 12012627     ' RGB(83,74,183)
 Private Const C_LINE   As Long = 14213347     ' RGB(227,225,216)
 
+'---- 지금 어느 단계인지 (오류가 나면 이 값을 함께 보여줍니다) ---------------
+Private g_단계 As String
+
 '---- 캐시 (작업 한 번 동안만 유지) ------------------------------------------
 Private mHdr As Object      ' "시트|헤더" -> 열번호
 Private mArrD As Object     ' 시트명      -> 2차원 배열(1행=머리글)
 Private mPkD As Object      ' 시트명      -> Dictionary(PK값 -> 행)
 Private mFkD As Object      ' "시트|컬럼" -> Dictionary(값 -> Collection(행))
 Private mTypD As Object     ' "시트|헤더" -> "TEXT"/"BOOL"/"DATE"/"NUM"
+
+'==============================================================================
+' 0. 오류 위치 알리미
+'   런타임 오류가 나면 "어느 단계에서" 났는지까지 같이 보여줍니다.
+'   (438 처럼 엑셀 버전에 따라 달라지는 오류를 바로 짚어내기 위한 장치)
+'==============================================================================
+Private Sub 단계(ByVal s As String)
+    g_단계 = s
+    On Error Resume Next
+    Application.StatusBar = "PPA 탐색: " & s
+    On Error GoTo 0
+End Sub
+
+Private Sub 오류보고(ByVal 어디 As String)
+    MsgBox "실행 중 오류가 발생했습니다." & vbCrLf & vbCrLf & _
+           "위치 : " & 어디 & vbCrLf & _
+           "단계 : " & g_단계 & vbCrLf & _
+           "번호 : " & Err.Number & vbCrLf & _
+           "내용 : " & Err.Description & vbCrLf & vbCrLf & _
+           "이 창을 그대로 캡처해 주시면 원인을 정확히 찾을 수 있습니다.", _
+           vbExclamation, "PPA 탐색 - 오류"
+End Sub
 
 '==============================================================================
 ' 1. 스키마
@@ -488,24 +513,30 @@ Public Sub 탐색_만들기()
     ws.Cells(ROW_COND, COL_VAL + 4).Font.Color = C_SUB
     ws.Cells(ROW_PRESET, COL_VAL).Value = P_NONE
 
+    단계 "버튼 만들기"
     버튼만들기 ws
+    단계 "드롭다운 만들기"
     드롭다운만들기 ws
+    단계 "체크박스 그리기"
     체크박스_다시그리기 ws
+    단계 ""
     상태쓰기 "준비됐습니다. 기준 표와 연결할 표를 고르고 [① 설정 반영] → [② 조회 실행]."
 
     ' 버튼 줄만 고정 - 결과를 아래로 훑어도 버튼이 항상 보입니다
     ws.Activate
+    On Error Resume Next
     ActiveWindow.DisplayGridlines = False
     ActiveWindow.FreezePanes = False
     ws.Range("A2").Select
     ActiveWindow.FreezePanes = True
+    On Error GoTo 0
     ws.Cells(ROW_BASE, COL_VAL).Select
 
 정리:
     Application.DisplayAlerts = True
     빠르게끝 s
     If Err.Number <> 0 Then
-        MsgBox "탐색 시트를 만드는 중 오류가 발생했습니다." & vbCrLf & Err.Description, vbExclamation
+        오류보고 "탐색_만들기"
         Exit Sub
     End If
 
@@ -564,27 +595,35 @@ Private Sub 셰이프버튼(ByVal ws As Worksheet, ByVal 이름 As String, _
     Dim shp As Shape
     Set shp = ws.Shapes.AddShape(msoShapeRoundedRectangle, x, y, BTN_W, BTN_H)
     shp.Name = 이름
+    shp.OnAction = 액션
+
+    ' 아래 서식은 모두 "있으면 예쁘게, 없으면 그냥" 입니다.
+    ' 엑셀 버전에 따라 지원하지 않는 속성이 있어도 버튼은 동작해야 하므로
+    ' 한 덩어리로 감싸 실패를 무시합니다.
+    On Error Resume Next
     With shp
-        .OnAction = 액션
-        .Fill.ForeColor.RGB = 색
         .Fill.Solid
+        .Fill.ForeColor.RGB = 색
         .Line.Visible = msoFalse
-        .Placement = xlMove              ' 행 높이만 따라가고 크기는 유지
-        On Error Resume Next
+        .Placement = xlMove
         .Adjustments.Item(1) = 0.18
-        On Error GoTo 0
-        With .TextFrame2
-            .TextRange.Text = 캡션
-            .TextRange.Font.Name = "맑은 고딕"
-            .TextRange.Font.Size = 9.5
-            .TextRange.Font.Bold = msoTrue
-            .TextRange.Font.Fill.ForeColor.RGB = RGB(255, 255, 255)
-            .VerticalAnchor = msoAnchorMiddle
-            .TextRange.ParagraphFormat.Alignment = msoAlignCenter
-            .MarginLeft = 0
-            .MarginRight = 0
-        End With
     End With
+    With shp.TextFrame2
+        .TextRange.Text = 캡션
+        .TextRange.Font.Name = "맑은 고딕"
+        .TextRange.Font.Size = 9.5
+        .TextRange.Font.Bold = msoTrue
+        .TextRange.Font.Fill.ForeColor.RGB = RGB(255, 255, 255)
+        .VerticalAnchor = msoAnchorMiddle
+        .TextRange.ParagraphFormat.Alignment = msoAlignCenter
+        .MarginLeft = 0
+        .MarginRight = 0
+    End With
+    ' TextFrame2 를 못 쓰는 환경이면 예전 방식으로 글자만이라도 넣습니다
+    If Len(shp.TextFrame2.TextRange.Text) = 0 Then
+        shp.TextFrame.Characters.Text = 캡션
+    End If
+    On Error GoTo 0
 End Sub
 
 Private Sub 드롭다운만들기(ByVal ws As Worksheet)
@@ -675,9 +714,16 @@ Public Sub 탐색_설정적용()
     End If
     캐시비우기
     s = 빠르게시작()
+    On Error GoTo 실패
+    단계 "체크박스 그리기"
     체크박스_다시그리기 ws
+    단계 ""
     빠르게끝 s
     상태쓰기 "설정을 반영했습니다. 컬럼을 확인하고 [② 조회 실행]을 누르세요."
+    Exit Sub
+실패:
+    빠르게끝 s
+    오류보고 "탐색_설정적용"
 End Sub
 
 Private Sub 체크박스_다시그리기(ByVal ws As Worksheet)
@@ -774,9 +820,12 @@ Private Function 체크박스놓기(ByVal ws As Worksheet, ByVal r As Long, _
     Dim 셀 As Range, cb As Object
     Set 셀 = ws.Cells(r, c)
     Set cb = ws.CheckBoxes.Add(셀.Left + 2, 셀.Top + 2, 셀.Width - 4, 셀.Height - 4)
+    ' 아래 두 가지는 엑셀 버전에 따라 지원하지 않을 수 있어 실패해도 넘어갑니다
+    On Error Resume Next
     cb.Placement = xlMoveAndSize
     cb.Font.Name = "맑은 고딕"
     cb.Font.Size = 9
+    On Error GoTo 0
     Set 체크박스놓기 = cb
 End Function
 
@@ -917,7 +966,7 @@ End Function
 '==============================================================================
 Public Sub 탐색_실행()
     Dim ws As Worksheet, 유효 As Collection, 컬럼들 As Collection
-    Dim 기준 As String, 단계 As Object, s As Variant
+    Dim 기준 As String, 경로 As Object, s As Variant
     Dim mp() As Long, cnt As Long, 넘침 As Boolean
     Dim t0 As Double
 
@@ -940,19 +989,23 @@ Public Sub 탐색_실행()
     s = 빠르게시작()
     On Error GoTo 정리
 
-    Application.StatusBar = "조회 중… 표 " & 유효.Count & "개 연결"
-    Set 단계 = 경로단계(기준)
-    조인전개 기준, 유효, 단계, mp, cnt, 넘침
+    단계 "조인 준비"
+    Set 경로 = 경로단계(기준)
+    단계 "조인 전개"
+    조인전개 기준, 유효, 경로, mp, cnt, 넘침
+    단계 "조건 적용"
     조건적용 ws, 유효, 컬럼들, mp, cnt
 
-    Application.StatusBar = "화면에 그리는 중… " & Format$(cnt, "#,##0") & "행"
+    단계 "FK 목록 준비"
     FK목록준비 유효                       ' 드롭다운 원본을 먼저 만들고
+    단계 "결과 그리기 (" & Format$(cnt, "#,##0") & "행)"
     결과_그리기 ws, 유효, 컬럼들, mp, cnt  ' 그 다음에 유효성 검사를 겁니다
+    단계 ""
 
 정리:
     빠르게끝 s
     If Err.Number <> 0 Then
-        MsgBox "조회 중 오류가 발생했습니다." & vbCrLf & Err.Description, vbExclamation
+        오류보고 "탐색_실행"
         Exit Sub
     End If
 
@@ -1559,7 +1612,7 @@ Public Sub 탐색_변경저장()
 정리:
     빠르게끝 s
     If Err.Number <> 0 Then
-        MsgBox "변경 내용을 확인하는 중 오류가 발생했습니다." & vbCrLf & Err.Description, vbExclamation
+        오류보고 "탐색_변경저장"
         Exit Sub
     End If
 

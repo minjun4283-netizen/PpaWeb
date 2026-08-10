@@ -20,6 +20,7 @@ import argparse
 import datetime
 import os
 import sys
+import zipfile
 
 # Windows embeddable Python(python.org "embeddable package")은 pythonXXX._pth
 # 파일이 있으면 실행하는 스크립트의 폴더를 자동으로 sys.path에 넣어주지 않습니다
@@ -31,6 +32,47 @@ from ppa_changes import compute_changes, load_snapshot, save_snapshot
 from ppa_dashboard_render import render_dashboard
 from ppa_loader import load_from_csv_dir, load_from_xlsm
 from ppa_schema import TABLES, validate
+
+
+def diagnose_xlsm_open_failure(path: str) -> str:
+    """xlsm을 열지 못했을 때, 흔한 원인을 스스로 점검해서 원인에 맞는 안내를 만듭니다."""
+    lines = [f"엑셀 파일을 열지 못했습니다: {path}", ""]
+
+    if not os.path.exists(path):
+        lines.append("→ 이 경로에 파일이 없습니다. 경로(특히 폴더 이름의 띄어쓰기/오타)를 다시 확인해주세요.")
+        return "\n".join(lines)
+
+    folder = os.path.dirname(os.path.abspath(path))
+    lock_path = os.path.join(folder, "~$" + os.path.basename(path))
+    size = os.path.getsize(path)
+
+    checked = False
+    if size == 0:
+        lines.append("→ 원인으로 보이는 것: 파일 크기가 0바이트입니다.")
+        lines.append("   OneDrive 동기화가 아직 끝나지 않았거나 파일 복사가 중간에 끊겼을 수 있습니다.")
+        lines.append("   해당 파일을 탐색기에서 더블클릭해 엑셀로 완전히 열어본 뒤 닫고 다시 시도해주세요.")
+        checked = True
+    elif size < 10_000:
+        lines.append(f"→ 원인으로 보이는 것: 파일 크기가 {size:,}바이트로 비정상적으로 작습니다.")
+        lines.append("   정상 xlsm이 아니라 OneDrive 자리표시자(placeholder)이거나 손상된 파일일 수 있습니다.")
+        checked = True
+
+    if os.path.exists(lock_path):
+        lines.append("→ 원인으로 보이는 것: 같은 폴더에 임시 잠금 파일(" + os.path.basename(lock_path) + ")이 있습니다.")
+        lines.append("   → 지금 엑셀에서 이 파일이 열려 있다는 뜻입니다. 엑셀을 완전히 닫은 뒤(저장은 먼저 해두고) 다시 실행해주세요.")
+        checked = True
+
+    if not checked:
+        lines.append("→ 흔한 원인 체크리스트:")
+        lines.append("   1) OneDrive에서 이 파일이 구름 아이콘(클라우드 전용)으로 표시되나요?")
+        lines.append("      탐색기에서 더블클릭해 완전히 내려받아지도록(초록 체크로 바뀔 때까지) 기다린 뒤 다시 시도하세요.")
+        lines.append("   2) 지금 엑셀에서 이 파일이 열려 있다면, 저장 후 닫고 다시 시도하세요.")
+        lines.append("   3) 확장자만 .xlsm이고 실제로는 예전 .xls(97-2003) 형식으로 저장된 파일은 아닌지 확인하세요.")
+        lines.append("      (엑셀에서 열어 '다른 이름으로 저장' → '엑셀 매크로 사용 통합 문서(*.xlsm)'으로 다시 저장해보세요.)")
+        lines.append("   4) 위 방법으로도 안 되면, 엑셀에서 이 파일을 열어 '다른 이름으로 저장'으로 새 사본을 만들고")
+        lines.append("      그 사본 경로로 --xlsm 을 다시 지정해보세요 (원본이 손상됐을 가능성을 우회합니다).")
+
+    return "\n".join(lines)
 
 
 def default_snapshot_path(out_path: str) -> str:
@@ -114,6 +156,15 @@ def main():
                 "openpyxl을 불러올 수 없습니다. vendor/ 폴더가 build_dashboard.py와 "
                 "같은 위치에 있는지 확인하거나, 'pip install openpyxl'을 시도해보세요. "
                 "그래도 안 된다면 --csv-dir 방식(표준 라이브러리만 사용)을 이용하세요."
+            )
+        except zipfile.BadZipFile:
+            sys.exit(diagnose_xlsm_open_failure(args.xlsm))
+        except FileNotFoundError:
+            sys.exit(f"파일을 찾을 수 없습니다: {args.xlsm}\n경로를 다시 확인해주세요.")
+        except PermissionError:
+            sys.exit(
+                f"파일을 읽을 권한이 없습니다: {args.xlsm}\n"
+                "엑셀에서 이 파일을 열어둔 상태라면 닫고 다시 시도해주세요."
             )
     else:
         tables_data = load_from_csv_dir(args.csv_dir)
