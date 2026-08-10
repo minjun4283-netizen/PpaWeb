@@ -7,7 +7,10 @@ HTML에 통째로 넣고 JS로 전부 처리하는 단일 파일. 외부 CDN/폰
 전혀 쓰지 않으므로 인터넷이 안 되는 사내망 VDI에서도 그대로 열립니다.
 
 화면 구성
-  홈       — 요약 KPI, 발전원 비중, 미확보/만료임박, 검증·변경 요약, 표 관계도
+  홈       — 한눈에 보기 요약 문장, 요약 KPI, 발전원 비중, 수급매칭 현황별
+             비율·용량, 년월별 추이(신규 계약/공급기한, 건수/용량 토글),
+             미확보/만료임박, 검증·변경 요약, 표 관계도 — 각 항목을 클릭하면
+             해당 표로 조건이 적용된 채 이동
   관계조회 — PK 하나로 FK 체인 전체(발전소↔구매계약↔수급매칭↔전기사용지↔
              판매계약↔수요기업)를 한 화면에
   비교     — 레코드 최대 3건 나란히 비교 (다른 값 강조)
@@ -41,14 +44,18 @@ _CSS = r"""
   --pass:#4CC08A;--pass-w:#123425;--fail:#E2726B;--fail-w:#3A1616;
   --info:#7FB2EA;--info-w:#12263A;--mute:#4A5254;
 }
+:root{
+  --font-sans:"Pretendard","Pretendard Variable",-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  --font-mono:ui-monospace,SFMono-Regular,Consolas,monospace;
+}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--paper);color:var(--ink);padding-bottom:60px;
-  font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic","Apple SD Gothic Neo",Pretendard,sans-serif;
-  -webkit-font-smoothing:antialiased}
-.mono,.kv,.ks,.count{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  font-family:var(--font-sans);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.mono,.kv,.ks,.count{font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .wrap{max-width:1280px;margin:0 auto;padding:0 22px}
-button{font-family:inherit}
+button,input,select{font-family:inherit}
 
 /* 헤더 */
 header{border-bottom:2px solid var(--ink);background:var(--paper);position:sticky;top:0;z-index:30}
@@ -219,6 +226,13 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 .tbl-wrap.stickyfirst tbody tr.rowmiss td:first-child{background:var(--amber-w)}
 
 /* 홈 위젯 */
+.insight{background:linear-gradient(135deg,var(--teal-d),var(--teal));border-radius:14px;padding:20px 24px;margin-bottom:16px;color:#fff}
+.insight .ieyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:#CDE8E6;margin:0 0 8px}
+.insight p{margin:0;font-size:16.5px;line-height:1.62;font-weight:600;letter-spacing:-.01em}
+.insight p b{font-weight:800}
+.insight p .dim{color:#CDE8E6;font-weight:600}
+@media(max-width:640px){.insight p{font-size:14.5px}}
+
 .unsecrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer}
 .unsecrow:last-child{border-bottom:none}.unsecrow:hover{background:var(--paper)}
 .mixrow{display:flex;align-items:center;gap:10px;padding:6px 0}
@@ -232,6 +246,35 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 .schemabox:hover{border-color:var(--teal);color:var(--teal-d)}
 .schemacount{font-size:10.5px;font-weight:600;color:var(--sub)}
 .schemaarrow{color:var(--mute);font-size:16px;flex-shrink:0}
+
+/* 현황별 비율·용량 (스택형 막대 + 범례) */
+.statusbar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--paper);margin-bottom:14px}
+.statusseg{height:100%}
+.statusseg+.statusseg{box-shadow:inset 2px 0 0 var(--panel)}
+.statuslegendhead{display:grid;grid-template-columns:18px 1fr 60px 70px 130px;gap:10px;padding:2px 4px 6px;font-size:10.5px;font-weight:700;color:var(--sub);letter-spacing:.02em}
+.statusrow{display:grid;grid-template-columns:18px 1fr 60px 70px 130px;gap:10px;align-items:center;padding:8px 4px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}
+.statusrow:last-of-type{border-bottom:none}
+.statusrow:hover{background:var(--paper)}
+.statusdot{width:11px;height:11px;border-radius:4px;flex-shrink:0}
+.statuslabel{font-weight:600}
+.statuspct,.statuscnt,.statuscap{text-align:right;color:var(--sub)}
+.statuscnt{font-weight:700;color:var(--ink)}
+.statustotal{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:12px;color:var(--sub);text-align:right}
+
+/* 년월별 추이 */
+.trendtools{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.segtoggle{display:inline-flex;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:2px}
+.segtoggle button{font-size:12px;font-weight:600;color:var(--sub);background:none;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;white-space:nowrap}
+.segtoggle button.on{background:var(--teal);color:#fff}
+.trendchart{display:flex;align-items:flex-end;gap:3px;height:150px;padding:4px 2px 0;border-bottom:1px solid var(--line)}
+.trendcol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;cursor:pointer;min-width:6px}
+.trendbar{width:100%;max-width:26px;background:var(--teal);border-radius:4px 4px 0 0;transition:background .12s}
+.trendcol:hover .trendbar{background:var(--teal-d)}
+.trendcol.peak .trendbar{background:var(--amber)}
+.trendlabel{font-size:9.5px;color:var(--ink);font-weight:700;margin-bottom:3px;white-space:nowrap}
+.trendticks{display:flex;gap:3px;padding:6px 2px 0}
+.trendtick{flex:1;text-align:center;font-size:9.5px;color:var(--sub);min-width:6px;white-space:nowrap}
+.trendfoot{margin-top:10px;font-size:12px;color:var(--sub);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
 
 /* 상세 모달 */
 .backdrop{position:fixed;inset:0;background:rgba(10,15,17,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px}
@@ -268,13 +311,20 @@ footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-si
   .mixlabel{width:60px}.mixval{width:88px}
   .drow{grid-template-columns:1fr;gap:2px}
   .tbl-wrap{max-height:none}
+  .statuslegendhead,.statusrow{grid-template-columns:14px 1fr 34px 46px 72px;gap:5px;font-size:11.5px}
+  .statuslegendhead{font-size:9.5px}
+  .trendtools{gap:8px}
+  .segtoggle button{font-size:11px;padding:6px 8px}
 }
 
 /* 보고용 인쇄 */
 @media print{
   @page{size:A4 landscape;margin:11mm}
   header,.tabbar,.gsearchwrap,.toolbar,.filterbar,.chiprow,.candlist,.subtabbar,
-  .pager,.btn,.drop,.iconbtn,.pill,#globalResults,#toast,.backdrop,footer{display:none!important}
+  .pager,.btn,.drop,.iconbtn,.pill,#globalResults,#toast,.backdrop,footer,.segtoggle{display:none!important}
+  .insight{background:#fff!important;color:#000!important;border:1px solid #999}
+  .insight .ieyebrow,.insight p .dim{color:#333!important}
+  .trendlabel{color:#000}
   body{background:#fff;color:#000;padding:0}
   .wrap{max-width:none;padding:0}
   section{margin-top:0}
@@ -332,6 +382,7 @@ let state={
   lookup:null,lookupTable:DATA.tables[0].key,lookupQ:'',lookupDepth:Number(readLS('ppa_depth','2')),
   recent:[],pinned:[],modal:null,
   theme:readLS('ppa_theme','light'),
+  homeTrend:{metric:'new',unit:'cnt'},
 };
 
 /* ── 문자열 유틸 ────────────────────────────────────────────────────────── */
@@ -1207,6 +1258,51 @@ function jumpToDateWindow(tk,col,days){
   const end=new Date(TODAY);end.setDate(end.getDate()+days);
   state.dateFilters[tk][col]={from:TODAY,to:end.toISOString().slice(0,10)};
   state.page[tk]=1;render();}
+
+/* 현황별로 값을 다른 표(FK)에서 끌어와 합산 — 예: 수급매칭 현황별 구매계약 용량 */
+function groupSumJoinFK(tk,gcol,fkCol,refTk,refCapCol){
+  const t=byKey[tk],ref=byKey[refTk];if(!t||!ref) return [];
+  const refMap={};ref.rows.forEach(r=>{refMap[r.cells[ref.pk]]=Number(r.cells[refCapCol])||0;});
+  const m={};
+  t.rows.forEach(r=>{
+    const g=String(r.cells[gcol]||'').trim()||'(미지정)';
+    if(!m[g]) m[g]={cnt:0,cap:0};
+    m[g].cnt++;m[g].cap+=refMap[r.cells[fkCol]]||0;
+  });
+  return Object.entries(m).map(([g,v])=>({g,cnt:v.cnt,cap:v.cap})).sort((a,b)=>b.cnt-a.cnt);
+}
+const STATUS_COLOR={ok:'var(--pass)',warn:'var(--amber)',mute:'var(--sub)'};
+function statusColor(v){return STATUS_COLOR[statusClass(v)]||'var(--info)';}
+
+/* 년월(YYYY-MM) 단위 집계 — 날짜 컬럼 하나를 기준으로 건수·용량 */
+function monthKey(v){const s=String(v||'');return /^\d{4}-\d{2}/.test(s)?s.slice(0,7):null;}
+function monthLabel(ym){const p=ym.split('-');return "'"+p[0].slice(2)+'.'+p[1];}
+function groupByMonth(tk,dateCol,capCol){
+  const t=byKey[tk];if(!t) return {};
+  const m={};
+  t.rows.forEach(r=>{
+    const ym=monthKey(r.cells[dateCol]);if(!ym) return;
+    if(!m[ym]) m[ym]={cnt:0,cap:0};
+    m[ym].cnt++;
+    const n=Number(r.cells[capCol]);m[ym].cap+=isNaN(n)?0:n;
+  });
+  return m;
+}
+function monthRange(n){ // 이번 달을 포함해 최근 n개월의 YYYY-MM 목록 (과거→현재)
+  const out=[];const base=TODAY?new Date(TODAY):new Date();
+  for(let i=n-1;i>=0;i--){
+    const d=new Date(base.getFullYear(),base.getMonth()-i,1);
+    out.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
+  }
+  return out;
+}
+function jumpToMonth(tk,col,ym){
+  state.tab=tk;state.dateFilters[tk]=state.dateFilters[tk]||{};
+  const p=ym.split('-').map(Number);
+  const lastDay=new Date(p[0],p[1],0).getDate();
+  state.dateFilters[tk][col]={from:ym+'-01',to:ym+'-'+String(lastDay).padStart(2,'0')};
+  state.page[tk]=1;render();
+}
 function schemaBox(tk){const t=byKey[tk];
   return `<button class="schemabox" onclick="state.tab='${jsq(tk)}';render()">${esc(t.label)}<span class="schemacount mono">${nf(t.rows.length,0)}</span></button>`;}
 function schemaDiagram(){
@@ -1214,6 +1310,128 @@ function schemaDiagram(){
   if(!need.every(k=>byKey[k])) return '';
   return `<div class="schemarow"><span class="schematag">공급측</span>${schemaBox('T_발전소')}<span class="schemaarrow">→</span>${schemaBox('T_구매계약')}<span class="schemaarrow">→</span>${schemaBox('T_수급매칭')}</div>
     <div class="schemarow"><span class="schematag">수요측</span>${schemaBox('T_수요기업')}<span class="schemaarrow">→</span>${schemaBox('T_판매계약')}<span class="schemaarrow">→</span>${schemaBox('T_전기사용지')}<span class="schemaarrow">→</span>${schemaBox('T_수급매칭')}</div>`;}
+
+/* ── 홈: 현황별 비율·용량 ───────────────────────────────────────────────── */
+function statusPanel(){
+  const M=byKey['T_수급매칭'];if(!M||!M.rows.length) return '';
+  const groups=groupSumJoinFK('T_수급매칭','현황','구매계약ID','T_구매계약','구매계약용량(MW)');
+  if(!groups.length) return '';
+  const total=groups.reduce((s,g)=>s+g.cnt,0);
+  const totalCap=groups.reduce((s,g)=>s+g.cap,0);
+  const segs=groups.map(g=>{
+    const pct=total?g.cnt/total*100:0;
+    return `<div class="statusseg" style="width:${pct}%;background:${statusColor(g.g)}" title="${esc(g.g)} · ${nf(g.cnt,0)}건 (${nf(pct,0)}%)"></div>`;
+  }).join('');
+  const legend=groups.map(g=>{
+    const pct=total?g.cnt/total*100:0;
+    return `<div class="statusrow" onclick="jumpToFilter('T_수급매칭','현황','${jsq(g.g)}')">
+      <span class="statusdot" style="background:${statusColor(g.g)}"></span>
+      <span class="statuslabel">${esc(g.g)}</span>
+      <span class="statuspct mono">${nf(pct,0)}%</span>
+      <span class="statuscnt mono">${nf(g.cnt,0)}건</span>
+      <span class="statuscap mono">${nf(g.cap)} MW</span></div>`;
+  }).join('');
+  return panel('수급매칭 — 현황별 비율 · 용량','칸/행을 누르면 그 현황만 보기로 이동합니다 (용량은 연결된 구매계약 기준)',
+    `<div class="statusbar">${segs}</div>
+     <div class="statuslegendhead"><span></span><span>현황</span><span>비중</span><span>건수</span><span>용량</span></div>
+     ${legend}
+     <div class="statustotal">전체 ${nf(total,0)}건 · 용량 합계 ${nf(totalCap)} MW</div>`);
+}
+
+/* ── 홈: 년월별 추이 ────────────────────────────────────────────────────── */
+function ymIdx(ym){const p=ym.split('-').map(Number);return p[0]*12+(p[1]-1);}
+function idxYm(i){const y=Math.floor(i/12),mo=i%12;return y+'-'+String(mo+1).padStart(2,'0');}
+function pickMonthWindow(keys,maxN){
+  const uniq=[...new Set(keys)];if(!uniq.length) return [];
+  let loI=Math.min(...uniq.map(ymIdx)),hiI=Math.max(...uniq.map(ymIdx));
+  if(hiI-loI+1>maxN){
+    const base=ymIdx(TODAY?TODAY.slice(0,7):idxYm(hiI));
+    let start=base-Math.floor(maxN/2),end=start+maxN-1;
+    if(start<loI){start=loI;end=start+maxN-1;}
+    if(end>hiI){end=hiI;start=Math.max(loI,end-maxN+1);}
+    loI=start;hiI=end;
+  }
+  const out=[];for(let i=loI;i<=hiI;i++) out.push(idxYm(i));
+  return out;
+}
+const TREND_METRICS={
+  new:{label:'신규 판매계약',tk:'T_판매계약',col:'계약일',cap:'판매계약용량(MW)'},
+  buyexp:{label:'구매계약 공급기한',tk:'T_구매계약',col:'공급기한_구매',cap:'구매계약용량(MW)'},
+  saleexp:{label:'판매계약 공급기한',tk:'T_판매계약',col:'공급기한_판매',cap:'판매계약용량(MW)'},
+};
+function setHomeTrend(k,v){state.homeTrend[k]=v;render();}
+function trendPanel(){
+  const avail=Object.entries(TREND_METRICS).filter(([,c])=>byKey[c.tk]);
+  if(!avail.length) return '';
+  if(!byKey[TREND_METRICS[state.homeTrend.metric]?.tk]) state.homeTrend.metric=avail[0][0];
+  const cfg=TREND_METRICS[state.homeTrend.metric];
+  const m=groupByMonth(cfg.tk,cfg.col,cfg.cap);
+  const keys=Object.keys(m);
+  if(!keys.length) return panel('년월별 추이','',`<div class="nocand">${esc(cfg.label)} 항목에 날짜가 입력된 데이터가 없습니다.</div>
+    <div class="trendtools" style="margin-top:10px"><div class="segtoggle">${avail.map(([k,c])=>
+      `<button class="${state.homeTrend.metric===k?'on':''}" onclick="setHomeTrend('metric','${k}')">${esc(c.label)}</button>`).join('')}</div></div>`);
+  const months=pickMonthWindow(keys,18);
+  const unit=state.homeTrend.unit;
+  const vals=months.map(ym=>{const b=m[ym];if(!b) return 0;return unit==='cap'?b.cap:b.cnt;});
+  const max=Math.max(1,...vals);
+  const peakV=Math.max(...vals);
+  const bars=months.map((ym,i)=>{
+    const b=m[ym]||{cnt:0,cap:0};
+    const v=vals[i];
+    const h=v>0?Math.max(4,v/max*100):0;
+    const isPeak=v>0&&v===peakV;
+    const label=isPeak?`<span class="trendlabel">${nf(v)}</span>`:'';
+    const act=b.cnt>0?` onclick="jumpToMonth('${jsq(cfg.tk)}','${jsq(cfg.col)}','${ym}')"`:'';
+    return `<div class="trendcol${isPeak?' peak':''}"${act} title="${monthLabel(ym)} · ${nf(b.cnt,0)}건 · ${nf(b.cap)}MW">
+      ${label}<div class="trendbar" style="height:${h}%"></div></div>`;
+  }).join('');
+  const tickStep=Math.max(1,Math.ceil(months.length/9));
+  const ticks=months.map((ym,i)=>`<span class="trendtick">${i%tickStep===0?monthLabel(ym):''}</span>`).join('');
+  const totalCnt=months.reduce((s,ym)=>s+(m[ym]?m[ym].cnt:0),0);
+  const totalCap=months.reduce((s,ym)=>s+(m[ym]?m[ym].cap:0),0);
+  return panel('년월별 추이','막대를 누르면 해당 월만 보기로 이동합니다',`
+    <div class="trendtools">
+      <div class="segtoggle">${avail.map(([k,c])=>
+        `<button class="${state.homeTrend.metric===k?'on':''}" onclick="setHomeTrend('metric','${k}')">${esc(c.label)}</button>`).join('')}</div>
+      <div class="segtoggle">
+        <button class="${unit==='cnt'?'on':''}" onclick="setHomeTrend('unit','cnt')">건수</button>
+        <button class="${unit==='cap'?'on':''}" onclick="setHomeTrend('unit','cap')">용량(MW)</button>
+      </div>
+    </div>
+    <div class="trendchart">${bars}</div>
+    <div class="trendticks">${ticks}</div>
+    <div class="trendfoot"><span>표시 구간 ${months.length}개월 (데이터가 있는 구간 중심)</span><span>합계 ${nf(totalCnt,0)}건 · ${nf(totalCap)} MW</span></div>`);
+}
+
+/* ── 홈: 한눈에 보기 인사이트 문장 ──────────────────────────────────────── */
+function homeInsight(){
+  const P=byKey['T_발전소'],B=byKey['T_구매계약'],S=byKey['T_판매계약'],M=byKey['T_수급매칭'];
+  const parts=[];
+  if(P) parts.push(`발전소 <b>${nf(P.rows.length,0)}개</b>(<span class="dim">${nf(sumCol('T_발전소','설비용량(MW)'))}MW</span>)`);
+  if(B) parts.push(`구매계약 <b>${nf(B.rows.length,0)}건</b>(<span class="dim">${nf(sumCol('T_구매계약','구매계약용량(MW)'))}MW</span>)`);
+  if(S) parts.push(`판매계약 <b>${nf(S.rows.length,0)}건</b>(<span class="dim">${nf(sumCol('T_판매계약','판매계약용량(MW)'))}MW</span>)`);
+  if(!parts.length) return '';
+  let statusPart='';
+  if(M&&M.rows.length){
+    const groups=groupSumJoinFK('T_수급매칭','현황','구매계약ID','T_구매계약','구매계약용량(MW)');
+    const top=groups[0];
+    if(top){
+      const pct=nf(top.cnt/M.rows.length*100,0);
+      statusPart=` 수급매칭 <b>${nf(M.rows.length,0)}건</b> 중 <b>${esc(top.g)}</b>이 ${pct}%(<span class="dim">${nf(top.cap)}MW</span>)로 가장 많습니다.`;
+    }
+  }
+  let trendPart='';
+  if(S){
+    const m=groupByMonth('T_판매계약','계약일','판매계약용량(MW)');
+    let cnt=0,cap=0;
+    monthRange(3).forEach(ym=>{if(m[ym]){cnt+=m[ym].cnt;cap+=m[ym].cap;}});
+    if(cnt>0) trendPart=` 최근 3개월간 신규 판매계약 <b>${nf(cnt,0)}건</b>(<span class="dim">${nf(cap)}MW</span>) 체결.`;
+  }
+  const bExp=B?countExpiring('T_구매계약','공급기한_구매',SOON_DAYS):0;
+  const sExp=S?countExpiring('T_판매계약','공급기한_판매',SOON_DAYS):0;
+  const expPart=(bExp+sExp)>0?` 향후 ${SOON_DAYS}일 내 공급기한 도래 <b>${nf(bExp+sExp,0)}건</b>.`:'';
+  return `<div class="insight"><p class="ieyebrow">한눈에 보기</p><p>${parts.join(' · ')}.${statusPart}${trendPart}${expPart}</p></div>`;
+}
 
 function tHome(){
   const P=byKey['T_발전소'],B=byKey['T_구매계약'],S=byKey['T_판매계약'];
@@ -1244,6 +1462,7 @@ function tHome(){
         </div></details>
         <button class="btn" onclick="window.print()">인쇄 / PDF</button>
       </div></div>
+    ${homeInsight()}
     <div class="kpis">
     ${kpi('발전소 설비용량 합계',nf(supplyMW)+' MW',P?nf(P.rows.length,0)+'개 발전소':'','accent',"state.tab='T_발전소';render()")}
     ${kpi('구매계약 총 용량',nf(purchMW)+' MW',B?nf(B.rows.length,0)+'건':'','',"state.tab='T_구매계약';render()")}
@@ -1267,6 +1486,8 @@ function tHome(){
         <div class="unsecrow" onclick="jumpToDateWindow('T_판매계약','공급기한_판매',${SOON_DAYS})"><span>판매계약 — ${SOON_DAYS}일 내 공급기한 도래</span><span class="badge ${sExp?'warn':'ok'}">${sExp}건</span></div>
         <div class="unsecrow" onclick="state.tab='검증';render()"><span>검증 오류 (PK/FK/조합중복)</span><span class="badge ${ok?'ok':'no'}">${DATA.validation.total_errors}건</span></div>`)}
     </div>
+    ${statusPanel()}
+    ${trendPanel()}
     ${schemaDiagram()?panel('표 관계 구조','박스를 누르면 해당 표로 이동합니다',schemaDiagram()):''}</section>`;
 }
 
