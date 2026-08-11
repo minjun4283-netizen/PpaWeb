@@ -795,10 +795,12 @@ function tData(t){
 
 /* ── 상세 모달 ──────────────────────────────────────────────────────────── */
 function openDetail(tk,i){state.modal={t:tk,i:i};render();}
+function openRemovedDetail(tk,idx){state.modal={t:tk,removed:idx};render();}
 function closeDetail(){state.modal=null;render();}
 function modalHtml(){
   if(!state.modal) return '';
   const t=byKey[state.modal.t];if(!t) return '';
+  if(state.modal.removed!==undefined) return removedModalHtml(t,state.modal.removed);
   const r=t.rows[state.modal.i];if(!r) return '';
   const pkv=r.cells[t.pk];
   /* 모달에서는 "이 레코드에 바로 붙어 있는 것"만 — 1단계 직접 연결 */
@@ -838,6 +840,35 @@ function detailText(tk,i){
   const t=byKey[tk],r=t.rows[i];
   return `[${t.label}] ${r.cells[t.pk]||''}\n`+
     t.columns.map(c=>'- '+c+': '+(r.cells[c]||'')).join('\n');
+}
+/* 삭제된 행 상세 — 지금 DATA에는 없는(사라진) 행이라 t.rows가 아니라
+   스냅샷 비교 결과(CHANGES.removed_rows)에서 그대로 읽어옵니다. 스냅샷
+   파일에 저장돼 있던 모든 컬럼 값이 여기서 다 보여야 합니다. */
+function removedModalHtml(t,idx){
+  const cells=((CHANGES.removed_rows||{})[t.key]||[])[idx];
+  if(!cells) return '';
+  const pkv=cells[t.pk];
+  const rows=t.columns.map(c=>`<div class="drow">
+      <span class="dkey">${esc(c)}${c===t.pk?'<span class="pkbadge">PK</span>':''}${(t.fk||{})[c]?'<span class="fkbadge">FK</span>':''}</span>
+      <span>${cellHtml(t,c,cells[c])||'<span style="color:var(--sub)">(공란)</span>'}</span></div>`).join('');
+  return `<div class="backdrop" onclick="if(event.target===this)closeDetail()">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modalhead">
+        <div><h3>${esc(t.label)} 상세</h3>
+          <div class="sub">${esc(String(pkv||'(PK 공란)'))}</div>
+          <div class="badge mute" style="margin-top:8px">지난 생성분에는 있었지만 지금은 삭제된 항목 — 스냅샷에 저장된 마지막 값입니다</div></div>
+        <button class="iconbtn" onclick="closeDetail()" aria-label="닫기">✕</button>
+      </div>
+      <div class="modalbody">${rows}</div>
+      <div class="modalfoot">
+        <button class="btn" onclick="copyText(removedDetailText('${jsq(t.key)}',${idx}))">내용 복사</button>
+        <button class="btn" onclick="closeDetail()">닫기</button>
+      </div></div></div>`;
+}
+function removedDetailText(tk,idx){
+  const t=byKey[tk],cells=((CHANGES.removed_rows||{})[tk]||[])[idx];
+  return `[${t.label} · 삭제됨] ${cells[t.pk]||''}\n`+
+    t.columns.map(c=>'- '+c+': '+(cells[c]||'')).join('\n');
 }
 
 /* ── 관계조회 ───────────────────────────────────────────────────────────────
@@ -1737,10 +1768,10 @@ function tChanges(){
   const removed=DATA.tables.map(t=>{
     const list=(CHANGES.removed_rows||{})[t.key]||[];
     if(!list.length) return '';
-    return list.map(cells=>`<div class="chk del">
+    return list.map((cells,idx)=>`<div class="chk del" onclick="openRemovedDetail('${jsq(t.key)}',${idx})">
       <span>${esc(t.label)} · ${esc(cells[t.pk]||'(PK 공란)')}</span>
-      <span class="chgval">${esc(t.columns.slice(1,3).map(c=>cells[c]).filter(Boolean).join(' · '))}</span>
-      <span></span><span class="badge mute">삭제</span></div>`).join('');}).join('')
+      <span class="chgval">${esc(t.columns.slice(1,4).map(c=>cells[c]).filter(Boolean).join(' · '))}</span>
+      <span></span><span class="badge mute">삭제 · 클릭해서 전체 보기</span></div>`).join('');}).join('')
     ||'<div class="nocand">삭제된 항목은 없습니다.</div>';
   const added=DATA.tables.map(t=>
     t.rows.map((r,i)=>({r,i})).filter(({r})=>r.change==='added').map(({r,i})=>
