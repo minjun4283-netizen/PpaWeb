@@ -18,6 +18,16 @@ HTML에 통째로 넣고 JS로 전부 처리하는 단일 파일. 외부 CDN/폰
   변경     — 직전 생성분 대비 추가/수정/삭제 (ppa_changes.py 스냅샷 비교 결과)
   검증     — PK/FK/조합중복 오류를 표·항목별로, 클릭하면 해당 레코드로 이동
 
+화면 뼈대는 좌측 사이드바(그룹별 아이콘 내비) + 상단바(현재 화면 제목·
+전역검색·검증/변경 pill)로 되어 있고, 900px 이하에서는 사이드바가
+오프캔버스 드로어로 바뀝니다(햄버거로 열고, 배경 클릭·Esc·항목 선택 시
+자동으로 닫힘). 드릴다운 클릭(KPI/현황행/추이막대/표 행 등)으로 화면이
+바뀌면 브라우저 뒤로가기로 돌아갈 수 있습니다 — render() 안에서 탭·조회·
+필터·모달처럼 "화면이 바뀌었다고 체감되는" 상태만 골라 History API에
+쌓고, 검색어·정렬·페이지 이동 같은 잦은 조작은 쌓지 않습니다
+(navSnapshot/applyNavSnapshot/popstate, `_JS`의 "뒤로가기" 절 참고).
+새로고침해도 관계조회의 `#lookup=표:PK` 딥링크만은 URL 해시로 복원됩니다.
+
 유지보수를 쉽게 하려고 스타일(_CSS)·뼈대(_HTML)·동작(_JS)을 분리해두고
 모듈을 읽을 때 한 번만 합칩니다.
 """
@@ -31,6 +41,7 @@ _CSS = r"""
 :root{
   --paper:#F5F4EF;--panel:#FFF;--ink:#16262B;--sub:#5C6B6E;--line:#E3E1D8;
   --thead-bg:#EFEEE7;--row-hover:#FAF9F5;--shadow:0 8px 24px rgba(0,0,0,.10);
+  --shadow-sm:0 1px 2px rgba(16,24,26,.04),0 2px 10px rgba(16,24,26,.05);
   --teal:#0E7C7B;--teal-d:#0A5A59;--teal-w:#E7F1F0;
   --amber:#B07817;--amber-w:#FAEEDA;--purple:#534AB7;--purple-w:#EEEDFE;
   --pass:#1F7A54;--pass-w:#E7F3EC;--fail:#B23A3A;--fail-w:#FBEDEC;
@@ -39,6 +50,7 @@ _CSS = r"""
 :root[data-theme="dark"]{
   --paper:#14191B;--panel:#1C2224;--ink:#EDEFEE;--sub:#8B9A9C;--line:#2C3436;
   --thead-bg:#242B2D;--row-hover:#222829;--shadow:0 8px 24px rgba(0,0,0,.45);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3),0 2px 12px rgba(0,0,0,.35);
   --teal:#28A6A0;--teal-d:#5CC7C1;--teal-w:#0F2E2C;
   --amber:#E0A94A;--amber-w:#3A2E14;--purple:#9C93E8;--purple-w:#241F42;
   --pass:#4CC08A;--pass-w:#123425;--fail:#E2726B;--fail-w:#3A1616;
@@ -57,30 +69,59 @@ body{margin:0;background:var(--paper);color:var(--ink);padding-bottom:60px;
 .wrap{max-width:1280px;margin:0 auto;padding:0 22px}
 button,input,select{font-family:inherit}
 
-/* 헤더 */
-header{border-bottom:2px solid var(--ink);background:var(--paper);position:sticky;top:0;z-index:30}
-.mh{max-width:1280px;margin:0 auto;padding:18px 22px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+/* 셸: 사이드바 + 상단바 — z-index 스케일: 상단바(sticky)=30, 사이드바
+   (데스크톱 sticky·모바일 드로어 공용)=36, 드로어 백드롭=35(사이드바
+   바로 아래, 상단바 위), 전역검색 결과=48(드로어 위), 모달/모달백드롭
+   =60(기존 값, 항상 최상단) */
+.shell{display:flex;min-height:100vh}
+.sidebar{width:238px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:36}
+.brand{display:flex;align-items:center;gap:10px;padding:20px 18px 16px;flex-shrink:0}
+.brandmark{width:34px;height:34px;border-radius:10px;background:var(--teal);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex-shrink:0}
+.brandtext{min-width:0}
+.brandtext b{display:block;font-size:14px;font-weight:800;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brandtext span{display:block;font-size:10.5px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.navwrap{flex:1;min-height:0;overflow-y:auto;padding:6px 12px 14px}
+.navgroup+.navgroup{margin-top:14px}
+.navgrouplabel{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--mute);padding:8px 10px 5px}
+.navitem{display:flex;align-items:center;gap:10px;width:100%;text-align:left;font-size:13.5px;font-weight:600;
+  color:var(--sub);background:none;border:none;border-left:3px solid transparent;border-radius:0 9px 9px 0;
+  padding:9px 10px 9px 9px;cursor:pointer;margin-bottom:2px}
+.navitem:hover{background:var(--paper);color:var(--ink)}
+.navitem:focus-visible{outline:2px solid var(--teal);outline-offset:-2px}
+.navitem.on{background:var(--teal-w);color:var(--teal-d);border-left-color:var(--teal);font-weight:800}
+.navicon{font-size:15px;width:18px;text-align:center;flex-shrink:0}
+.navlabel{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidefoot{padding:12px 16px 16px;border-top:1px solid var(--line);flex-shrink:0}
+.sidethemebtn{display:flex;align-items:center;gap:8px;width:100%;font-size:12.5px;font-weight:600;color:var(--sub);
+  background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:9px 12px;cursor:pointer}
+.sidethemebtn:hover{color:var(--ink);border-color:var(--teal)}
+.sidebarbackdrop{display:none;position:fixed;inset:0;background:rgba(10,15,17,.45);z-index:35}
+.menubtn{display:none;border:1px solid var(--line);background:var(--panel);border-radius:9px;width:36px;height:36px;
+  font-size:15px;cursor:pointer;align-items:center;justify-content:center;color:var(--ink);flex-shrink:0}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:30;background:var(--paper);border-bottom:1px solid var(--line);
+  display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 26px;flex-wrap:wrap}
+.topbar-left{display:flex;align-items:center;gap:12px;min-width:0}
+.topbar h1{font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .eyebrow{font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);font-weight:700;margin:0 0 3px}
 h1{font-size:22px;margin:0;letter-spacing:-.02em;font-weight:800}
-.mh .sup{font-size:12.5px;color:var(--sub);margin-top:3px}
-.hstats{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pill{font-size:12px;font-weight:700;padding:4px 11px;border-radius:20px;white-space:nowrap;border:none;cursor:pointer}
 .pill.ok{color:var(--pass);background:var(--pass-w)}
 .pill.no{color:var(--fail);background:var(--fail-w)}
 .pill.chg{color:var(--info);background:var(--info-w)}
 .iconbtn{border:1px solid var(--line);background:var(--panel);border-radius:20px;width:32px;height:32px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--ink)}
 .demo{background:var(--amber-w);color:var(--amber);font-size:12px;font-weight:600;padding:7px 22px;text-align:center;border-bottom:1px solid var(--line)}
-.gsearchwrap{max-width:1280px;margin:0 auto;padding:12px 22px 0;position:relative}
-.globalresults{position:absolute;left:22px;right:22px;top:100%;margin-top:2px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);max-height:360px;overflow:auto;z-index:40;display:none}
+.gsearchwrap{position:relative;width:250px;max-width:44vw}
+.globalresults{position:absolute;left:0;top:100%;margin-top:6px;width:340px;max-width:min(340px,calc(100vw - 32px));
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);max-height:360px;overflow:auto;z-index:48;display:none}
 .globalresults.show{display:block}
 .gresrow{display:block;width:100%;text-align:left;padding:9px 16px;border:none;background:none;cursor:pointer;font-size:13px;border-bottom:1px solid var(--line);color:var(--ink)}
 .gresrow:last-child{border-bottom:none}.gresrow:hover{background:var(--teal-w)}
 .gresrow .tag{font-size:10.5px;font-weight:700;color:var(--teal-d);background:var(--teal-w);padding:1px 7px;border-radius:20px;margin-right:8px}
-.tabbar{max-width:1280px;margin:0 auto;padding:12px 22px 0;display:flex;gap:4px;flex-wrap:wrap;overflow-x:auto}
-.tab{font-size:13.5px;font-weight:600;color:var(--sub);background:none;border:none;cursor:pointer;padding:9px 14px;border-radius:8px 8px 0 0;border-bottom:2.5px solid transparent;white-space:nowrap}
-.tab:hover{color:var(--ink)}
-.tab.on{color:var(--teal-d);border-bottom-color:var(--teal);background:var(--panel)}
-.tab.hl{color:var(--purple)}.tab.hl.on{color:var(--purple);border-bottom-color:var(--purple)}
 .tabdot{display:inline-block;min-width:17px;padding:0 5px;margin-left:5px;font-size:10.5px;line-height:16px;border-radius:20px;background:var(--fail);color:#fff;text-align:center;font-weight:700}
 .tabdot.info{background:var(--info)}
 
@@ -90,17 +131,18 @@ section{margin-top:20px}
 
 /* KPI */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;margin-bottom:16px}
-.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 15px;display:flex;flex-direction:column;gap:3px;text-align:left}
+.kpi{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 15px;display:flex;flex-direction:column;gap:3px;text-align:left;box-shadow:var(--shadow-sm)}
 .kpi.accent{background:var(--teal);border-color:var(--teal)}
 .kpi.accent .kk,.kpi.accent .ks{color:#CDE8E6}.kpi.accent .kv{color:#fff}
 .kpi.warn{background:var(--fail);border-color:var(--fail)}
 .kpi.warn .kk,.kpi.warn .ks{color:#F9DEDC}.kpi.warn .kv{color:#fff}
-.kpi.clickable{cursor:pointer}.kpi.clickable:hover{border-color:var(--teal)}
+.kpi.warn::after{content:'⚠';position:absolute;top:11px;right:13px;font-size:13px;opacity:.85;line-height:1}
+.kpi.clickable{cursor:pointer}.kpi.clickable:hover{border-color:var(--teal);box-shadow:var(--shadow)}
 .kk{font-size:11.5px;color:var(--sub);font-weight:600}
 .kv{font-size:21px;font-weight:700}
 .ks{font-size:11px;color:var(--sub)}
 
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow-sm)}
 .ph{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap}
 .ph h3{font-size:14.5px;margin:0;font-weight:700}
 .ph .sub{font-size:12px;color:var(--sub);margin-left:auto}
@@ -300,14 +342,17 @@ footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-si
 @media(max-width:900px){
   .grid2{grid-template-columns:1fr}
   .drow{grid-template-columns:130px 1fr}
+  /* 사이드바 → 오프캔버스 드로어 */
+  .menubtn{display:flex}
+  .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);transition:transform .2s ease;box-shadow:var(--shadow)}
+  .sidebar.open{transform:translateX(0)}
+  .sidebarbackdrop.open{display:block}
 }
 @media(max-width:640px){
-  .wrap,.mh,.tabbar,.gsearchwrap{padding-left:14px;padding-right:14px}
-  h1{font-size:19px}
+  .wrap,.topbar{padding-left:14px;padding-right:14px}
   .kpis{grid-template-columns:1fr 1fr}
-  .tabbar{flex-wrap:nowrap}
   .toolbar .search{min-width:100%}
-  .globalresults{left:14px;right:14px}
+  .gsearchwrap{width:auto;max-width:none;flex:1}
   .mixlabel{width:60px}.mixval{width:88px}
   .drow{grid-template-columns:1fr;gap:2px}
   .tbl-wrap{max-height:none}
@@ -320,12 +365,14 @@ footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-si
 /* 보고용 인쇄 */
 @media print{
   @page{size:A4 landscape;margin:11mm}
-  header,.tabbar,.gsearchwrap,.toolbar,.filterbar,.chiprow,.candlist,.subtabbar,
+  .sidebar,.sidebarbackdrop,.topbar,.menubtn,.gsearchwrap,.toolbar,.filterbar,.chiprow,.candlist,.subtabbar,
   .pager,.btn,.drop,.iconbtn,.pill,#globalResults,#toast,.backdrop,footer,.segtoggle{display:none!important}
   .insight{background:#fff!important;color:#000!important;border:1px solid #999}
   .insight .ieyebrow,.insight p .dim{color:#333!important}
   .trendlabel{color:#000}
   body{background:#fff;color:#000;padding:0}
+  .shell{display:block}
+  .main{width:100%}
   .wrap{max-width:none;padding:0}
   section{margin-top:0}
   .printhead{display:block;margin-bottom:10px;border-bottom:2px solid #000;padding-bottom:6px}
@@ -341,7 +388,7 @@ footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-si
   td.cellerr{color:#000;font-weight:700;box-shadow:none;outline:1.2px solid #b23a3a}
   td.cellchg{color:#000;font-weight:700;box-shadow:none;outline:1.2px dashed #1e63a8}
   a.idlink{color:#000;text-decoration:none}
-  .kpi{border:1px solid #999}
+  .kpi{border:1px solid #999;box-shadow:none}
   .kpi.accent,.kpi.warn{background:#fff!important}
   .kpi.accent .kk,.kpi.accent .kv,.kpi.accent .ks,
   .kpi.warn .kk,.kpi.warn .kv,.kpi.warn .ks{color:#000!important}
@@ -1822,14 +1869,53 @@ function printHead(title,cond){
 /* ── 테마 / URL / 렌더 ──────────────────────────────────────────────────── */
 function applyTheme(){
   document.documentElement.setAttribute('data-theme',state.theme);
-  const b=document.getElementById('themeBtn');if(b) b.textContent=state.theme==='dark'?'☀️':'🌙';
+  const b=document.getElementById('themeIcon');if(b) b.textContent=state.theme==='dark'?'☀️':'🌙';
 }
 function toggleTheme(){state.theme=state.theme==='dark'?'light':'dark';writeLS('ppa_theme',state.theme);applyTheme();}
+
+/* ── 뒤로가기 ────────────────────────────────────────────────────────────
+   "화면이 바뀌었다고 체감하는" 상태만 history entry로 쌓는다. 검색어/
+   정렬/페이지 이동/컬럼 숨김 같은 잦은 조작은 일부러 스냅샷에서 뺐다 —
+   그 값만 바뀌어서는 navSnapshot() 문자열이 그대로라 push가 안 일어남.
+   render() 한 곳(syncHash 호출부)에서만 다루므로 개별 onclick 50여 곳은
+   손대지 않는다. */
+function navSnapshot(){
+  return {
+    tab:state.tab,lookupTable:state.lookupTable,lookup:state.lookup,
+    filters:state.filters,dateFilters:state.dateFilters,
+    onlyErr:state.onlyErr,onlyChg:state.onlyChg,
+    modal:state.modal,homeTrend:state.homeTrend,
+    explore:state.explore?{base:state.explore.base,tables:state.explore.tables,
+      cols:state.explore.cols,missing:state.explore.missing}:null,
+  };
+}
+function applyNavSnapshot(s){
+  if(!s) return;
+  state.tab=s.tab;state.lookupTable=s.lookupTable;state.lookup=s.lookup;
+  state.filters=s.filters||{};state.dateFilters=s.dateFilters||{};
+  state.onlyErr=s.onlyErr||{};state.onlyChg=s.onlyChg||{};
+  state.modal=s.modal;state.homeTrend=s.homeTrend||state.homeTrend;
+  if(s.explore){
+    if(!state.explore) initExplore(s.explore.base);
+    Object.assign(state.explore,s.explore);
+  }
+}
+let g_lastNavKey=null;
 function syncHash(){
-  if(state.tab==='관계조회'&&state.lookup){
-    const h='#lookup='+encodeURIComponent(state.lookup.table)+':'+encodeURIComponent(state.lookup.pk);
-    if(location.hash!==h) history.replaceState(null,'',h);
-  }else if(location.hash) history.replaceState(null,'',location.pathname+location.search);
+  /* 공유 가능한 딥링크는 지금처럼 관계조회+lookup일 때만 해시에 싣는다
+     (그 외 굵직한 상태는 history.state에만 실림 — URL 길이/가독성 때문에
+     해시로는 안 뺌). 새로고침해도 이 해시만으로 lookup이 복원된다. */
+  const h=(state.tab==='관계조회'&&state.lookup)
+    ?'#lookup='+encodeURIComponent(state.lookup.table)+':'+encodeURIComponent(state.lookup.pk):'';
+  if((location.hash||'')!==h){
+    if(h) history.replaceState(history.state,'',h);
+    else history.replaceState(history.state,'',location.pathname+location.search);
+  }
+  const snap=navSnapshot(),key=JSON.stringify(snap);
+  if(key!==g_lastNavKey){
+    history.pushState({nav:snap},'',location.href);
+    g_lastNavKey=key;
+  }
 }
 function parseHash(){
   const m=location.hash.match(/^#lookup=([^:]+):(.+)$/);
@@ -1838,20 +1924,51 @@ function parseHash(){
     if(byKey[table]){state.tab='관계조회';state.lookupTable=table;setLookup(table,pk);}
   }
 }
-function renderTabs(){
-  const tabs=[['홈','홈','']];
-  tabs.push(['관계조회','관계조회','']);
-  tabs.push(['탐색','탐색','']);
-  if(state.pinned.length) tabs.push(['비교','비교 ('+state.pinned.length+')','']);
-  DATA.tables.forEach(t=>{
-    const e=t.rows.filter(r=>(r.error_cols||[]).length>0).length;
-    tabs.push([t.key,t.label,e?`<span class="tabdot">${e}</span>`:'']);});
-  const chgTot=CHANGES.has_prev?(CHANGES.total_added+CHANGES.total_changed+CHANGES.total_removed):0;
-  tabs.push(['변경','변경',chgTot?`<span class="tabdot info">${chgTot}</span>`:'']);
-  tabs.push(['검증','검증',DATA.validation.total_errors?`<span class="tabdot">${DATA.validation.total_errors}</span>`:'']);
-  document.getElementById('tabbar').innerHTML=tabs.map(([k,l,dot])=>
-    `<button class="tab${(k==='홈'||k==='관계조회'||k==='탐색'||k==='비교')?' hl':''}${k===state.tab?' on':''}" data-k="${esc(k)}" onclick="state.tab='${jsq(k)}';render()">${esc(l)}${dot}</button>`).join('');
+window.addEventListener('popstate',e=>{
+  if(!e.state||!e.state.nav) return; /* 우리가 만들지 않은 진입점 — 무시하고 추가 push도 안 만듦 */
+  g_lastNavKey=JSON.stringify(e.state.nav);
+  applyNavSnapshot(e.state.nav);
+  render();
+});
+/* 사이드바 내비 아이콘 — 외부 아이콘 폰트 없이 유니코드 이모지만 사용(오프라인 제약) */
+const NAV_ICONS={'홈':'🏠','관계조회':'🔗','탐색':'🧭','비교':'⚖️',
+  'T_발전소':'🏭','T_구매계약':'🧾','T_수요기업':'🏢','T_판매계약':'📑','T_전기사용지':'📍','T_수급매칭':'🔀',
+  '변경':'🕓','검증':'✅'};
+/* 상단바 제목이 참조하는 단일 기준 — 사이드바에 지금 그 항목이 실제로
+   그려졌는지와 무관하게(예: 비교 탭에서 마지막 고정을 해제해도) 항상
+   정확한 라벨을 돌려준다 */
+function tabLabel(k){
+  if(k==='비교') return '비교';
+  if(byKey[k]) return byKey[k].label;
+  return k;
 }
+function navItem(k,label,dot){
+  return `<button class="navitem${k===state.tab?' on':''}" data-k="${esc(k)}"
+    onclick="state.tab='${jsq(k)}';closeSidebar();render()">
+    <span class="navicon">${NAV_ICONS[k]||'📄'}</span><span class="navlabel">${esc(label)}</span>${dot}</button>`;
+}
+function navGroup(label,items){
+  if(!items.length) return '';
+  return `<div class="navgroup"><div class="navgrouplabel">${esc(label)}</div>${items.map(([k,l,d])=>navItem(k,l,d)).join('')}</div>`;
+}
+function renderTabs(){
+  const overview=[['홈','홈',''],['관계조회','관계조회',''],['탐색','탐색','']];
+  if(state.pinned.length) overview.push(['비교','비교 ('+state.pinned.length+')','']);
+  const tables=DATA.tables.map(t=>{
+    const e=t.rows.filter(r=>(r.error_cols||[]).length>0).length;
+    return [t.key,t.label,e?`<span class="tabdot">${e}</span>`:''];
+  });
+  const chgTot=CHANGES.has_prev?(CHANGES.total_added+CHANGES.total_changed+CHANGES.total_removed):0;
+  const manage=[
+    ['변경','변경',chgTot?`<span class="tabdot info">${chgTot}</span>`:''],
+    ['검증','검증',DATA.validation.total_errors?`<span class="tabdot">${DATA.validation.total_errors}</span>`:''],
+  ];
+  document.getElementById('tabbar').innerHTML=
+    navGroup('개요',overview)+navGroup('데이터',tables)+navGroup('관리',manage);
+}
+function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarBackdrop').classList.add('open');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarBackdrop').classList.remove('open');}
+function toggleSidebar(){document.getElementById('sidebar').classList.contains('open')?closeSidebar():openSidebar();}
 function render(){
   renderTabs();
   const view=document.getElementById('view');
@@ -1873,6 +1990,7 @@ function render(){
   else if(state.tab==='검증') html=tVerify();
   else html=tData(byKey[state.tab]);
   view.innerHTML=html;
+  document.getElementById('pageTitle').textContent=tabLabel(state.tab);
   document.getElementById('modalHost').innerHTML=modalHtml();
   if(fid){
     const el=document.getElementById(fid);
@@ -1895,6 +2013,7 @@ document.addEventListener('click',e=>{
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     if(state.modal){closeDetail();return;}
+    if(document.getElementById('sidebar').classList.contains('open')){closeSidebar();return;}
     closeGlobalSearch();
   }
 });
@@ -1902,6 +2021,10 @@ document.addEventListener('keydown',e=>{
   loadHidden();applyTheme();parseHash();
   document.getElementById('foot-src').textContent=(DATA.is_demo?'데모 데이터':'실 데이터')+
     ' · '+DATA.tables.map(t=>t.label+' '+t.rows.length).join(' · ');
+  /* 시작 entry를 자기 자신으로 확정 — 첫 render()가 이 값과 똑같은
+     스냅샷을 만들므로 불필요한 pushState 없이 replaceState 한 번뿐 */
+  g_lastNavKey=JSON.stringify(navSnapshot());
+  history.replaceState({nav:JSON.parse(g_lastNavKey)},'',location.href);
   render();
 })();
 """
@@ -1912,23 +2035,36 @@ document.addEventListener('keydown',e=>{
 _HTML = r"""<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>PPA 계약관리 현황</title>
 <style>/*__CSS__*/</style></head><body>
-<header><div class="mh">
-  <div><p class="eyebrow">PPA 계약관리</p><h1>데이터 현황 (조회 전용)</h1>
-    <div class="sup">서버 없이 스크립트로 생성된 정적 스냅샷 · 편집은 엑셀에서 진행 후 재생성</div></div>
-  <div class="hstats">
-    <button id="chgpill" class="pill chg" onclick="state.tab='변경';render()" style="display:none">변경</button>
-    <button id="status" class="pill" onclick="state.tab='검증';render()">—</button>
-    <button id="themeBtn" class="iconbtn" onclick="toggleTheme()" title="화면 테마 전환">🌙</button>
+<div class="shell">
+  <div class="sidebarbackdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><span class="brandmark">P</span>
+      <span class="brandtext"><b>PPA 계약관리</b><span>정적 스냅샷 · 조회 전용</span></span></div>
+    <nav class="navwrap" id="tabbar"></nav>
+    <div class="sidefoot">
+      <button id="themeBtn" class="sidethemebtn" onclick="toggleTheme()" title="화면 테마 전환"><span id="themeIcon">🌙</span><span>화면 테마 전환</span></button>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menubtn" onclick="toggleSidebar()" title="메뉴" aria-label="메뉴 열기">☰</button>
+        <h1 id="pageTitle">홈</h1>
+      </div>
+      <div class="topbar-right">
+        <div class="gsearchwrap">
+          <input id="globalSearch" class="search" style="width:100%" placeholder="전체 표에서 검색 (ID, 발전소명, 기업명, 담당자 등)…"
+            oninput="onGlobalSearch(this.value)" onfocus="onGlobalSearch(this.value)">
+          <div id="globalResults" class="globalresults"></div>
+        </div>
+        <button id="chgpill" class="pill chg" onclick="state.tab='변경';render()" style="display:none">변경</button>
+        <button id="status" class="pill" onclick="state.tab='검증';render()">—</button>
+      </div>
+    </header>{{DEMO}}
+    <div class="wrap"><div id="view"></div>
+      <footer><span>생성 {{NOW}}</span><span id="foot-src"></span></footer></div>
   </div>
-</div>{{DEMO}}
-<div class="gsearchwrap">
-  <input id="globalSearch" class="search" style="width:100%" placeholder="전체 표에서 검색 (ID, 발전소명, 기업명, 담당자 등)…"
-    oninput="onGlobalSearch(this.value)" onfocus="onGlobalSearch(this.value)">
-  <div id="globalResults" class="globalresults"></div>
 </div>
-<div class="tabbar" id="tabbar"></div></header>
-<div class="wrap"><div id="view"></div>
-  <footer><span>생성 {{NOW}}</span><span id="foot-src"></span></footer></div>
 <div id="modalHost"></div><div id="toast"></div>
 <script>/*__JS__*/</script></body></html>"""
 
