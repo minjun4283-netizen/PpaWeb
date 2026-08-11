@@ -33,6 +33,22 @@ Private Const C_TEAL   As Long = 8093710      ' RGB(14,124,123)
 Private Const C_LINE   As Long = 14213347     ' RGB(227,225,216)
 Private Const C_FAIL   As Long = 3818163      ' RGB(179,58,58)
 
+'---- 지금 어느 단계인지 (오류가 나면 이 값을 같이 보여줍니다) ---------------
+Private g_단계 As String
+
+Private Sub 단계(ByVal s As String)
+    g_단계 = s
+End Sub
+
+Private Sub 오류보고(ByVal 어디 As String)
+    MsgBox "실행 중 예상치 못한 오류가 발생했습니다." & vbCrLf & vbCrLf & _
+           "위치 : " & 어디 & vbCrLf & _
+           "단계 : " & g_단계 & vbCrLf & _
+           "오류 " & Err.Number & " : " & Err.Description & vbCrLf & vbCrLf & _
+           "이 창을 캡처해서 보내주시면 원인을 바로 확인할 수 있습니다.", _
+           vbExclamation, "대시보드 생성 - 오류"
+End Sub
+
 Private Function 시트(ByVal 이름 As String) As Worksheet
     On Error Resume Next
     Set 시트 = ThisWorkbook.Worksheets(이름)
@@ -146,10 +162,32 @@ End Sub
 '==============================================================================
 Public Sub 대시보드_생성()
     Dim batPath As String, xlsmPath As String, cmd As String
-    Dim ret As Long, ans As VbMsgBoxResult
+    Dim ret As Long, ans As VbMsgBoxResult, found As String
+
+    g_단계 = ""
+    On Error GoTo 처리안됨
+
+    ' AutoSave로 OneDrive/SharePoint에 클라우드 경로로 열려 있으면 ThisWorkbook.Path가
+    ' "C:\..." 가 아니라 "https://..." 를 돌려줘서 Dir$() 가 그대로 오류를 냅니다.
+    ' Dir$ 를 부르기 전에 먼저 걸러서 원인을 바로 알려줍니다.
+    단계 "경로 확인"
+    If Left$(ThisWorkbook.Path, 4) = "http" Then
+        MsgBox "이 통합문서가 OneDrive/SharePoint에 클라우드 경로로 열려 있어 " & _
+               "로컬 폴더를 찾을 수 없습니다." & vbCrLf & vbCrLf & _
+               "지금 경로: " & ThisWorkbook.Path & vbCrLf & vbCrLf & _
+               "해결 방법 중 하나를 시도해주세요:" & vbCrLf & _
+               "1) 파일 → 정보 에서 이 파일의 자동 저장(AutoSave)을 끄고 다시 시도" & vbCrLf & _
+               "2) 즐겨찾기/최근 문서가 아니라, 탐색기의 OneDrive 동기화 폴더에서 " & _
+               "이 파일을 직접 더블클릭해서 열고 다시 시도", _
+               vbExclamation, "대시보드 생성"
+        Exit Sub
+    End If
 
     batPath = 배치파일경로()
-    If Len(Dir$(batPath)) = 0 Then
+
+    단계 "배치파일 확인"
+    found = Dir$(batPath)
+    If Len(found) = 0 Then
         MsgBox "dashboard_recreate.bat 를 찾을 수 없습니다." & vbCrLf & vbCrLf & _
                "찾은 경로: " & batPath & vbCrLf & vbCrLf & _
                "이 통합문서 옆에 static-dashboard 폴더가 있고 그 안에 " & _
@@ -163,9 +201,8 @@ Public Sub 대시보드_생성()
                       "지금 저장할까요?", vbYesNoCancel + vbQuestion, "대시보드 생성")
         If ans = vbCancel Then Exit Sub
         If ans = vbYes Then
-            On Error GoTo 저장실패
+            단계 "저장"
             ThisWorkbook.Save
-            On Error GoTo 0
         End If
     End If
 
@@ -174,9 +211,8 @@ Public Sub 대시보드_생성()
 
     상태쓰기 "생성 중... (완료될 때까지 이 창이 유지됩니다)"
 
-    On Error GoTo 실행실패
+    단계 "배치파일 실행"
     ret = CreateObject("WScript.Shell").Run(cmd, 1, True)
-    On Error GoTo 0
 
     If ret = 0 Then
         상태쓰기 "마지막 생성 " & Format$(Now, "yyyy-mm-dd hh:nn") & " - 성공"
@@ -191,15 +227,7 @@ Public Sub 대시보드_생성()
     End If
     Exit Sub
 
-저장실패:
-    MsgBox "저장 중 오류가 발생했습니다: " & Err.Description & vbCrLf & _
-           "저장 후 다시 눌러주세요.", vbExclamation, "대시보드 생성"
-    Exit Sub
-
-실행실패:
-    상태쓰기 "실행 실패 - " & Err.Description, True
-    MsgBox "배치파일을 실행하지 못했습니다: " & Err.Description & vbCrLf & vbCrLf & _
-           "회사 보안 정책이 매크로의 외부 프로그램 실행을 막고 있을 수 있습니다." & vbCrLf & _
-           "이 경우 static-dashboard 폴더의 dashboard_recreate.bat 를 " & _
-           "직접 더블클릭해서 실행해주세요.", vbExclamation, "대시보드 생성"
+처리안됨:
+    상태쓰기 "오류 - " & Err.Description, True
+    오류보고 "대시보드_생성"
 End Sub
