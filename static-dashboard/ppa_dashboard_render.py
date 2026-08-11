@@ -15,9 +15,11 @@ dataviz 스킬의 validate_palette.js로 검증한 값만 CSS 변수로 추가�
 
 화면 구성
   홈       — 한눈에 보기 요약 문장, 요약 KPI, 발전원 비중(계열색 --s1~--s4),
-             수급매칭 현황별 비율·용량, 년월별 추이(신규 계약/공급기한,
-             건수/용량 토글 + 눈금·격자선, 막대를 누르면 그 달의 일별
-             추이로 드릴다운 — 다시 브라우저 뒤로가기나 "← 월별로"로 복귀),
+             수급매칭 현황별 비율·용량, 년월별 추이(선/영역 차트로 최근
+             12개월 vs 전년 동기 겹쳐보기 — 작년 데이터가 없으면 비교선은
+             조용히 숨김, 신규 계약/공급기한 · 건수/용량 토글 + 눈금·격자선,
+             점을 누르면 그 달의 일별 막대 추이로 드릴다운 — 브라우저
+             뒤로가기나 "← 월별로"로 복귀),
              미확보/만료임박, 검증·변경 요약, 표 관계도 — 각 항목을 클릭하면
              해당 표로 조건이 적용된 채 이동
   관계조회 — PK 하나로 FK 체인 전체(발전소↔구매계약↔수급매칭↔전기사용지↔
@@ -345,6 +347,12 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 .trendticks{flex:1;min-width:0;display:flex;gap:3px;padding:6px 2px 0}
 .trendtick{flex:1;text-align:center;font-size:9.5px;color:var(--sub);min-width:6px;white-space:nowrap}
 .trendfoot{margin-top:10px;font-size:12px;color:var(--sub);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.trendsvg{width:100%;height:100%;display:block;overflow:visible}
+.trendendlabel{font-size:10.5px;font-weight:700;fill:var(--ink)}
+.trendlegend{display:flex;gap:18px;flex-wrap:wrap;font-size:11.5px;color:var(--sub);margin:10px 0 0 42px}
+.trendlegend span{display:inline-flex;align-items:center;gap:6px}
+.trendlegendline{width:16px;height:0;border-top:2.5px solid var(--teal);display:inline-block}
+.trendlegendline.prev{border-top:2.5px dashed var(--mute)}
 
 /* 상세 모달 */
 .backdrop{position:fixed;inset:0;background:rgba(10,15,17,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px}
@@ -1448,19 +1456,6 @@ function statusPanel(){
 /* ── 홈: 년월별 추이 ────────────────────────────────────────────────────── */
 function ymIdx(ym){const p=ym.split('-').map(Number);return p[0]*12+(p[1]-1);}
 function idxYm(i){const y=Math.floor(i/12),mo=i%12;return y+'-'+String(mo+1).padStart(2,'0');}
-function pickMonthWindow(keys,maxN){
-  const uniq=[...new Set(keys)];if(!uniq.length) return [];
-  let loI=Math.min(...uniq.map(ymIdx)),hiI=Math.max(...uniq.map(ymIdx));
-  if(hiI-loI+1>maxN){
-    const base=ymIdx(TODAY?TODAY.slice(0,7):idxYm(hiI));
-    let start=base-Math.floor(maxN/2),end=start+maxN-1;
-    if(start<loI){start=loI;end=start+maxN-1;}
-    if(end>hiI){end=hiI;start=Math.max(loI,end-maxN+1);}
-    loI=start;hiI=end;
-  }
-  const out=[];for(let i=loI;i<=hiI;i++) out.push(idxYm(i));
-  return out;
-}
 const TREND_METRICS={
   new:{label:'신규 판매계약',tk:'T_판매계약',col:'계약일',cap:'판매계약용량(MW)'},
   buyexp:{label:'구매계약 공급기한',tk:'T_구매계약',col:'공급기한_구매',cap:'구매계약용량(MW)'},
@@ -1478,9 +1473,11 @@ function niceStep(range,targetTicks){
   if(norm<1.5) step=1;else if(norm<3) step=2;else if(norm<7) step=5;else step=10;
   return step*mag;
 }
-function niceTicks(max){
+function niceTicks(max,integer){
   if(max<=0) return [0,1];
-  const step=niceStep(max,4),top=Math.ceil(max/step)*step,out=[];
+  let step=niceStep(max,4);
+  if(integer) step=Math.max(1,Math.round(step)); /* 건수처럼 정수만 뜻이 있는 값은 0.2 같은 눈금이 안 나오게 */
+  const top=Math.ceil(max/step)*step,out=[];
   for(let v=0;v<=top+1e-9;v+=step) out.push(Math.round(v*1000)/1000);
   return out;
 }
@@ -1490,7 +1487,7 @@ function niceTicks(max){
 function buildTrendChart(keys,m,unit,labelFn,onclickFn,titleFn){
   const vals=keys.map(k=>{const b=m[k];return b?(unit==='cap'?b.cap:b.cnt):0;});
   const rawMax=Math.max(0,...vals);
-  const ticks=niceTicks(rawMax);
+  const ticks=niceTicks(rawMax,unit==='cnt');
   const scaleTop=ticks[ticks.length-1]||1;
   const peakV=Math.max(0,...vals);
   const axis=ticks.map(t=>`<span class="trendaxistick" style="bottom:${t/scaleTop*100}%">${fmtTick(t,unit)}</span>`).join('');
@@ -1513,6 +1510,67 @@ function buildTrendChart(keys,m,unit,labelFn,onclickFn,titleFn){
     </div>
     <div class="trendxrow"><div class="trendaxisspacer"></div><div class="trendticks">${xticks}</div></div>`;
   return {chart,totalCnt,totalCap};
+}
+/* 월별 추이 — 선/영역 차트. 최근 12개월(실선, 채워진 영역) 위에 정확히
+   1년 전 같은 12개월(점선, 무채색)을 겹쳐서 전년 동기와 비교합니다.
+   작년 구간에 데이터가 하나도 없으면(워크북 역사가 짧은 경우) 비교선은
+   조용히 숨기고 이번 구간만 보여줍니다 — 텅 빈 선을 그리지 않습니다. */
+function buildTrendLineChart(cfg,m,unit){
+  const curKeys=monthRange(12);
+  const prevKeys=curKeys.map(ym=>idxYm(ymIdx(ym)-12));
+  const valOf=k=>{const b=m[k];return b?(unit==='cap'?b.cap:b.cnt):0;};
+  const curVals=curKeys.map(valOf);
+  const prevVals=prevKeys.map(valOf);
+  const hasPrev=prevVals.some(v=>v>0);
+  const rawMax=Math.max(0,...curVals,...(hasPrev?prevVals:[]));
+  const ticks=niceTicks(rawMax,unit==='cnt');
+  const scaleTop=ticks[ticks.length-1]||1;
+  const axis=ticks.map(t=>`<span class="trendaxistick" style="bottom:${t/scaleTop*100}%">${fmtTick(t,unit)}</span>`).join('');
+  const grid=ticks.map(t=>`<div class="trendgridline" style="bottom:${t/scaleTop*100}%"></div>`).join('');
+
+  const W=1200,H=180,padX=16,n=curKeys.length;
+  const xAt=i=>n>1?padX+i*((W-2*padX)/(n-1)):W/2;
+  const yAt=v=>H-(scaleTop>0?Math.min(1,v/scaleTop)*H:0);
+  const linePath=vals=>vals.map((v,i)=>(i===0?'M':'L')+xAt(i).toFixed(1)+','+yAt(v).toFixed(1)).join(' ');
+  const areaPath=vals=>linePath(vals)+` L${xAt(n-1).toFixed(1)},${H} L${xAt(0).toFixed(1)},${H} Z`;
+  const dots=(vals,keysArr,color,clickable)=>vals.map((v,i)=>{
+    const cx=xAt(i).toFixed(1),cy=yAt(v).toFixed(1),k=keysArr[i];
+    const b=m[k]||{cnt:0,cap:0};
+    const title=monthLabel(k)+' · '+nf(b.cnt,0)+'건 · '+nf(b.cap)+'MW'+(clickable?' · 눌러서 일별 보기':'');
+    const act=(clickable&&b.cnt>0)?` style="cursor:pointer" onclick="drillMonth('${jsq(k)}')"`:'';
+    return `<circle cx="${cx}" cy="${cy}" r="10" fill="transparent"${act}><title>${esc(title)}</title></circle>
+      <circle cx="${cx}" cy="${cy}" r="4" fill="${color}" stroke="var(--panel)" stroke-width="2" style="pointer-events:none"/>`;
+  }).join('');
+  const curEnd=curVals[n-1],curEndY=yAt(curEnd);
+  const endLabel=`<text class="trendendlabel" x="${xAt(n-1).toFixed(1)}" y="${Math.max(11,curEndY-10).toFixed(1)}" text-anchor="end">${esc(fmtTick(curEnd,unit))}</text>`;
+
+  let svg=`<svg class="trendsvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">`;
+  if(hasPrev){
+    svg+=`<path d="${areaPath(prevVals)}" fill="var(--mute)" opacity=".10" stroke="none"/>`;
+    svg+=`<path d="${linePath(prevVals)}" fill="none" stroke="var(--mute)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>`;
+  }
+  svg+=`<path d="${areaPath(curVals)}" fill="var(--teal)" opacity=".14" stroke="none"/>`;
+  svg+=`<path d="${linePath(curVals)}" fill="none" stroke="var(--teal)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
+  if(hasPrev) svg+=dots(prevVals,prevKeys,'var(--mute)',false);
+  svg+=dots(curVals,curKeys,'var(--teal)',true);
+  svg+=endLabel;
+  svg+='</svg>';
+
+  const xticks=curKeys.map(k=>`<span class="trendtick">${Number(k.slice(5,7))}월</span>`).join('');
+  const legend=hasPrev?`<div class="trendlegend">
+      <span><span class="trendlegendline"></span>최근 12개월</span>
+      <span><span class="trendlegendline prev"></span>전년 동기</span>
+    </div>`:'';
+  const chart=`<div class="trendplot">
+      <div class="trendaxis">${axis}</div>
+      <div class="trendarea"><div class="trendgrid">${grid}</div>${svg}</div>
+    </div>
+    <div class="trendxrow"><div class="trendaxisspacer"></div><div class="trendticks">${xticks}</div></div>
+    ${legend}`;
+  const totalCnt=curKeys.reduce((s,k)=>s+(m[k]?m[k].cnt:0),0);
+  const totalCap=curKeys.reduce((s,k)=>s+(m[k]?m[k].cap:0),0);
+  const prevTotalCnt=prevKeys.reduce((s,k)=>s+(m[k]?m[k].cnt:0),0);
+  return {chart,totalCnt,totalCap,hasPrev,prevTotalCnt};
 }
 function trendToolsHtml(avail,unit){
   return `<div class="trendtools">
@@ -1556,15 +1614,14 @@ function trendPanel(){
   const keys=Object.keys(m);
   if(!keys.length) return panel('년월별 추이','',`<div class="nocand">${esc(cfg.label)} 항목에 날짜가 입력된 데이터가 없습니다.</div>
     <div style="margin-top:10px">${tools}</div>`);
-  const months=pickMonthWindow(keys,18);
-  const {chart,totalCnt,totalCap}=buildTrendChart(months,m,unit,
-    ym2=>monthLabel(ym2),
-    ym2=>(m[ym2]&&m[ym2].cnt>0)?`drillMonth('${jsq(ym2)}')`:null,
-    ym2=>{const b=m[ym2]||{cnt:0,cap:0};return monthLabel(ym2)+' · '+nf(b.cnt,0)+'건 · '+nf(b.cap)+'MW · 눌러서 일별 보기';});
-  return panel('년월별 추이','막대를 누르면 그 달의 일별 추이를 볼 수 있습니다',`
+  const {chart,totalCnt,totalCap,hasPrev,prevTotalCnt}=buildTrendLineChart(cfg,m,unit);
+  const yoy=hasPrev
+    ?(prevTotalCnt>0?` · 전년 동기 대비 ${(totalCnt-prevTotalCnt)>=0?'+':''}${nf(totalCnt-prevTotalCnt,0)}건`:'')
+    :' · 전년 동기 데이터 없음';
+  return panel('년월별 추이','선 위의 점을 누르면 그 달의 일별 추이를 볼 수 있습니다',`
     ${tools}
     ${chart}
-    <div class="trendfoot"><span>표시 구간 ${months.length}개월 (데이터가 있는 구간 중심)</span><span>합계 ${nf(totalCnt,0)}건 · ${nf(totalCap)} MW</span></div>`);
+    <div class="trendfoot"><span>최근 12개월${esc(yoy)}</span><span>합계 ${nf(totalCnt,0)}건 · ${nf(totalCap)} MW</span></div>`);
 }
 
 /* ── 홈: 한눈에 보기 인사이트 문장 ──────────────────────────────────────── */
