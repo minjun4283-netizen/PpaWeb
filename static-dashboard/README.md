@@ -116,6 +116,25 @@ python3 make_demo.py
 
 ## 실제 데이터로 생성하기
 
+**Windows에서 매번 다시 만들기 — `dashboard_recreate.bat` (추천)**
+
+이 폴더의 `dashboard_recreate.bat`을 더블클릭하면 됩니다. 이 폴더 바로 위(상위
+폴더)에 있는 xlsm 파일을 자동으로 찾고, 출력 파일명(`PPA현황.html`)과 스냅샷
+경로를 매번 고정해서 [변경] 탭 비교가 실행할 때마다 끊기지 않고 이어지게
+합니다. 아래 폴더 구조를 그대로 맞춰주세요.
+
+```
+📁 (작업 폴더)\
+   PPA파일.xlsm              ← 실제 엑셀 파일 (하나만)
+   📁 static-dashboard\       ← 이 폴더 전체(=지금 README가 있는 폴더)
+      dashboard_recreate.bat
+      build_dashboard.py, ppa_*.py, vendor\...
+```
+
+엑셀 안에서 버튼 하나로 실행하고 싶으면 `../vba-form/README_대시보드생성.md`도
+같이 보세요(`PPA_대시보드생성.bas` — 저장 → 버튼 클릭 → 이 배치파일을 자동으로
+실행하고 결과를 엽니다).
+
 **방법 A — xlsm 파일 직접 사용 (동봉된 openpyxl 사용, pip 불필요)**
 ```bash
 python3 build_dashboard.py --xlsm=/path/to/PPA파일.xlsm
