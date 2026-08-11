@@ -6,9 +6,18 @@
 HTML에 통째로 넣고 JS로 전부 처리하는 단일 파일. 외부 CDN/폰트/라이브러리를
 전혀 쓰지 않으므로 인터넷이 안 되는 사내망 VDI에서도 그대로 열립니다.
 
+색상은 민트/틸 계열(--teal)을 브랜드 축으로, 배경·글자·상태색(--pass/
+--amber/--fail/--info)은 흰 카드 위 WCAG 텍스트 대비 기준으로, 발전원
+비중처럼 여러 항목을 동시에 색으로 구분해야 하는 차트는 --s1~--s4(아쿠아·
+오렌지·바이올렛·마젠타, 라이트/다크 각각 dataviz 팔레트 6종 검사 통과)를
+씁니다. 새 차트 계열색이 필요하면 손으로 고르지 말고
+dataviz 스킬의 validate_palette.js로 검증한 값만 CSS 변수로 추가하세요.
+
 화면 구성
-  홈       — 한눈에 보기 요약 문장, 요약 KPI, 발전원 비중, 수급매칭 현황별
-             비율·용량, 년월별 추이(신규 계약/공급기한, 건수/용량 토글),
+  홈       — 한눈에 보기 요약 문장, 요약 KPI, 발전원 비중(계열색 --s1~--s4),
+             수급매칭 현황별 비율·용량, 년월별 추이(신규 계약/공급기한,
+             건수/용량 토글 + 눈금·격자선, 막대를 누르면 그 달의 일별
+             추이로 드릴다운 — 다시 브라우저 뒤로가기나 "← 월별로"로 복귀),
              미확보/만료임박, 검증·변경 요약, 표 관계도 — 각 항목을 클릭하면
              해당 표로 조건이 적용된 채 이동
   관계조회 — PK 하나로 FK 체인 전체(발전소↔구매계약↔수급매칭↔전기사용지↔
@@ -39,22 +48,28 @@ import json
 # ─────────────────────────────────────────────────────────────────────────────
 _CSS = r"""
 :root{
-  --paper:#F5F4EF;--panel:#FFF;--ink:#16262B;--sub:#5C6B6E;--line:#E3E1D8;
-  --thead-bg:#EFEEE7;--row-hover:#FAF9F5;--shadow:0 8px 24px rgba(0,0,0,.10);
-  --shadow-sm:0 1px 2px rgba(16,24,26,.04),0 2px 10px rgba(16,24,26,.05);
-  --teal:#0E7C7B;--teal-d:#0A5A59;--teal-w:#E7F1F0;
-  --amber:#B07817;--amber-w:#FAEEDA;--purple:#534AB7;--purple-w:#EEEDFE;
-  --pass:#1F7A54;--pass-w:#E7F3EC;--fail:#B23A3A;--fail-w:#FBEDEC;
-  --info:#1E63A8;--info-w:#E6EFF8;--mute:#C9C6BB;
+  /* 민트/틸 기반 팔레트 — 배경·글자·상태색은 WCAG 텍스트 대비로,
+     차트 계열색(--s1..--s4)은 dataviz 6종 검사(밝기대역·채도하한·CVD
+     분리·일반시야하한·대비·고정순서)를 라이트/다크 각각 통과한 값만
+     사용합니다(scripts/validate_palette.js 실측). */
+  --paper:#F5FAF9;--panel:#FFFFFF;--ink:#142A26;--sub:#5B6B65;--line:#DCE8E4;
+  --thead-bg:#EDF5F2;--row-hover:#F1FAF8;--shadow:0 8px 24px rgba(10,20,18,.10);
+  --shadow-sm:0 1px 2px rgba(10,20,18,.04),0 2px 10px rgba(10,20,18,.05);
+  --teal:#0B8577;--teal-d:#075C52;--teal-w:#E3F5F1;
+  --amber:#B45309;--amber-w:#FCEFD9;--purple:#6D28D9;--purple-w:#EEEAFB;
+  --pass:#15803D;--pass-w:#E7F5EC;--fail:#B91C1C;--fail-w:#FBEAEA;
+  --info:#1D4ED8;--info-w:#E7EEFC;--mute:#C3D0CB;
+  --s1:#1baf7a;--s2:#eb6834;--s3:#4a3aa7;--s4:#e87ba4; /* 차트 계열: 아쿠아·오렌지·바이올렛·마젠타 */
 }
 :root[data-theme="dark"]{
-  --paper:#14191B;--panel:#1C2224;--ink:#EDEFEE;--sub:#8B9A9C;--line:#2C3436;
-  --thead-bg:#242B2D;--row-hover:#222829;--shadow:0 8px 24px rgba(0,0,0,.45);
+  --paper:#12191A;--panel:#1B2422;--ink:#EAF3F0;--sub:#93A8A1;--line:#29332F;
+  --thead-bg:#212B28;--row-hover:#1F2926;--shadow:0 8px 24px rgba(0,0,0,.45);
   --shadow-sm:0 1px 2px rgba(0,0,0,.3),0 2px 12px rgba(0,0,0,.35);
-  --teal:#28A6A0;--teal-d:#5CC7C1;--teal-w:#0F2E2C;
-  --amber:#E0A94A;--amber-w:#3A2E14;--purple:#9C93E8;--purple-w:#241F42;
-  --pass:#4CC08A;--pass-w:#123425;--fail:#E2726B;--fail-w:#3A1616;
-  --info:#7FB2EA;--info-w:#12263A;--mute:#4A5254;
+  --teal:#2FBFA8;--teal-d:#6FE0CB;--teal-w:#0E332E;
+  --amber:#E3A23D;--amber-w:#3A2C12;--purple:#A78BFA;--purple-w:#241E3D;
+  --pass:#4ADE80;--pass-w:#123420;--fail:#F87171;--fail-w:#3A1414;
+  --info:#60A5FA;--info-w:#142440;--mute:#48534E;
+  --s1:#199e70;--s2:#d95926;--s3:#9085e9;--s4:#d55181;
 }
 :root{
   --font-sans:"Pretendard","Pretendard Variable",-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
@@ -277,8 +292,9 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 
 .unsecrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer}
 .unsecrow:last-child{border-bottom:none}.unsecrow:hover{background:var(--paper)}
-.mixrow{display:flex;align-items:center;gap:10px;padding:6px 0}
-.mixlabel{width:76px;font-size:12.5px;color:var(--sub);flex-shrink:0}
+.mixrow{display:flex;align-items:center;gap:8px;padding:6px 0}
+.mixdot{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+.mixlabel{width:70px;font-size:12.5px;color:var(--sub);flex-shrink:0}
 .mixbar{flex:1;height:10px;background:var(--paper);border-radius:6px;overflow:hidden}
 .mixfill{height:100%;background:var(--teal);border-radius:6px}
 .mixval{font-size:12px;width:110px;text-align:right;flex-shrink:0}
@@ -308,13 +324,25 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 .segtoggle{display:inline-flex;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:2px}
 .segtoggle button{font-size:12px;font-weight:600;color:var(--sub);background:none;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;white-space:nowrap}
 .segtoggle button.on{background:var(--teal);color:#fff}
-.trendchart{display:flex;align-items:flex-end;gap:3px;height:150px;padding:4px 2px 0;border-bottom:1px solid var(--line)}
+.trendbreadcrumb{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.trendback{font-size:12.5px;font-weight:700;color:var(--teal-d);background:var(--teal-w);border:none;border-radius:8px;padding:7px 12px;cursor:pointer}
+.trendback:hover{background:var(--teal);color:#fff}
+.trendcrumbnow{font-size:12.5px;font-weight:700;color:var(--ink)}
+.trendplot{display:flex;gap:8px}
+.trendaxis{position:relative;width:34px;height:150px;flex-shrink:0}
+.trendaxistick{position:absolute;right:4px;left:0;text-align:right;transform:translateY(50%);font-size:9.5px;color:var(--sub);white-space:nowrap;line-height:1}
+.trendarea{position:relative;flex:1;min-width:0;height:150px}
+.trendgrid{position:absolute;inset:0;pointer-events:none}
+.trendgridline{position:absolute;left:0;right:0;border-top:1px solid var(--line)}
+.trendchart{position:relative;z-index:1;display:flex;align-items:flex-end;gap:3px;height:100%;padding:0 2px}
 .trendcol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;cursor:pointer;min-width:6px}
 .trendbar{width:100%;max-width:26px;background:var(--teal);border-radius:4px 4px 0 0;transition:background .12s}
 .trendcol:hover .trendbar{background:var(--teal-d)}
 .trendcol.peak .trendbar{background:var(--amber)}
 .trendlabel{font-size:9.5px;color:var(--ink);font-weight:700;margin-bottom:3px;white-space:nowrap}
-.trendticks{display:flex;gap:3px;padding:6px 2px 0}
+.trendxrow{display:flex;gap:8px}
+.trendaxisspacer{width:34px;flex-shrink:0}
+.trendticks{flex:1;min-width:0;display:flex;gap:3px;padding:6px 2px 0}
 .trendtick{flex:1;text-align:center;font-size:9.5px;color:var(--sub);min-width:6px;white-space:nowrap}
 .trendfoot{margin-top:10px;font-size:12px;color:var(--sub);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
 
@@ -360,6 +388,8 @@ footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-si
   .statuslegendhead{font-size:9.5px}
   .trendtools{gap:8px}
   .segtoggle button{font-size:11px;padding:6px 8px}
+  .trendaxis,.trendaxisspacer{width:26px}
+  .trendaxistick{font-size:8.5px;right:2px}
 }
 
 /* 보고용 인쇄 */
@@ -429,7 +459,7 @@ let state={
   lookup:null,lookupTable:DATA.tables[0].key,lookupQ:'',lookupDepth:Number(readLS('ppa_depth','2')),
   recent:[],pinned:[],modal:null,
   theme:readLS('ppa_theme','light'),
-  homeTrend:{metric:'new',unit:'cnt'},
+  homeTrend:{metric:'new',unit:'cnt',drillYm:null},
 };
 
 /* ── 문자열 유틸 ────────────────────────────────────────────────────────── */
@@ -1283,6 +1313,11 @@ function tExplore(){
 }
 
 /* ── 홈 (보고용 요약) ───────────────────────────────────────────────────── */
+/* 발전원처럼 순수 명목형(nominal) 카테고리를 색으로 구분할 때 쓰는
+   4색 계열 — dataviz 팔레트 검증(밝기대역/채도/CVD분리/대비)을 통과한
+   고정 순서. 5개 넘게 나오면 그냥 돌려씀(발전원 종류가 실제로 4개를
+   넘는 경우는 드묾) */
+const CAT_COLORS=['var(--s1)','var(--s2)','var(--s3)','var(--s4)'];
 function sumCol(tk,col){const t=byKey[tk];if(!t) return 0;
   return t.rows.reduce((s,r)=>{const n=Number(r.cells[col]);return s+(isNaN(n)?0:n);},0);}
 function countWhere(tk,col,val){const t=byKey[tk];if(!t) return 0;
@@ -1335,6 +1370,24 @@ function groupByMonth(tk,dateCol,capCol){
   });
   return m;
 }
+function dayKey(v){const s=String(v||'');return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:null;}
+function dayLabel(d){return String(Number(d.slice(8,10)))+'일';}
+function groupByDay(tk,dateCol,capCol){
+  const t=byKey[tk];if(!t) return {};
+  const m={};
+  t.rows.forEach(r=>{
+    const d=dayKey(r.cells[dateCol]);if(!d) return;
+    if(!m[d]) m[d]={cnt:0,cap:0};
+    m[d].cnt++;
+    const n=Number(r.cells[capCol]);m[d].cap+=isNaN(n)?0:n;
+  });
+  return m;
+}
+function daysOfMonth(ym){
+  const p=ym.split('-').map(Number),last=new Date(p[0],p[1],0).getDate(),out=[];
+  for(let d=1;d<=last;d++) out.push(ym+'-'+String(d).padStart(2,'0'));
+  return out;
+}
 function monthRange(n){ // 이번 달을 포함해 최근 n개월의 YYYY-MM 목록 (과거→현재)
   const out=[];const base=TODAY?new Date(TODAY):new Date();
   for(let i=n-1;i>=0;i--){
@@ -1350,6 +1403,13 @@ function jumpToMonth(tk,col,ym){
   state.dateFilters[tk][col]={from:ym+'-01',to:ym+'-'+String(lastDay).padStart(2,'0')};
   state.page[tk]=1;render();
 }
+function jumpToDay(tk,col,d){
+  state.tab=tk;state.dateFilters[tk]=state.dateFilters[tk]||{};
+  state.dateFilters[tk][col]={from:d,to:d};
+  state.page[tk]=1;render();
+}
+function drillMonth(ym){state.homeTrend.drillYm=ym;render();}
+function undrillMonth(){state.homeTrend.drillYm=null;render();}
 function schemaBox(tk){const t=byKey[tk];
   return `<button class="schemabox" onclick="state.tab='${jsq(tk)}';render()">${esc(t.label)}<span class="schemacount mono">${nf(t.rows.length,0)}</span></button>`;}
 function schemaDiagram(){
@@ -1407,46 +1467,103 @@ const TREND_METRICS={
   saleexp:{label:'판매계약 공급기한',tk:'T_판매계약',col:'공급기한_판매',cap:'판매계약용량(MW)'},
 };
 function setHomeTrend(k,v){state.homeTrend[k]=v;render();}
-function trendPanel(){
-  const avail=Object.entries(TREND_METRICS).filter(([,c])=>byKey[c.tk]);
-  if(!avail.length) return '';
-  if(!byKey[TREND_METRICS[state.homeTrend.metric]?.tk]) state.homeTrend.metric=avail[0][0];
-  const cfg=TREND_METRICS[state.homeTrend.metric];
-  const m=groupByMonth(cfg.tk,cfg.col,cfg.cap);
-  const keys=Object.keys(m);
-  if(!keys.length) return panel('년월별 추이','',`<div class="nocand">${esc(cfg.label)} 항목에 날짜가 입력된 데이터가 없습니다.</div>
-    <div class="trendtools" style="margin-top:10px"><div class="segtoggle">${avail.map(([k,c])=>
-      `<button class="${state.homeTrend.metric===k?'on':''}" onclick="setHomeTrend('metric','${k}')">${esc(c.label)}</button>`).join('')}</div></div>`);
-  const months=pickMonthWindow(keys,18);
-  const unit=state.homeTrend.unit;
-  const vals=months.map(ym=>{const b=m[ym];if(!b) return 0;return unit==='cap'?b.cap:b.cnt;});
-  const max=Math.max(1,...vals);
-  const peakV=Math.max(...vals);
-  const bars=months.map((ym,i)=>{
-    const b=m[ym]||{cnt:0,cap:0};
+function fmtTick(v,unit){return unit==='cap'?nf(v):nf(v,0);}
+/* "보기 좋은" 눈금 간격 — 4등분 근처에서 1/2/5×10ⁿ 중 하나를 고릅니다 */
+function niceStep(range,targetTicks){
+  const raw=range/Math.max(1,targetTicks);
+  if(raw<=0) return 1;
+  const mag=Math.pow(10,Math.floor(Math.log10(raw)));
+  const norm=raw/mag;
+  let step;
+  if(norm<1.5) step=1;else if(norm<3) step=2;else if(norm<7) step=5;else step=10;
+  return step*mag;
+}
+function niceTicks(max){
+  if(max<=0) return [0,1];
+  const step=niceStep(max,4),top=Math.ceil(max/step)*step,out=[];
+  for(let v=0;v<=top+1e-9;v+=step) out.push(Math.round(v*1000)/1000);
+  return out;
+}
+/* 월별/일별 추이 공용 렌더러 — keys 순서대로 막대를 그리고, "보기 좋은"
+   눈금의 격자선·왼쪽 축 라벨을 같이 그려서 값을 가늠하기 쉽게 합니다.
+   onclickFn(key)가 null을 돌려주면 그 막대는 클릭 비활성. */
+function buildTrendChart(keys,m,unit,labelFn,onclickFn,titleFn){
+  const vals=keys.map(k=>{const b=m[k];return b?(unit==='cap'?b.cap:b.cnt):0;});
+  const rawMax=Math.max(0,...vals);
+  const ticks=niceTicks(rawMax);
+  const scaleTop=ticks[ticks.length-1]||1;
+  const peakV=Math.max(0,...vals);
+  const axis=ticks.map(t=>`<span class="trendaxistick" style="bottom:${t/scaleTop*100}%">${fmtTick(t,unit)}</span>`).join('');
+  const grid=ticks.map(t=>`<div class="trendgridline" style="bottom:${t/scaleTop*100}%"></div>`).join('');
+  const bars=keys.map((k,i)=>{
     const v=vals[i];
-    const h=v>0?Math.max(4,v/max*100):0;
+    const h=v>0?Math.max(3,v/scaleTop*100):0;
     const isPeak=v>0&&v===peakV;
-    const label=isPeak?`<span class="trendlabel">${nf(v)}</span>`:'';
-    const act=b.cnt>0?` onclick="jumpToMonth('${jsq(cfg.tk)}','${jsq(cfg.col)}','${ym}')"`:'';
-    return `<div class="trendcol${isPeak?' peak':''}"${act} title="${monthLabel(ym)} · ${nf(b.cnt,0)}건 · ${nf(b.cap)}MW">
-      ${label}<div class="trendbar" style="height:${h}%"></div></div>`;
+    const act=onclickFn(k);
+    const label=isPeak?`<span class="trendlabel">${fmtTick(v,unit)}</span>`:'';
+    return `<div class="trendcol${isPeak?' peak':''}"${act?` onclick="${act}"`:''} title="${esc(titleFn(k))}">${label}<div class="trendbar" style="height:${h}%"></div></div>`;
   }).join('');
-  const tickStep=Math.max(1,Math.ceil(months.length/9));
-  const ticks=months.map((ym,i)=>`<span class="trendtick">${i%tickStep===0?monthLabel(ym):''}</span>`).join('');
-  const totalCnt=months.reduce((s,ym)=>s+(m[ym]?m[ym].cnt:0),0);
-  const totalCap=months.reduce((s,ym)=>s+(m[ym]?m[ym].cap:0),0);
-  return panel('년월별 추이','막대를 누르면 해당 월만 보기로 이동합니다',`
-    <div class="trendtools">
+  const tickStep=Math.max(1,Math.ceil(keys.length/9));
+  const xticks=keys.map((k,i)=>`<span class="trendtick">${i%tickStep===0?esc(labelFn(k)):''}</span>`).join('');
+  const totalCnt=keys.reduce((s,k)=>s+(m[k]?m[k].cnt:0),0);
+  const totalCap=keys.reduce((s,k)=>s+(m[k]?m[k].cap:0),0);
+  const chart=`<div class="trendplot">
+      <div class="trendaxis">${axis}</div>
+      <div class="trendarea"><div class="trendgrid">${grid}</div><div class="trendchart">${bars}</div></div>
+    </div>
+    <div class="trendxrow"><div class="trendaxisspacer"></div><div class="trendticks">${xticks}</div></div>`;
+  return {chart,totalCnt,totalCap};
+}
+function trendToolsHtml(avail,unit){
+  return `<div class="trendtools">
       <div class="segtoggle">${avail.map(([k,c])=>
         `<button class="${state.homeTrend.metric===k?'on':''}" onclick="setHomeTrend('metric','${k}')">${esc(c.label)}</button>`).join('')}</div>
       <div class="segtoggle">
         <button class="${unit==='cnt'?'on':''}" onclick="setHomeTrend('unit','cnt')">건수</button>
         <button class="${unit==='cap'?'on':''}" onclick="setHomeTrend('unit','cap')">용량(MW)</button>
       </div>
-    </div>
-    <div class="trendchart">${bars}</div>
-    <div class="trendticks">${ticks}</div>
+    </div>`;
+}
+function trendPanel(){
+  const avail=Object.entries(TREND_METRICS).filter(([,c])=>byKey[c.tk]);
+  if(!avail.length) return '';
+  if(!byKey[TREND_METRICS[state.homeTrend.metric]?.tk]) state.homeTrend.metric=avail[0][0];
+  const cfg=TREND_METRICS[state.homeTrend.metric];
+  const unit=state.homeTrend.unit;
+  const tools=trendToolsHtml(avail,unit);
+
+  if(state.homeTrend.drillYm){
+    const ym=state.homeTrend.drillYm;
+    const m=groupByDay(cfg.tk,cfg.col,cfg.cap);
+    const days=daysOfMonth(ym);
+    const {chart,totalCnt,totalCap}=buildTrendChart(days,m,unit,
+      d=>dayLabel(d),
+      d=>(m[d]&&m[d].cnt>0)?`jumpToDay('${jsq(cfg.tk)}','${jsq(cfg.col)}','${jsq(d)}')`:null,
+      d=>{const b=m[d]||{cnt:0,cap:0};return d+' · '+nf(b.cnt,0)+'건 · '+nf(b.cap)+'MW';});
+    const ymLabel=ym.slice(0,4)+'년 '+Number(ym.slice(5,7))+'월';
+    return panel('년월별 추이','일별 막대를 누르면 그 날짜만 보기로 이동합니다',`
+      ${tools}
+      <div class="trendbreadcrumb">
+        <button class="trendback" onclick="undrillMonth()">← 월별로</button>
+        <span class="trendcrumbnow">${esc(ymLabel)} · 일별 (${esc(cfg.label)})</span>
+        <button class="btn" style="margin-left:auto" onclick="jumpToMonth('${jsq(cfg.tk)}','${jsq(cfg.col)}','${jsq(ym)}')">이 달 전체를 표에서 보기</button>
+      </div>
+      ${chart}
+      <div class="trendfoot"><span>${esc(ymLabel)} · ${days.length}일</span><span>합계 ${nf(totalCnt,0)}건 · ${nf(totalCap)} MW</span></div>`);
+  }
+
+  const m=groupByMonth(cfg.tk,cfg.col,cfg.cap);
+  const keys=Object.keys(m);
+  if(!keys.length) return panel('년월별 추이','',`<div class="nocand">${esc(cfg.label)} 항목에 날짜가 입력된 데이터가 없습니다.</div>
+    <div style="margin-top:10px">${tools}</div>`);
+  const months=pickMonthWindow(keys,18);
+  const {chart,totalCnt,totalCap}=buildTrendChart(months,m,unit,
+    ym2=>monthLabel(ym2),
+    ym2=>(m[ym2]&&m[ym2].cnt>0)?`drillMonth('${jsq(ym2)}')`:null,
+    ym2=>{const b=m[ym2]||{cnt:0,cap:0};return monthLabel(ym2)+' · '+nf(b.cnt,0)+'건 · '+nf(b.cap)+'MW · 눌러서 일별 보기';});
+  return panel('년월별 추이','막대를 누르면 그 달의 일별 추이를 볼 수 있습니다',`
+    ${tools}
+    ${chart}
     <div class="trendfoot"><span>표시 구간 ${months.length}개월 (데이터가 있는 구간 중심)</span><span>합계 ${nf(totalCnt,0)}건 · ${nf(totalCap)} MW</span></div>`);
 }
 
@@ -1491,10 +1608,12 @@ function tHome(){
   const sExp=S?countExpiring('T_판매계약','공급기한_판매',SOON_DAYS):0;
   const mix=P?groupSum('T_발전소','발전원','설비용량(MW)'):[];
   const mixMax=mix.length?mix[0][1]:0;
-  const mixBars=mix.map(([g,v])=>`<div class="mixrow"><span class="mixlabel">${esc(g)}</span>
-      <div class="mixbar"><div class="mixfill" style="width:${mixMax>0?(v/mixMax*100):0}%"></div></div>
-      <span class="mixval mono">${nf(v)} MW (${mixMax>0?nf(v/mix.reduce((s,x)=>s+x[1],0)*100,0):0}%)</span></div>`).join('')
-      ||'<div class="nocand">데이터 없음</div>';
+  const mixBars=mix.map(([g,v],i)=>{
+    const col=CAT_COLORS[i%CAT_COLORS.length];
+    return `<div class="mixrow"><span class="mixdot" style="background:${col}"></span><span class="mixlabel">${esc(g)}</span>
+      <div class="mixbar"><div class="mixfill" style="width:${mixMax>0?(v/mixMax*100):0}%;background:${col}"></div></div>
+      <span class="mixval mono">${nf(v)} MW (${mixMax>0?nf(v/mix.reduce((s,x)=>s+x[1],0)*100,0):0}%)</span></div>`;
+  }).join('')||'<div class="nocand">데이터 없음</div>';
   const ok=DATA.validation.total_errors===0;
   const balance=purchMW-saleMW;
   const chgTotal=CHANGES.has_prev?(CHANGES.total_added+CHANGES.total_changed+CHANGES.total_removed):0;
