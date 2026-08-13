@@ -36,6 +36,12 @@ set "XLSM=%FOUND%"
 :GOTXLSM
 echo 대상 엑셀 파일:
 echo   "%XLSM%"
+echo "%XLSM%"| findstr /i "OneDrive" >nul
+if not errorlevel 1 (
+  echo [참고] OneDrive 동기화 폴더 안의 파일로 보입니다. 완전히 동기화되지
+  echo   않았거나(클라우드 전용 표시) 다른 프로그램이 열어둔 상태면 서버가
+  echo   파일을 찾지 못할 수 있습니다.
+)
 echo.
 
 rem --- 2. python 위치 - PATH 우선, 없으면 동봉된 python-embed ----------

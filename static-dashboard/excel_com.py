@@ -146,6 +146,12 @@ class ExcelBridge:
     def save_record(self, table_key: str, record: dict) -> dict:
         return self._call(self._save_record, table_key, record)
 
+    def get_references(self, table_key: str, pk_value: str) -> list[dict]:
+        return self._call(self._referencing_records, table_key, pk_value)
+
+    def delete_record(self, table_key: str, pk_value: str, force: bool = False) -> dict:
+        return self._call(self._delete_record, table_key, pk_value, force)
+
     def shutdown(self) -> None:
         self._jobs.put(None)
 
@@ -206,6 +212,20 @@ class ExcelBridge:
         except Exception:
             pass
 
+        # 이 경로가 애초에 로컬 경로가 아니면(OneDrive/SharePoint 자동 저장 중
+        # ThisWorkbook.Path가 "https://..."를 돌려주는 경우), 아래의 파일 존재
+        # 확인이나 DispatchEx로 넘어가봐야 이유를 알 수 없는 오류만 납니다.
+        # VBA 쪽에 이미 같은 검사(로컬경로_확인)가 있어 정상적인 경로로는 이
+        # 값이 여기까지 넘어오지 않지만, .bat을 직접 실행하는 등 그 검사를
+        # 거치지 않은 경우를 대비해 여기서도 명확한 원인을 알려줍니다.
+        if self.xlsm_path.lower().startswith("http"):
+            raise ExcelComError(
+                "이 파일 경로가 OneDrive/SharePoint 클라우드 주소(https://...)로 "
+                "전달됐습니다 - 로컬 경로(C:\\...)가 필요합니다.\n"
+                "엑셀에서 파일 → 정보 → 자동 저장(AutoSave)을 끄고 다시 시도하거나, "
+                "탐색기의 OneDrive 동기화 폴더에서 이 파일을 직접 열고 다시 시도해주세요."
+            )
+
         # 우리가 이전에 띄워둔 숨김 인스턴스가 있으면 재사용(매번 새로 띄우면
         # 느립니다). 같은 이름의 파일을 동시에 두 번 열 수 없다는 엑셀 자체의
         # 제약 덕분에, 파일명만 같아도 그게 우리 파일이라고 확신할 수 있습니다.
@@ -241,15 +261,37 @@ class ExcelBridge:
 
             wb = app.Workbooks.Open(self.xlsm_path)
         except Exception as exc:
-            raise ExcelComError(
-                f"엑셀 파일을 열지 못했습니다: {self.xlsm_path}\n"
-                "다른 프로그램이 사용 중이거나 경로가 올바르지 않을 수 있습니다.\n"
-                f"원본 오류: {exc}"
-            ) from exc
+            raise ExcelComError(f"{self._diagnose_open_failure()}\n\n원본 오류: {exc}") from exc
 
         self._app = app
         self._we_launched_app = True
         return wb
+
+    def _diagnose_open_failure(self) -> str:
+        """열기가 실패했을 때, 흔한 원인을 스스로 점검해서 원인에 맞는 안내를 만듭니다."""
+        path = self.xlsm_path
+        lines = [f"엑셀 파일을 열지 못했습니다: {path}"]
+
+        if not os.path.exists(path):
+            lines.append("→ 이 경로에 파일이 없습니다. 경로(특히 폴더 이름의 띄어쓰기/오타)를 다시 확인해주세요.")
+            return "\n".join(lines)
+
+        size = os.path.getsize(path)
+        folder = os.path.dirname(path)
+        lock_path = os.path.join(folder, "~$" + os.path.basename(path))
+
+        if size == 0:
+            lines.append("→ 파일 크기가 0바이트입니다. OneDrive에서 아직 완전히 내려받아지지 않은")
+            lines.append("   (클라우드 전용) 파일일 수 있습니다. 탐색기에서 이 파일을 더블클릭해")
+            lines.append("   완전히 내려받아지도록(초록 체크로 바뀔 때까지) 한 뒤 다시 시도해주세요.")
+        elif os.path.exists(lock_path):
+            lines.append(f"→ 잠금 파일이 있습니다({os.path.basename(lock_path)}) - 이미 다른 곳에서")
+            lines.append("   열려 있다는 뜻입니다. 그 세션에서 저장 후 닫고 다시 시도해주세요.")
+        else:
+            lines.append("→ 다른 프로그램이 이 파일을 열어두고 있거나, OneDrive 동기화가 아직")
+            lines.append("   끝나지 않았을 수 있습니다.")
+
+        return "\n".join(lines)
 
     def _close_if_we_launched(self) -> None:
         if self._app is not None and self._we_launched_app:
@@ -373,6 +415,26 @@ class ExcelBridge:
 
         return errors
 
+    # ---- PK로 행 찾기 (저장/삭제가 공용으로 씀) ----
+    def _locate_row(self, ws, schema, pk_value: str):
+        values, start_row, start_col = self._read_grid(ws)
+        if not values:
+            raise ExcelComError(f"{schema.key} 시트에서 머리글 행을 찾지 못했습니다.")
+
+        col_at = self._header_map(values, start_col)
+        if schema.pk not in col_at:
+            raise ExcelComError(f"{schema.key} 시트에서 '{schema.pk}' 열을 찾지 못했습니다.")
+
+        pk_idx = col_at[schema.pk] - start_col
+        target_row = None
+        for offset, raw in enumerate(values[1:], start=1):
+            val = _cell_to_text(raw[pk_idx]) if pk_idx < len(raw) else ""
+            if val == pk_value:
+                target_row = start_row + offset
+                break
+
+        return values, start_row, start_col, col_at, target_row
+
     # ---- 쓰기 ----
     def _save_record(self, table_key: str, record: dict) -> dict:
         schema = TABLE_BY_KEY[table_key]
@@ -385,23 +447,11 @@ class ExcelBridge:
         wb = self._ensure_workbook()
         ws = self._worksheet(wb, table_key)
 
-        values, start_row, start_col = self._read_grid(ws)
-        if not values:
-            raise ExcelComError(f"{table_key} 시트에서 머리글 행을 찾지 못했습니다.")
+        values, start_row, start_col, col_at, target_row = self._locate_row(ws, schema, pk_value)
 
-        col_at = self._header_map(values, start_col)
         missing = [c for c in schema.columns if c not in col_at]
         if missing:
             raise ExcelComError(f"{table_key} 시트에서 다음 열을 찾지 못했습니다: {', '.join(missing)}")
-
-        pk_col_abs = col_at[schema.pk]
-        pk_idx = pk_col_abs - start_col
-        target_row = None
-        for offset, raw in enumerate(values[1:], start=1):
-            val = _cell_to_text(raw[pk_idx]) if pk_idx < len(raw) else ""
-            if val == pk_value:
-                target_row = start_row + offset
-                break
 
         action = "updated"
         if target_row is None:
@@ -416,6 +466,56 @@ class ExcelBridge:
         wb.Save()
 
         return {"action": action, "table": table_key, "pk_value": pk_value, "row": target_row}
+
+    # ---- 참조 확인 (삭제 전에 다른 표가 이 PK를 쓰고 있는지) ----
+    def _referencing_records(self, table_key: str, pk_value: str) -> list[dict]:
+        target = str(pk_value or "").strip()
+        refs: list[dict] = []
+
+        for t in TABLES:
+            for fk_col, ref_key in t.fk.items():
+                if ref_key != table_key:
+                    continue
+                rows = self._read_table(t.key)["rows"]
+                count = sum(1 for r in rows if str(r.get(fk_col) or "").strip() == target)
+                if count > 0:
+                    refs.append({"table": t.key, "label": t.label, "fk_col": fk_col, "count": count})
+
+        return refs
+
+    # ---- 삭제 ----
+    def _delete_record(self, table_key: str, pk_value: str, force: bool = False) -> dict:
+        schema = TABLE_BY_KEY[table_key]
+        pk_value = str(pk_value or "").strip()
+        if not pk_value:
+            raise ExcelComError(f"{schema.pk}는 필수입니다.")
+
+        refs = self._referencing_records(table_key, pk_value)
+        if refs and not force:
+            detail = ", ".join(f"{r['label']} {r['count']}건({r['fk_col']})" for r in refs)
+            raise ExcelComError(
+                f"다른 표에서 이 {schema.pk}({pk_value})를 참조하고 있어 삭제할 수 없습니다: {detail}. "
+                "참조하는 데이터를 먼저 정리한 뒤 다시 시도해주세요."
+            )
+
+        wb = self._ensure_workbook()
+        ws = self._worksheet(wb, table_key)
+        values, start_row, start_col, col_at, target_row = self._locate_row(ws, schema, pk_value)
+
+        if target_row is None:
+            raise ExcelComError(
+                f"{schema.pk} '{pk_value}'을(를) {table_key}에서 찾지 못했습니다(이미 삭제됐을 수 있습니다)."
+            )
+
+        # 표(ListObject) 안에 있는 행이든 아니든, 행 전체 삭제는 엑셀이 알아서
+        # 표 범위/서식을 줄이고 나머지 행을 한 칸씩 끌어올립니다 - 별도의
+        # ListObject 전용 삭제 API가 필요 없습니다. 이 시트들은 검증/파생값을
+        # 전부 이 시스템이 계산하고 엑셀 수식을 쓰지 않으므로(스키마 설계상),
+        # 셀 참조가 깨질 걱정도 없습니다.
+        ws.Rows(target_row).Delete()
+        wb.Save()
+
+        return {"action": "deleted", "table": table_key, "pk_value": pk_value}
 
     def _append_row_target(self, ws, start_row: int, used_row_count: int) -> int:
         """새 행을 추가할 위치. 시트에 표(ListObject)가 있으면 표를 확장해서

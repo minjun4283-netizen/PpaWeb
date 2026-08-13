@@ -110,6 +110,14 @@ class App:
             "validation_errors": payload["validation"]["total_errors"],
         }
 
+    def delete_and_rebuild(self, table_key: str, pk_value: str) -> dict:
+        result = self.bridge.delete_record(table_key, pk_value)
+        payload = self.rebuild()
+        return {
+            "delete": result,
+            "validation_errors": payload["validation"]["total_errors"],
+        }
+
 
 def make_handler(app: App):
     class Handler(BaseHTTPRequestHandler):
@@ -175,6 +183,23 @@ def make_handler(app: App):
                     self._send_json({"ok": False, "error": f"예상하지 못한 오류: {e}"})
                 return
 
+            if path == "/api/references":
+                table = (qs.get("table") or [""])[0]
+                pk = (qs.get("pk") or [""])[0]
+                if table not in TABLE_BY_KEY:
+                    self._send_json({"ok": False, "error": "지원하지 않는 표입니다."})
+                    return
+                if not pk:
+                    self._send_json({"ok": True, "references": []})
+                    return
+                try:
+                    self._send_json({"ok": True, "references": app.bridge.get_references(table, pk)})
+                except ExcelComError as e:
+                    self._send_json({"ok": False, "error": str(e)})
+                except Exception as e:
+                    self._send_json({"ok": False, "error": f"예상하지 못한 오류: {e}"})
+                return
+
             self._send(404, "text/plain; charset=utf-8", b"Not Found")
 
         def do_POST(self):
@@ -196,6 +221,24 @@ def make_handler(app: App):
                 try:
                     result = app.save_and_rebuild(table, record)
                     self._send_json({"ok": True, **result, "message": "엑셀에 저장하고 대시보드를 갱신했습니다."})
+                except ExcelComError as e:
+                    self._send_json({"ok": False, "error": str(e)})
+                except Exception as e:
+                    self._send_json({"ok": False, "error": f"예상하지 못한 오류: {e}"})
+                return
+
+            if path == "/api/delete":
+                table = str(payload.get("table") or "").strip()
+                pk = str(payload.get("pk") or "").strip()
+                if table not in TABLE_BY_KEY:
+                    self._send_json({"ok": False, "error": "지원하지 않는 표입니다."})
+                    return
+                if not pk:
+                    self._send_json({"ok": False, "error": "삭제할 PK를 지정해주세요."})
+                    return
+                try:
+                    result = app.delete_and_rebuild(table, pk)
+                    self._send_json({"ok": True, **result, "message": "엑셀에서 삭제하고 대시보드를 갱신했습니다."})
                 except ExcelComError as e:
                     self._send_json({"ok": False, "error": str(e)})
                 except Exception as e:
