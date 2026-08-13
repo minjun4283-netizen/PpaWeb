@@ -218,6 +218,37 @@ def make_handler(app: App):
     return Handler
 
 
+def _install_console_close_handler(app: App) -> None:
+    """콘솔 창을 X로 닫거나 로그오프/종료할 때도 정리가 되도록 합니다.
+
+    Ctrl+C(KeyboardInterrupt)는 이미 main()에서 처리되지만, 콘솔 창의 X 버튼은
+    파이썬 예외가 아니라 Windows 콘솔 제어 이벤트라서 그걸로는 안 잡힙니다.
+    이걸 놓치면, 우리가 새로 띄운 숨김 엑셀 인스턴스(파일이 아무 데도 안
+    열려 있어서 어쩔 수 없이 띄운 경우)가 프로세스와 함께 뒤에 그대로 남아
+    파일을 계속 붙잡고 있을 수 있습니다 - "아무도 안 쓰는데 읽기 전용"의
+    흔한 원인.
+    """
+    try:
+        import win32api
+        import win32con
+
+        def handler(ctrl_type):
+            if ctrl_type in (
+                win32con.CTRL_CLOSE_EVENT,
+                win32con.CTRL_LOGOFF_EVENT,
+                win32con.CTRL_SHUTDOWN_EVENT,
+            ):
+                print("[종료] 콘솔이 닫혀 엑셀 연결을 정리합니다...")
+                app.bridge.shutdown()
+                app.bridge._thread.join(timeout=3)
+                return True
+            return False
+
+        win32api.SetConsoleCtrlHandler(handler, True)
+    except Exception:
+        pass
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--xlsm", default="", help="원본 xlsm 파일 경로 (생략하면 상위 폴더에서 자동 탐색)")
@@ -256,6 +287,8 @@ def main():
         print("[정보] 초기 대시보드 생성 완료")
     except Exception as e:
         print(f"[경고] 초기 대시보드 생성 실패 (서버는 계속 시작합니다): {e}")
+
+    _install_console_close_handler(app)
 
     server = ThreadingHTTPServer((args.host, args.port), make_handler(app))
     url = f"http://{args.host}:{args.port}"

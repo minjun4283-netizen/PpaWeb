@@ -170,6 +170,16 @@ class ExcelBridge:
                     job.result_q.put((True, result))
                 except Exception as exc:  # noqa: BLE001 - 워커는 죽지 않고 호출자에게 되돌려줌
                     job.result_q.put((False, exc))
+                finally:
+                    # 우리가 이번 작업 때문에 숨김 엑셀을 새로 띄웠다면, 작업이 끝나는
+                    # 즉시 닫습니다. 서버가 떠 있는 동안 계속 붙잡고 있으면(이전
+                    # 방식), 그 파일을 아무도 안 쓰고 있어도 "다른 프로그램이 사용
+                    # 중"이라며 읽기 전용으로 열리는 원인이 됩니다 — 특히 서버가
+                    # 정상 종료되지 않고 콘솔 창만 닫히면 그 숨김 인스턴스가 백그
+                    # 라운드에 영영 남아있을 수 있었습니다. 파일이 이미 사용자의
+                    # 엑셀에 열려 있는 평소 상황(가장 흔한 경우)에는 우리가 새로
+                    # 띄운 게 없으므로 이 정리는 아무 일도 하지 않습니다.
+                    self._close_if_we_launched()
         finally:
             self._close_if_we_launched()
             pythoncom.CoUninitialize()
