@@ -226,12 +226,30 @@ class ExcelBridge:
                 "탐색기의 OneDrive 동기화 폴더에서 이 파일을 직접 열고 다시 시도해주세요."
             )
 
-        # 우리가 이전에 띄워둔 숨김 인스턴스가 있으면 재사용(매번 새로 띄우면
-        # 느립니다). 같은 이름의 파일을 동시에 두 번 열 수 없다는 엑셀 자체의
+        target_name = os.path.basename(self.xlsm_path).lower()
+
+        # 위의 파일 경로 모니커로 못 찾았어도, 실제로는 열려 있을 수 있습니다 -
+        # OneDrive/SharePoint 자동 저장(AutoSave)으로 열린 통합문서는 엑셀이
+        # 자기 자신을 로컬 경로가 아니라 클라우드 URL 신원으로 등록해두는
+        # 경우가 있어서, 로컬 경로 모니커로는 찾아지지 않습니다. 이럴 때를
+        # 대비해 떠 있는 엑셀 프로세스의 워크북들을 파일명만으로 다시
+        # 확인합니다 - 같은 이름의 파일을 엑셀에서 동시에 두 개 열 수 없다는
         # 제약 덕분에, 파일명만 같아도 그게 우리 파일이라고 확신할 수 있습니다.
+        try:
+            running = win32com.client.GetObject(Class="Excel.Application")
+            for wb in running.Workbooks:
+                try:
+                    if os.path.basename(wb.Name).lower() == target_name:
+                        return wb
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        # 우리가 이전에 띄워둔 숨김 인스턴스가 있으면 재사용(매번 새로 띄우면
+        # 느립니다).
         if self._app is not None and self._we_launched_app:
             try:
-                target_name = os.path.basename(self.xlsm_path).lower()
                 for wb in self._app.Workbooks:
                     if os.path.basename(wb.FullName).lower() == target_name:
                         return wb
