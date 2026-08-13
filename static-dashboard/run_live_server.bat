@@ -35,7 +35,7 @@ set "XLSM=%FOUND%"
 
 :GOTXLSM
 echo 대상 엑셀 파일:
-echo   %XLSM%
+echo   "%XLSM%"
 echo.
 
 rem --- 2. python 위치 - PATH 우선, 없으면 동봉된 python-embed ----------

@@ -226,6 +226,19 @@ class ExcelBridge:
             app = win32com.client.DispatchEx("Excel.Application")
             app.Visible = False
             app.DisplayAlerts = False
+            app.AutomationSecurity = 3  # msoAutomationSecurityForceDisable - 매크로 자동 실행 금지
+
+            # 새로 띄운 인스턴스는 사용자가 평소 쓰는 애드인(OpenSolver.xlam 등)을
+            # 자동으로 같이 불러옵니다. 우리는 데이터만 읽고 쓰면 되고, 이 애드인들을
+            # 열어두면 그 파일들까지 우리가 잠그게 되어(사용자 본인 이름으로 "편집
+            # 중"이라고 뜸) 나중에 사용자가 직접 그 애드인을 열려고 할 때 방해가
+            # 됩니다. 우리 파일을 열기 전에 자동으로 딸려온 것들을 먼저 다 닫습니다.
+            for auto_wb in list(app.Workbooks):
+                try:
+                    auto_wb.Close(SaveChanges=False)
+                except Exception:
+                    pass
+
             wb = app.Workbooks.Open(self.xlsm_path)
         except Exception as exc:
             raise ExcelComError(

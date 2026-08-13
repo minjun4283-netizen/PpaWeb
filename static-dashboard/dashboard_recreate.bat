@@ -35,8 +35,8 @@ set "XLSM=%FOUND%"
 
 :GOTXLSM
 echo 대상 엑셀 파일:
-echo   %XLSM%
-echo %XLSM%| findstr /i "OneDrive" >nul
+echo   "%XLSM%"
+echo "%XLSM%"| findstr /i "OneDrive" >nul
 if not errorlevel 1 (
   echo [참고] OneDrive 동기화 폴더 안의 파일로 보입니다. 완전히 동기화되지
   echo   않았거나 다른 프로그램이 열어둔 상태면 오류가 날 수 있습니다.
@@ -79,7 +79,7 @@ if errorlevel 1 goto :FAIL
 
 echo.
 echo ================================================
-echo   완료: %~dp0%OUT%
+echo   완료: "%~dp0%OUT%"
 echo ================================================
 start "" "%OUT%"
 goto :END
