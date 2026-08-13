@@ -73,13 +73,21 @@ class App:
         ]
 
     def rebuild(self) -> dict:
-        """엑셀에서 6개 표를 다시 읽어 PPA현황.html 을 갱신합니다."""
+        """엑셀에서 6개 표를 다시 읽어 PPA현황.html 을 갱신합니다.
+
+        [변경] 탭에 보이는 "기준점 대비 누적 변경"은 리셋 버튼(reset_baseline)을
+        누르기 전까지 고정된 기준 스냅샷과 비교합니다 - 그 사이에는 저장할
+        때마다 계속 쌓여서 보입니다. 전체 변경 이력(changelog)에는 그 커진
+        누적 diff를 그대로 매번 다시 넣지 않도록, 이번 한 번의 저장에서 실제로
+        바뀐 것만 별도(lastbuild) 스냅샷으로 계산해 넣습니다.
+        """
         from build_dashboard import build_payload, default_snapshot_path
         from ppa_changes import (
             append_changelog,
             build_changelog_entries,
             compute_changes,
             default_changelog_path,
+            default_lastbuild_path,
             load_changelog,
             load_snapshot,
             save_snapshot,
@@ -89,15 +97,19 @@ class App:
         with self._rebuild_lock:
             tables_data = self.bridge.read_all_tables()
 
-            snapshot_path = default_snapshot_path(self.html_path)
-            prev = load_snapshot(snapshot_path)
-            changes, marks = compute_changes(tables_data, prev)
+            baseline_path = default_snapshot_path(self.html_path)
+            baseline = load_snapshot(baseline_path)
+            changes, marks = compute_changes(tables_data, baseline)
+
+            lastbuild_path = default_lastbuild_path(self.html_path)
+            lastbuild = load_snapshot(lastbuild_path)
+            build_changes, build_marks = compute_changes(tables_data, lastbuild)
 
             changelog_path = default_changelog_path(self.html_path)
             changelog = load_changelog(changelog_path)
             generated_at = datetime.datetime.now().isoformat(timespec="seconds")
-            if changes.get("has_prev"):
-                new_entries = build_changelog_entries(tables_data, changes, marks, generated_at)
+            if build_changes.get("has_prev"):
+                new_entries = build_changelog_entries(tables_data, build_changes, build_marks, generated_at)
                 if new_entries:
                     changelog = append_changelog(changelog_path, new_entries)
 
@@ -106,10 +118,25 @@ class App:
 
             with open(self.html_path, "w", encoding="utf-8") as f:
                 f.write(render_dashboard(payload))
-            save_snapshot(snapshot_path, tables_data, payload["generated_at"])
+            save_snapshot(lastbuild_path, tables_data, payload["generated_at"])
+            if baseline is None:
+                save_snapshot(baseline_path, tables_data, payload["generated_at"])
 
             self._last_payload = payload
             return payload
+
+    def reset_baseline(self) -> dict:
+        """[변경] 탭의 비교 기준점을 지금 시점으로 되돌립니다 - 그동안 쌓여
+        보이던 "기준점 대비 누적 변경"이 초기화됩니다. 여러 생성에 걸쳐 계속
+        남는 "전체 변경 이력"(changelog)은 건드리지 않습니다."""
+        from build_dashboard import default_snapshot_path
+        from ppa_changes import save_snapshot
+
+        with self._rebuild_lock:
+            tables_data = self.bridge.read_all_tables()
+            generated_at = datetime.datetime.now().isoformat(timespec="seconds")
+            save_snapshot(default_snapshot_path(self.html_path), tables_data, generated_at)
+        return self.rebuild()
 
     def dashboard_html(self) -> str:
         if not os.path.exists(self.html_path):
@@ -307,6 +334,18 @@ def make_handler(app: App):
                 try:
                     payload = app.rebuild()
                     self._send_json({"ok": True, "message": "대시보드를 갱신했습니다.", "generated_at": payload["generated_at"]})
+                except Exception as e:
+                    self._send_json({"ok": False, "error": str(e)})
+                return
+
+            if path == "/api/reset_snapshot":
+                try:
+                    payload = app.reset_baseline()
+                    self._send_json({
+                        "ok": True,
+                        "message": "변경 비교 기준점을 지금 시점으로 리셋했습니다.",
+                        "generated_at": payload["generated_at"],
+                    })
                 except Exception as e:
                     self._send_json({"ok": False, "error": str(e)})
                 return

@@ -33,6 +33,7 @@ from ppa_changes import (
     build_changelog_entries,
     compute_changes,
     default_changelog_path,
+    default_lastbuild_path,
     load_changelog,
     load_snapshot,
     save_snapshot,
@@ -153,6 +154,14 @@ def main():
         action="store_true",
         help="이번 실행 결과를 스냅샷으로 저장하지 않음 (변경 비교 기능을 쓰지 않을 때)",
     )
+    parser.add_argument(
+        "--reset-snapshot",
+        action="store_true",
+        help="[변경] 탭의 비교 기준점을 이번 실행 결과로 리셋합니다(그 전까지 누적된 "
+             "변경 표시가 초기화됩니다). 지정하지 않으면 기준점은 그대로 유지되고 "
+             "변경이 계속 누적되어 보입니다. 전체 변경 이력(_changelog.json)은 이 "
+             "옵션과 무관하게 계속 보존됩니다.",
+    )
     args = parser.parse_args()
 
     if not args.xlsm and not args.csv_dir:
@@ -179,16 +188,24 @@ def main():
     else:
         tables_data = load_from_csv_dir(args.csv_dir)
 
-    snapshot_path = args.prev or default_snapshot_path(args.out)
-    prev = load_snapshot(snapshot_path)
-    changes, marks = compute_changes(tables_data, prev)
+    # baseline: [변경] 탭에 보이는 "지난 기준 대비" 비교 대상 - 리셋을 누르기
+    # 전까지는 절대 안 바뀝니다(그래서 그 사이 변경이 계속 누적돼 보임).
+    # lastbuild: 이번 실행 한 번의 변경분만 골라 전체 변경 이력(changelog)에
+    # 정확히 한 번씩만 추가하기 위한 내부용 스냅샷 - 항상 매 실행마다 갱신.
+    baseline_path = args.prev or default_snapshot_path(args.out)
+    lastbuild_path = default_lastbuild_path(args.out)
+    baseline = load_snapshot(baseline_path)
+    changes, marks = compute_changes(tables_data, baseline)
+
+    lastbuild = load_snapshot(lastbuild_path)
+    build_changes, build_marks = compute_changes(tables_data, lastbuild)
 
     changelog_path = default_changelog_path(args.out)
     changelog = load_changelog(changelog_path)
 
     generated_at = datetime.datetime.now().isoformat(timespec="seconds")
-    if changes.get("has_prev") and not args.no_snapshot:
-        new_entries = build_changelog_entries(tables_data, changes, marks, generated_at)
+    if build_changes.get("has_prev") and not args.no_snapshot:
+        new_entries = build_changelog_entries(tables_data, build_changes, build_marks, generated_at)
         if new_entries:
             changelog = append_changelog(changelog_path, new_entries)
 
@@ -199,18 +216,24 @@ def main():
         f.write(render_dashboard(payload))
 
     if not args.no_snapshot:
-        save_snapshot(default_snapshot_path(args.out), tables_data, payload["generated_at"])
+        save_snapshot(lastbuild_path, tables_data, payload["generated_at"])
+        if args.reset_snapshot or baseline is None:
+            save_snapshot(baseline_path, tables_data, payload["generated_at"])
 
     print(f"\n생성 완료: {args.out}")
     print(f"검증 오류: {payload['validation']['total_errors']}건")
     if changes.get("has_prev"):
         print(
-            f"지난 생성분 대비 변경: 추가 {changes['total_added']}건 · "
+            f"기준점 대비 누적 변경: 추가 {changes['total_added']}건 · "
             f"수정 {changes['total_changed']}건 · 삭제 {changes['total_removed']}건"
         )
+        if args.reset_snapshot:
+            print("--reset-snapshot 지정됨: 이번 실행 결과를 새 기준점으로 리셋했습니다.")
+        else:
+            print("기준점은 --reset-snapshot 을 주기 전까지 그대로 유지됩니다.")
     else:
-        print("이전 스냅샷이 없어 이번에는 변경 비교를 건너뛰었습니다 "
-              "(다음 실행부터 [변경] 탭에 표시됩니다).")
+        print("기준 스냅샷이 없어 이번에는 변경 비교를 건너뛰었습니다 "
+              "(다음 실행부터 [변경] 탭에 표시되고, 이번 실행 결과가 새 기준점이 됩니다).")
 
 
 if __name__ == "__main__":

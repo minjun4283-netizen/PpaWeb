@@ -34,6 +34,18 @@
     var appMode = "single";
     var groupState = null;
 
+    // 저장하지 않은 편집 내용이 있는지 - 있으면 화면 전환/닫기 전에 한 번
+    // 물어봐서 실수로 입력한 내용이 사라지는 일을 막습니다.
+    var formDirty = false;
+    var groupDirty = false;
+    function hasUnsavedChanges() {
+      return appMode === "single" ? formDirty : groupDirty;
+    }
+    function confirmDiscardIfDirty(message) {
+      if (!hasUnsavedChanges()) return true;
+      return window.confirm(message || "저장하지 않은 변경 내용이 있습니다. 계속하면 사라집니다. 계속할까요?");
+    }
+
     var GROUP_DEFS = {
       groupA: {
         key: "groupA",
@@ -135,6 +147,28 @@
     function isRequiredColumn(tableName, name) {
       var schema = SCHEMA_BY_KEY[tableName];
       return !!(schema && (name === schema.pk || (schema.fk && Object.prototype.hasOwnProperty.call(schema.fk, name))));
+    }
+
+    // 자유 텍스트가 아니라 정해진 값 중에서만 고르게 하는 컬럼 - 컬럼 이름만
+    // 보고 판단하므로 표가 달라도(발전소만 해당) 그대로 적용됩니다.
+    var ENUM_COLUMNS = {
+      "발전원": ["태양광", "풍력", "소수력"],
+      "Readiness": ["New", "Operating"]
+    };
+    function enumOptionsFor(name) {
+      return ENUM_COLUMNS[name] || null;
+    }
+
+    // MGA_Supply/MGA_Demand는 "=n/24" 수식으로 관리되던 값입니다 - 사용자가
+    // 최종 소수값 대신 n만 입력하면 n/24를 계산해 그 결과를 저장합니다.
+    function isFormula24Column(name) {
+      return name === "MGA_Supply" || name === "MGA_Demand";
+    }
+    function formatFormula24Value(n) {
+      var v = n / 24;
+      // 부동소수점 잔여 오차 정리(소수 10자리에서 반올림) 후 끝의 불필요한 0 제거
+      var s = v.toFixed(10).replace(/0+$/, "").replace(/\.$/, "");
+      return s === "" || s === "-0" ? "0" : s;
     }
 
     function currentTable() {
@@ -339,7 +373,69 @@
       return errs;
     }
 
+    // MGA_Supply/MGA_Demand 전용: 화면엔 "n" 입력칸만 두고, 실제 저장 값
+    // (n/24)은 숨김 input(data-name 보유)에 넣어 collectRecord/fillRecord가
+    // 그대로 다루게 합니다. wrap에 .ppaf-formula24 클래스를 붙여 fillRecord가
+    // 로드 시 n 표시칸을 역산해 채울 수 있게 합니다.
+    function createFormula24Field(tableName, columnName) {
+      var wrap = el("div", { class: "ppaf-row ppaf-formula24" });
+      var labelClass = isRequiredColumn(tableName, columnName) ? "ppaf-label ppaf-required" : "ppaf-label";
+      wrap.appendChild(el("label", { class: labelClass }, [columnName + " (= n / 24)"]));
+
+      var fieldName = "fld_" + columnName;
+      var nInput = el("input", { class: "ppaf-input", type: "number", step: "any", placeholder: "n 입력 (예: 3.2)" });
+      var hidden = el("input", { type: "hidden", "data-name": fieldName });
+      var display = el("div", { class: "ppaf-formula24-display" }, ["n을 입력하면 자동 계산됩니다."]);
+
+      function recompute() {
+        var n = parseFloat(nInput.value);
+        if (nInput.value === "" || isNaN(n)) {
+          hidden.value = "";
+          display.textContent = "n을 입력하면 자동 계산됩니다.";
+          return;
+        }
+        var v = formatFormula24Value(n);
+        hidden.value = v;
+        display.textContent = "= " + n + " / 24 = " + v;
+      }
+
+      wrap.appendChild(nInput);
+      wrap.appendChild(display);
+      wrap.appendChild(hidden);
+
+      var onLiveCheck = function () {
+        recompute();
+        validateFieldLive(tableName, columnName, wrap, hidden, !!formState.loadedPk);
+      };
+      nInput.addEventListener("input", onLiveCheck);
+      nInput.addEventListener("blur", onLiveCheck);
+
+      return wrap;
+    }
+
+    // 로드된 레코드의 저장값(n/24 계산 결과)로부터 n 표시칸을 역산해 채웁니다.
+    // fillRecord()가 hidden input에 값을 채운 직후 호출됩니다.
+    function syncFormula24Displays(container) {
+      container.querySelectorAll(".ppaf-formula24").forEach(function (wrap) {
+        var hidden = wrap.querySelector("input[type=hidden]");
+        var nInput = wrap.querySelector("input[type=number]");
+        var display = wrap.querySelector(".ppaf-formula24-display");
+        if (!hidden || !nInput) return;
+        var v = parseFloat(hidden.value);
+        if (hidden.value === "" || isNaN(v)) {
+          nInput.value = "";
+          if (display) display.textContent = "n을 입력하면 자동 계산됩니다.";
+          return;
+        }
+        var n = Math.round(v * 24 * 1000) / 1000;
+        nInput.value = String(n);
+        if (display) display.textContent = "= " + n + " / 24 = " + hidden.value;
+      });
+    }
+
     function createField(tableName, columnName) {
+      if (isFormula24Column(columnName)) return createFormula24Field(tableName, columnName);
+
       var wrap = el("div", { class: "ppaf-row" });
       var labelClass = isRequiredColumn(tableName, columnName) ? "ppaf-label ppaf-required" : "ppaf-label";
       var label = el("label", { class: labelClass }, [columnName]);
@@ -347,8 +443,11 @@
       var input;
 
       var lookupTable = getLookupTable(tableName, columnName);
+      var enumOptions = enumOptionsFor(columnName);
       if (lookupTable && (optionCache[lookupTable] || []).length > 0) {
         input = buildSelect(fieldName, optionCache[lookupTable] || []);
+      } else if (enumOptions) {
+        input = buildSelect(fieldName, enumOptions.map(function (v) { return { value: v, label: v }; }));
       } else if (isTextareaColumn(columnName)) {
         input = el("textarea", { class: "ppaf-textarea", "data-name": fieldName });
       } else if (isDateColumn(columnName)) {
@@ -392,14 +491,20 @@
     }
 
     function buildBoundFieldRow(tableName, columnName, record, alreadyLoaded) {
+      if (isFormula24Column(columnName)) return buildFormula24BoundRow(tableName, columnName, record, alreadyLoaded);
+
       var wrap = el("div", { class: "ppaf-row" });
       var labelClass = isRequiredColumn(tableName, columnName) ? "ppaf-label ppaf-required" : "ppaf-label";
       wrap.appendChild(el("label", { class: labelClass }, [columnName]));
 
       var input;
       var lookupTable = getLookupTable(tableName, columnName);
+      var enumOptions = enumOptionsFor(columnName);
+      var currentVal = record[columnName] || "";
       if (lookupTable && (optionCache[lookupTable] || []).length > 0) {
         input = buildSelect("x", optionCache[lookupTable] || []);
+      } else if (enumOptions) {
+        input = buildSelect("x", enumOptions.map(function (v) { return { value: v, label: v }; }));
       } else if (isTextareaColumn(columnName)) {
         input = el("textarea", { class: "ppaf-textarea" });
       } else if (isDateColumn(columnName)) {
@@ -410,7 +515,11 @@
         input = el("input", { class: "ppaf-input", type: "text" });
       }
       input.removeAttribute("data-name");
-      input.value = record[columnName] || "";
+      if (input.tagName === "SELECT" && currentVal &&
+          !Array.prototype.some.call(input.options, function (o) { return o.value === currentVal; })) {
+        input.appendChild(el("option", { value: currentVal }, [currentVal + " (목록에 없는 기존 값)"]));
+      }
+      input.value = currentVal;
       wrap.appendChild(input);
 
       var sync = function () { record[columnName] = input.value || ""; };
@@ -428,6 +537,47 @@
       return wrap;
     }
 
+    function buildFormula24BoundRow(tableName, columnName, record, alreadyLoaded) {
+      var wrap = el("div", { class: "ppaf-row ppaf-formula24" });
+      var labelClass = isRequiredColumn(tableName, columnName) ? "ppaf-label ppaf-required" : "ppaf-label";
+      wrap.appendChild(el("label", { class: labelClass }, [columnName + " (= n / 24)"]));
+
+      var nInput = el("input", { class: "ppaf-input", type: "number", step: "any", placeholder: "n 입력 (예: 3.2)" });
+      var display = el("div", { class: "ppaf-formula24-display" });
+
+      function renderDisplay(v) {
+        var n = parseFloat(v);
+        display.textContent = (v === "" || v === null || v === undefined || isNaN(n))
+          ? "n을 입력하면 자동 계산됩니다."
+          : "저장값: " + v;
+      }
+
+      var existingNum = parseFloat(record[columnName]);
+      if (!isNaN(existingNum)) nInput.value = String(Math.round(existingNum * 24 * 1000) / 1000);
+      renderDisplay(record[columnName]);
+
+      function recompute() {
+        if (nInput.value === "" || isNaN(parseFloat(nInput.value))) {
+          record[columnName] = "";
+          renderDisplay("");
+          return;
+        }
+        var v = formatFormula24Value(parseFloat(nInput.value));
+        record[columnName] = v;
+        renderDisplay(v);
+      }
+      var onLiveCheck = function () {
+        recompute();
+        validateFieldLive(tableName, columnName, wrap, nInput, alreadyLoaded);
+      };
+      nInput.addEventListener("input", onLiveCheck);
+      nInput.addEventListener("blur", onLiveCheck);
+
+      wrap.appendChild(nInput);
+      wrap.appendChild(display);
+      return wrap;
+    }
+
     function collectRecord() {
       var record = {};
       fields.querySelectorAll("[data-name^='fld_']").forEach(function (inp) {
@@ -441,18 +591,32 @@
       record = record || {};
       fields.querySelectorAll("[data-name^='fld_']").forEach(function (inp) {
         var key = inp.getAttribute("data-name").replace("fld_", "");
-        inp.value = record[key] || "";
+        var val = record[key] || "";
+        // 목록형(select)인데 지금 값이 옵션 목록에 없으면(예: 예전에 자유
+        // 입력하던 시절의 값) 조용히 지우지 않고 임시 옵션으로 보존합니다.
+        if (inp.tagName === "SELECT" && val &&
+            !Array.prototype.some.call(inp.options, function (o) { return o.value === val; })) {
+          inp.appendChild(el("option", { value: val }, [val + " (목록에 없는 기존 값)"]));
+        }
+        inp.value = val;
       });
       fields.querySelectorAll(".ppaf-row").forEach(clearFieldNote);
+      syncFormula24Displays(fields);
     }
 
     function clearRecord() {
       fields.querySelectorAll("[data-name^='fld_']").forEach(function (inp) { inp.value = ""; });
       fields.querySelectorAll(".ppaf-row").forEach(clearFieldNote);
+      syncFormula24Displays(fields);
       formState.loadedPk = null;
+      formDirty = false;
       updateDeleteButtonState();
       var pq = fields.querySelector(".ppaf-picker-q");
       if (pq) { pq.value = ""; pq.dispatchEvent(new Event("input")); }
+      var loadedIndicator = fields.querySelector(".ppaf-loaded-indicator");
+      if (loadedIndicator) loadedIndicator.style.display = "none";
+      var dupBtn = fields.querySelector(".ppaf-dup-btn");
+      if (dupBtn) dupBtn.disabled = true;
     }
 
     function updateDeleteButtonState() {
@@ -461,24 +625,68 @@
       deleteBtn.title = formState.loadedPk ? "" : "먼저 검색으로 기존 데이터를 선택하세요.";
     }
 
-    function renderToolbar(tableName) {
+    function renderToolbar(tableName, autofocusPicker) {
       var toolbar = el("div", { class: "ppaf-toolbar-wrap" });
       var newBtn = el("button", { class: "ppaf-btn", type: "button" }, ["새 입력"]);
-      newBtn.addEventListener("click", clearRecord);
+      var dupBtn = el("button", { class: "ppaf-btn ppaf-dup-btn", type: "button", disabled: "disabled" }, ["복제해서 새로 입력"]);
+
+      var loadedIndicator = el("div", { class: "ppaf-loaded-indicator", style: "display:none" });
+      var loadedLabel = el("span", { class: "ppaf-loaded-label" });
+      var loadedClearBtn = el("button", { class: "ppaf-chip-x", type: "button", title: "선택 해제" }, ["✕"]);
+      loadedIndicator.appendChild(el("span", { class: "ppaf-loaded-dot" }));
+      loadedIndicator.appendChild(loadedLabel);
+      loadedIndicator.appendChild(loadedClearBtn);
+
+      newBtn.addEventListener("click", function () {
+        if (!confirmDiscardIfDirty()) return;
+        clearRecord();
+      });
+      loadedClearBtn.addEventListener("click", function () {
+        if (!confirmDiscardIfDirty()) return;
+        clearRecord();
+      });
+
+      dupBtn.addEventListener("click", function () {
+        if (!formState.loadedPk) return;
+        var record = collectRecord();
+        var schema = SCHEMA_BY_KEY[tableName];
+        if (schema) record[schema.pk] = "";
+        fillRecord(record);
+        formState.loadedPk = null;
+        formDirty = true;
+        updateDeleteButtonState();
+        loadedIndicator.style.display = "none";
+        dupBtn.disabled = true;
+        var pkInput = fields.querySelector("[data-name='fld_" + (schema ? schema.pk : "") + "']");
+        if (pkInput) pkInput.focus();
+        showToast("복제되었습니다 - 새 " + (schema ? schema.pk : "PK") + "를 입력하고 저장하세요.", "info");
+      });
 
       var pickerLabel = el("div", { class: "ppaf-picker-label" }, ["기존 데이터 불러오기 (컬럼별 검색)"]);
       var picker = buildPicker(tableName, function (row) {
+        if (!confirmDiscardIfDirty()) return;
         fillRecord(row || {});
         var schema = SCHEMA_BY_KEY[tableName];
         formState.loadedPk = schema ? (row[schema.pk] || null) : null;
+        formDirty = false;
         updateDeleteButtonState();
+        loadedLabel.textContent = recordLabel(tableName, row);
+        loadedIndicator.style.display = "";
+        dupBtn.disabled = false;
         showToast("불러왔습니다.", "info");
       });
 
       toolbar.appendChild(newBtn);
+      toolbar.appendChild(dupBtn);
+      toolbar.appendChild(loadedIndicator);
       toolbar.appendChild(pickerLabel);
       toolbar.appendChild(picker);
       fields.appendChild(toolbar);
+
+      if (autofocusPicker) {
+        var q = picker.querySelector(".ppaf-picker-q");
+        if (q) setTimeout(function () { q.focus(); }, 30);
+      }
     }
 
     function renderFields(tableName) {
@@ -528,13 +736,30 @@
     function buildGroupMasterToolbar(def) {
       var wrap = el("div", { class: "ppaf-toolbar-wrap" });
       var newBtn = el("button", { class: "ppaf-btn", type: "button" }, ["새 " + groupLabel(def.master) + " 입력"]);
+
+      var loadedIndicator = el("div", { class: "ppaf-loaded-indicator", style: groupState.master.existing ? "" : "display:none" });
+      var loadedLabel = el("span", { class: "ppaf-loaded-label" }, [groupState.master.existing ? recordLabel(def.master, groupState.master.record) : ""]);
+      var loadedClearBtn = el("button", { class: "ppaf-chip-x", type: "button", title: "선택 해제" }, ["✕"]);
+      loadedIndicator.appendChild(el("span", { class: "ppaf-loaded-dot" }));
+      loadedIndicator.appendChild(loadedLabel);
+      loadedIndicator.appendChild(loadedClearBtn);
+
       newBtn.addEventListener("click", function () {
+        if (!confirmDiscardIfDirty()) return;
+        groupDirty = false;
+        groupState = newGroupState(def.key);
+        renderGroup().catch(console.error);
+      });
+      loadedClearBtn.addEventListener("click", function () {
+        if (!confirmDiscardIfDirty()) return;
+        groupDirty = false;
         groupState = newGroupState(def.key);
         renderGroup().catch(console.error);
       });
 
       var pickerLabel = el("div", { class: "ppaf-picker-label" }, ["기존 " + groupLabel(def.master) + " 불러오기 (컬럼별 검색)"]);
       var picker = buildPicker(def.master, function (row) {
+        if (!confirmDiscardIfDirty()) return;
         var schema = SCHEMA_BY_KEY[def.master];
         var pkVal = schema ? row[schema.pk] : "";
         groupState.master.record = row;
@@ -542,6 +767,7 @@
         loadChildrenFor(def, pkVal)
           .then(function (children) {
             groupState.children = children;
+            groupDirty = false;
             return renderGroup();
           })
           .then(function () {
@@ -553,6 +779,7 @@
       });
 
       wrap.appendChild(newBtn);
+      wrap.appendChild(loadedIndicator);
       wrap.appendChild(pickerLabel);
       wrap.appendChild(picker);
       return wrap;
@@ -572,6 +799,7 @@
             child.grand = child.grand.filter(function (g) { return g.existing; });
             child.grand.forEach(function (g) { g.deleted = true; });
           }
+          groupDirty = true;
           renderGroup().catch(console.error);
         });
       } else {
@@ -579,6 +807,7 @@
         toggleBtn.addEventListener("click", function () {
           var i = groupState.children.indexOf(child);
           if (i !== -1) groupState.children.splice(i, 1);
+          groupDirty = true;
           renderGroup().catch(console.error);
         });
       }
@@ -611,6 +840,7 @@
       var addBtn = el("button", { class: "ppaf-btn", type: "button" }, ["+ " + groupLabel(gdef.table) + " 추가"]);
       addBtn.addEventListener("click", function () {
         child.grand.push({ table: gdef.table, fk: gdef.fk, record: {}, existing: false, deleted: false });
+        groupDirty = true;
         renderGroup().catch(console.error);
       });
       head.appendChild(addBtn);
@@ -622,12 +852,13 @@
         var gToggle;
         if (g.existing) {
           gToggle = el("button", { class: "ppaf-btn danger", type: "button" }, [g.deleted ? "삭제 취소" : "삭제 표시"]);
-          gToggle.addEventListener("click", function () { g.deleted = !g.deleted; renderGroup().catch(console.error); });
+          gToggle.addEventListener("click", function () { g.deleted = !g.deleted; groupDirty = true; renderGroup().catch(console.error); });
         } else {
           gToggle = el("button", { class: "ppaf-btn danger", type: "button" }, ["제거"]);
           gToggle.addEventListener("click", function () {
             var i = child.grand.indexOf(g);
             if (i !== -1) child.grand.splice(i, 1);
+            groupDirty = true;
             renderGroup().catch(console.error);
           });
         }
@@ -653,6 +884,7 @@
       var addBtn = el("button", { class: "ppaf-btn", type: "button" }, ["+ " + groupLabel(childDef.table) + " 추가"]);
       addBtn.addEventListener("click", function () {
         groupState.children.push({ table: childDef.table, fk: childDef.fk, record: {}, existing: false, deleted: false, grand: [] });
+        groupDirty = true;
         renderGroup().catch(console.error);
       });
       head.appendChild(addBtn);
@@ -672,7 +904,7 @@
       deleteBtn.title = loaded ? "" : "먼저 검색으로 기존 데이터를 불러오세요.";
     }
 
-    async function renderGroup() {
+    async function renderGroup(autofocusMaster) {
       var def = GROUP_DEFS[groupState.kind];
       var childDef = def.child;
       var gdef = childDef.grandchild;
@@ -689,7 +921,8 @@
           "전부 통과해야 한 번에 엑셀에 저장됩니다."
         ])
       );
-      groupWrap.appendChild(buildGroupMasterToolbar(def));
+      var masterToolbar = buildGroupMasterToolbar(def);
+      groupWrap.appendChild(masterToolbar);
       groupWrap.appendChild(el("div", { class: "ppaf-grouptitle" }, [groupLabel(def.master)]));
       groupWrap.appendChild(
         buildFieldsGrid(def.master, groupState.master.record, { alreadyLoaded: groupState.master.existing })
@@ -697,9 +930,19 @@
       groupWrap.appendChild(buildChildrenSection(def));
 
       updateGroupDeleteButtonState();
+
+      if (autofocusMaster) {
+        var q = masterToolbar.querySelector(".ppaf-picker-q");
+        if (q) setTimeout(function () { q.focus(); }, 30);
+      }
     }
 
     async function switchMode(mode) {
+      if (mode !== appMode && !confirmDiscardIfDirty("저장하지 않은 변경 내용이 있습니다. 화면을 바꾸면 사라집니다. 계속할까요?")) {
+        return;
+      }
+      formDirty = false;
+      groupDirty = false;
       appMode = mode;
       modeBtnSingle.classList.toggle("on", mode === "single");
       modeBtnA.classList.toggle("on", mode === "groupA");
@@ -710,14 +953,14 @@
         groupWrap.style.display = "none";
         saveBtn.textContent = "엑셀에 저장";
         deleteBtn.textContent = "삭제";
-        await renderMode(true);
+        await renderMode(true, true);
       } else {
         singleWrap.style.display = "none";
         groupWrap.style.display = "";
         saveBtn.textContent = "일괄 저장";
         deleteBtn.textContent = "그룹 전체 삭제";
         groupState = newGroupState(mode);
-        await renderGroup();
+        await renderGroup(true);
       }
     }
 
@@ -782,6 +1025,7 @@
           return apiPost("/api/batch", { operations: operations });
         });
         showToast(data.message || "일괄 저장 완료", "success");
+        groupDirty = false;
         delete recordCache[def.master];
         delete optionCache[def.master];
         delete recordCache[childDef.table];
@@ -825,6 +1069,7 @@
           return apiPost("/api/batch", { operations: operations });
         });
         showToast(data.message || "그룹 삭제 완료", "success");
+        groupDirty = false;
         delete recordCache[def.master];
         delete optionCache[def.master];
         delete recordCache[childDef.table];
@@ -837,14 +1082,15 @@
       }
     }
 
-    async function renderMode(forceReload) {
+    async function renderMode(forceReload, autofocusPicker) {
       var tableName = currentTable();
       fields.innerHTML = "";
       formState.loadedPk = null;
+      formDirty = false;
       help.textContent = "저장하면 지금 열려 있는(또는 열려 있지 않으면 새로 열리는) 엑셀 파일에 바로 반영됩니다.";
       await prepareOptionsForTable(tableName, !!forceReload);
       await getTableRecords(tableName, !!forceReload);
-      renderToolbar(tableName);
+      renderToolbar(tableName, autofocusPicker);
       renderFields(tableName);
       updateDeleteButtonState();
     }
@@ -873,6 +1119,9 @@
     }
 
     function closeModal() {
+      if (!confirmDiscardIfDirty()) return;
+      formDirty = false;
+      groupDirty = false;
       backdrop.classList.remove("show");
       modal.classList.remove("show");
     }
@@ -906,6 +1155,27 @@
       }
     }
 
+    // [변경] 탭의 "기준점 대비 누적 변경"은 이 버튼을 누르기 전까지 계속
+    // 쌓여서 보입니다 - 리셋하면 지금 시점이 새 기준점이 됩니다. 여러 생성에
+    // 걸쳐 남는 "전체 변경 이력"은 이 리셋과 무관하게 계속 보존됩니다.
+    async function resetChangeBaseline() {
+      var confirmed = window.confirm(
+        "지금 시점을 [변경] 탭의 새 비교 기준점으로 리셋합니다. 그동안 쌓여있던 " +
+        "\"기준점 대비 누적 변경\" 표시가 초기화됩니다(전체 변경 이력은 그대로 남습니다). " +
+        "계속할까요?"
+      );
+      if (!confirmed) return;
+      try {
+        var data = await withBusy(resetBaselineBtn, "리셋 중...", function () {
+          return apiPost("/api/reset_snapshot", {});
+        });
+        showToast(data.message || "리셋 완료", "success");
+        setTimeout(function () { location.reload(); }, 700);
+      } catch (e) {
+        showToast("리셋 실패: " + (e.message || e), "error");
+      }
+    }
+
     async function saveCurrentTable() {
       var tableName = currentTable();
       var record = collectRecord();
@@ -932,6 +1202,7 @@
         await renderMode(true);
         fillRecord(record);
         formState.loadedPk = record[pkName] || null;
+        formDirty = false;
         updateDeleteButtonState();
 
         setTimeout(function () { location.reload(); }, 700);
@@ -1065,6 +1336,7 @@
         ".ppaf-btn.danger{background:var(--ppaf-bg);border-color:var(--ppaf-danger);color:var(--ppaf-danger)}" +
         ".ppaf-btn.danger:hover:not(:disabled){background:var(--ppaf-danger-bg)}" +
         ".ppaf-required::after{content:' *';color:var(--ppaf-danger);font-weight:800}" +
+        ".ppaf-formula24-display{font-size:11px;color:var(--ppaf-sub);margin-top:1px}" +
         ".ppaf-toolbar-wrap{display:flex;flex-direction:column;gap:6px;margin:4px 0 18px;grid-column:1 / -1}" +
         ".ppaf-picker-label{font-size:11.5px;font-weight:700;color:var(--ppaf-sub);margin-top:4px}" +
         ".ppaf-picker{border:1.5px solid var(--ppaf-line);border-radius:10px;padding:10px;background:rgba(11,133,119,.03)}" +
@@ -1075,6 +1347,11 @@
         ".ppaf-picker-item{text-align:left;border:1px solid transparent;background:var(--ppaf-bg);color:var(--ppaf-ink);border-radius:7px;padding:8px 10px;font-size:12.5px;cursor:pointer;transition:background .12s ease,border-color .12s ease}" +
         ".ppaf-picker-item:hover{background:rgba(11,133,119,.1);border-color:var(--ppaf-teal)}" +
         ".ppaf-picker-hint,.ppaf-picker-more{color:var(--ppaf-sub);font-size:12px;padding:6px 2px}" +
+        ".ppaf-loaded-indicator{display:flex;align-items:center;gap:8px;background:rgba(11,133,119,.08);border:1px solid rgba(11,133,119,.25);border-radius:999px;padding:6px 8px 6px 12px;font-size:12.5px;font-weight:600;color:var(--ppaf-teal-d)}" +
+        ".ppaf-loaded-dot{width:7px;height:7px;border-radius:50%;background:var(--ppaf-teal);flex:0 0 auto}" +
+        ".ppaf-loaded-label{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+        ".ppaf-chip-x{border:none;background:transparent;color:var(--ppaf-teal-d);cursor:pointer;font-size:13px;line-height:1;padding:3px 5px;border-radius:50%;flex:0 0 auto}" +
+        ".ppaf-chip-x:hover{background:rgba(11,133,119,.18)}" +
         ".ppaf-modeswitch{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}" +
         ".ppaf-modebtn{border:1.5px solid var(--ppaf-line);background:var(--ppaf-bg);color:var(--ppaf-sub);border-radius:999px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer;transition:all .12s ease}" +
         ".ppaf-modebtn.on{background:var(--ppaf-teal);border-color:var(--ppaf-teal);color:#fff}" +
@@ -1125,6 +1402,7 @@
     var closeBtn = el("button", { class: "ppaf-btn", type: "button" }, ["닫기"]);
     var clearBtn = el("button", { class: "ppaf-btn", type: "button" }, ["초기화"]);
     var rebuildBtn = el("button", { class: "ppaf-btn", type: "button" }, ["대시보드 새로고침"]);
+    var resetBaselineBtn = el("button", { class: "ppaf-btn", type: "button", title: "[변경] 탭의 비교 기준점을 지금 시점으로 리셋합니다" }, ["변경 비교 기준 리셋"]);
     var deleteBtn = el("button", { class: "ppaf-btn danger", type: "button", disabled: "disabled" }, ["삭제"]);
     var saveBtn = el("button", { class: "ppaf-btn primary", type: "button" }, ["엑셀에 저장"]);
 
@@ -1152,7 +1430,7 @@
     bodyWrap.appendChild(singleWrap);
     bodyWrap.appendChild(groupWrap);
     modal.appendChild(bodyWrap);
-    modal.appendChild(el("div", { class: "ppaf-foot" }, [clearBtn, deleteBtn, rebuildBtn, saveBtn]));
+    modal.appendChild(el("div", { class: "ppaf-foot" }, [clearBtn, deleteBtn, resetBaselineBtn, rebuildBtn, saveBtn]));
 
     // 삭제 2차 확인 모달
     var confirmBackdrop = el("div", { class: "ppaf-confirm-backdrop" });
@@ -1178,14 +1456,17 @@
     closeBtn.addEventListener("click", closeModal);
     backdrop.addEventListener("click", closeModal);
     clearBtn.addEventListener("click", function () {
+      if (!confirmDiscardIfDirty()) return;
       if (appMode === "single") {
         clearRecord();
       } else {
+        groupDirty = false;
         groupState = newGroupState(appMode);
         renderGroup().catch(console.error);
       }
     });
     rebuildBtn.addEventListener("click", function () { rebuildDashboard().catch(console.error); });
+    resetBaselineBtn.addEventListener("click", function () { resetChangeBaseline().catch(console.error); });
     saveBtn.addEventListener("click", function () {
       if (appMode === "single") saveCurrentTable().catch(console.error);
       else saveGroup().catch(console.error);
@@ -1198,11 +1479,33 @@
     confirmBackdrop.addEventListener("click", closeDeleteConfirm);
     confirmDeleteBtn.addEventListener("click", function () { performDelete().catch(console.error); });
     modeSel.addEventListener("change", function () {
-      renderMode(true).catch(function (e) { showToast("목록 로딩 실패: " + (e.message || e), "error"); });
+      if (!confirmDiscardIfDirty()) { modeSel.value = currentTable(); return; }
+      renderMode(true, true).catch(function (e) { showToast("목록 로딩 실패: " + (e.message || e), "error"); });
     });
     modeBtnSingle.addEventListener("click", function () { switchMode("single").catch(console.error); });
     modeBtnA.addEventListener("click", function () { switchMode("groupA").catch(console.error); });
     modeBtnB.addEventListener("click", function () { switchMode("groupB").catch(console.error); });
+
+    // 실제 데이터 입력칸(.ppaf-row 안)에서만 편집 상태를 추적합니다 - 검색
+    // 상자/컬럼 선택 등 툴바 요소는 "편집"으로 치지 않습니다.
+    fields.addEventListener("input", function (e) {
+      if (e.target && e.target.closest && e.target.closest(".ppaf-row")) formDirty = true;
+    });
+    groupWrap.addEventListener("input", function (e) {
+      if (e.target && e.target.closest && e.target.closest(".ppaf-row")) groupDirty = true;
+    });
+
+    // 입력칸에서 Enter → 저장 (검색 상자 제외, textarea는 줄바꿈 유지)
+    modal.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter") return;
+      var t = e.target;
+      if (!t || t.tagName === "TEXTAREA") return;
+      if (t.classList && (t.classList.contains("ppaf-picker-q") || t.classList.contains("ppaf-picker-col"))) return;
+      if (t.tagName === "INPUT" || t.tagName === "SELECT") {
+        e.preventDefault();
+        saveBtn.click();
+      }
+    });
 
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Escape") return;

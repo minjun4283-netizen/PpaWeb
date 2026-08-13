@@ -156,6 +156,17 @@ def default_changelog_path(out_path: str) -> str:
     return stem + "_changelog.json"
 
 
+def default_lastbuild_path(out_path: str) -> str:
+    """[변경] 탭에 보이는 "지난 기준 대비" 비교는 리셋 전까지 고정된 기준
+    스냅샷(default_snapshot_path)과 비교합니다 - 리셋을 누르기 전까지는 계속
+    쌓여서 보입니다. 하지만 "전체 변경 이력"(누적 changelog)에 매번 그 커진
+    전체 diff를 통째로 다시 적으면 같은 항목이 실행마다 중복으로 쌓이므로,
+    changelog에는 이번 한 번의 실행에서 실제로 바뀐 것만 넣어야 합니다 - 그
+    계산에 쓰는, 매 실행마다 갱신되는 별도의 "직전 실행" 스냅샷입니다."""
+    stem, _ = os.path.splitext(out_path)
+    return stem + "_lastbuild.json"
+
+
 def load_changelog(path: str) -> list[dict]:
     if not path or not os.path.exists(path):
         return []
