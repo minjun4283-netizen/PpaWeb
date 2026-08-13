@@ -175,35 +175,55 @@ class ExcelBridge:
             pythoncom.CoUninitialize()
 
     # ---- 워크북 확보: 이미 열려 있으면 그 세션, 아니면 숨김 인스턴스로 새로 염 ----
+    #
+    # 예전에는 GetObject(Class="Excel.Application")로 "떠 있는 아무 엑셀"을
+    # 가져온 뒤 그 Workbooks를 우리가 직접 순회하며 전체 경로 문자열을
+    # 비교했는데, 두 가지로 깨졌습니다:
+    #   1) 엑셀 프로세스가 여러 개 떠 있으면 Class= 로는 "그" 프로세스가
+    #      아니라 그냥 아무 인스턴스가 잡혀서, 정작 파일이 열려 있는
+    #      프로세스를 놓칠 수 있음
+    #   2) 경로 문자열 비교(normcase/abspath)가 한글 자모 정규화(NFC/NFD)나
+    #      OneDrive 경로 표기 차이로 어긋나면, 실제로는 같은 파일인데도
+    #      "안 열려 있다"고 오판 → 이미 열려 있는 파일을 또 열려다 엑셀이
+    #      "같은 이름의 통합 문서가 이미 열려 있다"며 거부
+    # 지금은 파일 경로 자체를 모니커로 GetObject에 넘깁니다 - 엑셀은 열려
+    # 있는 통합문서마다 이 방식으로 바로 찾아지도록 스스로 등록해두므로,
+    # 어느 프로세스에 열려 있든, 문자열 비교 없이 정확히 그 워크북을
+    # 돌려받습니다(안 열려 있으면 예외만 남기고 정상적으로 다음 단계로).
     def _ensure_workbook(self):
-        target = os.path.normcase(self.xlsm_path)
+        try:
+            return win32com.client.GetObject(self.xlsm_path)
+        except Exception:
+            pass
 
-        if self._app is not None:
+        # 우리가 이전에 띄워둔 숨김 인스턴스가 있으면 재사용(매번 새로 띄우면
+        # 느립니다). 같은 이름의 파일을 동시에 두 번 열 수 없다는 엑셀 자체의
+        # 제약 덕분에, 파일명만 같아도 그게 우리 파일이라고 확신할 수 있습니다.
+        if self._app is not None and self._we_launched_app:
             try:
+                target_name = os.path.basename(self.xlsm_path).lower()
                 for wb in self._app.Workbooks:
-                    if os.path.normcase(os.path.abspath(wb.FullName)) == target:
+                    if os.path.basename(wb.FullName).lower() == target_name:
                         return wb
             except Exception:
                 self._app = None
                 self._we_launched_app = False
 
-        try:
-            running = win32com.client.GetObject(Class="Excel.Application")
-            for wb in running.Workbooks:
-                if os.path.normcase(os.path.abspath(wb.FullName)) == target:
-                    self._app = running
-                    self._we_launched_app = False
-                    return wb
-        except Exception:
-            pass
-
         if not os.path.exists(self.xlsm_path):
             raise ExcelComError(f"엑셀 파일을 찾을 수 없습니다: {self.xlsm_path}")
 
-        app = win32com.client.DispatchEx("Excel.Application")
-        app.Visible = False
-        app.DisplayAlerts = False
-        wb = app.Workbooks.Open(self.xlsm_path)
+        try:
+            app = win32com.client.DispatchEx("Excel.Application")
+            app.Visible = False
+            app.DisplayAlerts = False
+            wb = app.Workbooks.Open(self.xlsm_path)
+        except Exception as exc:
+            raise ExcelComError(
+                f"엑셀 파일을 열지 못했습니다: {self.xlsm_path}\n"
+                "다른 프로그램이 사용 중이거나 경로가 올바르지 않을 수 있습니다.\n"
+                f"원본 오류: {exc}"
+            ) from exc
+
         self._app = app
         self._we_launched_app = True
         return wb

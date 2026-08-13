@@ -157,6 +157,8 @@ def make_handler(app: App):
                     self._send_json({"ok": True, "options": app.bridge.get_options(table)})
                 except ExcelComError as e:
                     self._send_json({"ok": False, "error": str(e)})
+                except Exception as e:
+                    self._send_json({"ok": False, "error": f"예상하지 못한 오류: {e}"})
                 return
 
             if path == "/api/record":
@@ -169,6 +171,8 @@ def make_handler(app: App):
                     self._send_json({"ok": True, "record": app.bridge.get_record(table, pk)})
                 except ExcelComError as e:
                     self._send_json({"ok": False, "error": str(e)})
+                except Exception as e:
+                    self._send_json({"ok": False, "error": f"예상하지 못한 오류: {e}"})
                 return
 
             self._send(404, "text/plain; charset=utf-8", b"Not Found")
