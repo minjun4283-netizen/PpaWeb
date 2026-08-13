@@ -25,6 +25,13 @@ Attribute VB_Name = "PPA_DashboardGen"
 '       dashboard_recreate.bat
 '       run_live_server.bat
 '       ppa_liveserver.py, excel_com.py, dashboard_form.js, ppa_*.py, vendor\...
+'
+' OneDrive/SharePoint 조직 정책으로 AutoSave를 강제로 켜두는 경우, 로컬 폴더
+' 에서 다시 열어도 ThisWorkbook.FullName이 계속 클라우드 주소(https://...)로
+' 나올 수 있습니다. 이때는 OneDrive 로컬 동기화 루트(Environ$의 OneDrive*
+' 환경변수) 밑에서 같은 파일명을 자동으로 검색해 실제 로컬 경로를 찾아냅니다
+' (실제_통합문서_전체경로 참고) - 파일이 아주 많은 팀 사이트면 검색에 시간이
+' 걸릴 수 있습니다.
 '==============================================================================
 Option Explicit
 
@@ -39,6 +46,7 @@ Private Const C_FAIL   As Long = 3818163      ' RGB(179,58,58)
 
 '---- 지금 어느 단계인지 (오류가 나면 이 값을 같이 보여줍니다) ---------------
 Private g_단계 As String
+Private g_임시파일번호 As Long
 
 Private Sub 단계(ByVal s As String)
     g_단계 = s
@@ -59,23 +67,126 @@ Private Function 시트(ByVal 이름 As String) As Worksheet
     On Error GoTo 0
 End Function
 
-'---- AutoSave로 OneDrive/SharePoint에 클라우드 경로로 열려 있으면
-'     ThisWorkbook.Path가 "C:\..." 가 아니라 "https://..." 를 돌려줘서
-'     Dir$() 가 오류를 냅니다. 두 버튼이 공통으로 쓰는 사전 점검입니다. ----
-Private Function 로컬경로_확인() As Boolean
-    If Left$(ThisWorkbook.Path, 4) = "http" Then
+'==============================================================================
+' 실제 통합문서 경로 확보
+'   1) 로컬 경로면 그대로 씁니다(가장 흔한 경우, 빠름).
+'   2) 클라우드 경로(https://...)면 OneDrive 로컬 동기화 루트 밑에서 같은
+'      파일명을 검색해서 찾아냅니다 - AutoSave를 꺼도, 로컬 폴더에서 다시
+'      열어도 조직 정책으로 계속 클라우드 경로가 나오는 경우를 위한 대비책.
+'   둘 다 실패하면 빈 문자열을 돌려주고, 이 함수 안에서 안내 메시지를 띄웁니다.
+'==============================================================================
+Private Function 실제_통합문서_전체경로() As String
+    Dim found As String
+
+    If Left$(ThisWorkbook.FullName, 4) <> "http" Then
+        실제_통합문서_전체경로 = ThisWorkbook.FullName
+        Exit Function
+    End If
+
+    found = OneDrive_에서_찾기(ThisWorkbook.Name)
+
+    If Len(found) = 0 Then
         MsgBox "이 통합문서가 OneDrive/SharePoint에 클라우드 경로로 열려 있어 " & _
                "로컬 폴더를 찾을 수 없습니다." & vbCrLf & vbCrLf & _
-               "지금 경로: " & ThisWorkbook.Path & vbCrLf & vbCrLf & _
-               "해결 방법 중 하나를 시도해주세요:" & vbCrLf & _
-               "1) 파일 → 정보 에서 이 파일의 자동 저장(AutoSave)을 끄고 다시 시도" & vbCrLf & _
-               "2) 즐겨찾기/최근 문서가 아니라, 탐색기의 OneDrive 동기화 폴더에서 " & _
-               "이 파일을 직접 더블클릭해서 열고 다시 시도", _
+               "지금 경로: " & ThisWorkbook.FullName & vbCrLf & vbCrLf & _
+               "이 컴퓨터의 OneDrive 동기화 폴더에서 같은 이름의 파일을 자동으로 " & _
+               "찾아봤지만 찾지 못했습니다. 아래를 확인해주세요:" & vbCrLf & _
+               "1) 파일 → 정보 에서 자동 저장(AutoSave)을 끄고 다시 시도" & vbCrLf & _
+               "2) OneDrive 앱에서 이 파일이 있는 폴더까지 동기화가 끝났는지 확인" & vbCrLf & _
+               "3) 그래도 안 되면, 조직 정책으로 이 SharePoint 문서함이 항상 " & _
+               "클라우드 모드로 열리도록 강제돼 있을 수 있습니다 - IT 담당자에게 " & _
+               "문의하거나, 이 파일을 OneDrive가 아닌 팀이 접근 가능한 다른 " & _
+               "공유 위치로 옮기는 방법을 검토해주세요.", _
                vbExclamation, "대시보드 생성"
-        로컬경로_확인 = False
-    Else
-        로컬경로_확인 = True
+        실제_통합문서_전체경로 = ""
+        Exit Function
     End If
+
+    실제_통합문서_전체경로 = found
+End Function
+
+Private Function 폴더경로(ByVal fullPath As String) As String
+    Dim p As Long
+    p = InStrRev(fullPath, "\")
+    If p > 0 Then
+        폴더경로 = Left$(fullPath, p - 1)
+    Else
+        폴더경로 = fullPath
+    End If
+End Function
+
+'---- OneDrive 로컬 동기화 루트 목록 (Environ$ 변수 이름이 OneDrive로 시작하는 것 전부) ----
+Private Function OneDrive_루트목록() As Collection
+    Dim col As New Collection
+    Dim i As Long, s As String, eqPos As Long, nm As String, val As String
+
+    i = 1
+    Do
+        s = Environ$(i)
+        If Len(s) = 0 Then Exit Do
+        eqPos = InStr(s, "=")
+        If eqPos > 0 Then
+            nm = Left$(s, eqPos - 1)
+            val = Mid$(s, eqPos + 1)
+            If Len(val) > 0 And LCase$(Left$(nm, 8)) = "onedrive" Then
+                On Error Resume Next
+                col.Add val
+                On Error GoTo 0
+            End If
+        End If
+        i = i + 1
+    Loop
+
+    Set OneDrive_루트목록 = col
+End Function
+
+Private Function OneDrive_에서_찾기(ByVal fileName As String) As String
+    Dim roots As Collection
+    Dim root As Variant
+    Dim found As String
+
+    Set roots = OneDrive_루트목록()
+    For Each root In roots
+        found = 파일찾기_재귀(CStr(root), fileName)
+        If Len(found) > 0 Then
+            OneDrive_에서_찾기 = found
+            Exit Function
+        End If
+    Next root
+
+    OneDrive_에서_찾기 = ""
+End Function
+
+'---- root 밑을 재귀적으로 뒤져 fileName과 이름이 같은 첫 파일의 전체 경로를
+'     돌려줍니다. VBA의 Dir$은 재귀 검색을 못 해서, cmd의 dir /s /b 결과를
+'     임시 파일로 받아 읽는 방식을 씁니다. ------------------------------------
+Private Function 파일찾기_재귀(ByVal root As String, ByVal fileName As String) As String
+    Dim tmp As String, cmd As String, result As String
+    Dim f As Integer
+
+    If Len(Dir$(root, vbDirectory)) = 0 Then
+        파일찾기_재귀 = ""
+        Exit Function
+    End If
+
+    g_임시파일번호 = g_임시파일번호 + 1
+    tmp = Environ$("TEMP") & "\ppa_find_" & Format$(Now, "yyyymmddhhnnss") & "_" & CStr(g_임시파일번호) & ".txt"
+
+    cmd = "cmd /c dir /s /b """ & root & "\" & fileName & """ > """ & tmp & """ 2>nul"
+    CreateObject("WScript.Shell").Run cmd, 0, True
+
+    result = ""
+    If Len(Dir$(tmp)) > 0 Then
+        f = FreeFile
+        Open tmp For Input As #f
+        If Not EOF(f) Then Line Input #f, result
+        Close #f
+        On Error Resume Next
+        Kill tmp
+        On Error GoTo 0
+    End If
+
+    파일찾기_재귀 = result
 End Function
 
 '==============================================================================
@@ -130,7 +241,7 @@ Public Sub 대시보드_만들기()
     End With
 
     With ws.Cells(9, 2)
-        .Value = "찾는 파일: " & 배치파일경로()
+        .Value = "통합문서 경로: " & ThisWorkbook.FullName
         .Font.Color = C_SUB
         .Font.Size = 9
     End With
@@ -152,7 +263,8 @@ Public Sub 대시보드_만들기()
     End With
 
     With ws.Cells(17, 2)
-        .Value = "찾는 파일: " & 웹서버경로()
+        .Value = "버튼을 누르면 static-dashboard 폴더를 자동으로 찾습니다" & _
+                 "(클라우드 경로로 열려 있으면 OneDrive에서 자동 검색)."
         .Font.Color = C_SUB
         .Font.Size = 9
     End With
@@ -192,14 +304,6 @@ Private Sub 버튼만들기(ByVal ws As Worksheet, ByRef shp As Shape, ByVal shapeNam
     ws.Rows(row).RowHeight = BTN_H + 6
 End Sub
 
-Private Function 배치파일경로() As String
-    배치파일경로 = ThisWorkbook.Path & "\static-dashboard\dashboard_recreate.bat"
-End Function
-
-Private Function 웹서버경로() As String
-    웹서버경로 = ThisWorkbook.Path & "\static-dashboard\run_live_server.bat"
-End Function
-
 Private Sub 상태쓰기(ByVal s As String, Optional ByVal 실패 As Boolean = False, Optional ByVal row As Long = 7)
     Dim ws As Worksheet, c As Range
     Set ws = 시트(SH_NAME)
@@ -214,16 +318,24 @@ End Sub
 ' [대시보드 생성] 버튼에 연결된 동작 - 한 번 만들고 끝(서버 없음)
 '==============================================================================
 Public Sub 대시보드_생성()
-    Dim batPath As String, xlsmPath As String, cmd As String
+    Dim batPath As String, xlsmPath As String, cmd As String, 작업폴더 As String
     Dim ret As Long, ans As VbMsgBoxResult, found As String
 
     g_단계 = ""
     On Error GoTo 처리안됨
 
     단계 "경로 확인"
-    If Not 로컬경로_확인() Then Exit Sub
+    If Left$(ThisWorkbook.FullName, 4) = "http" Then
+        상태쓰기 "클라우드 경로 감지됨 - 로컬 폴더 검색 중... (파일이 많으면 시간이 걸릴 수 있습니다)", False, 7
+    End If
+    xlsmPath = 실제_통합문서_전체경로()
+    If Len(xlsmPath) = 0 Then
+        상태쓰기 "경로를 찾지 못해 중단됨", True, 7
+        Exit Sub
+    End If
 
-    batPath = 배치파일경로()
+    작업폴더 = 폴더경로(xlsmPath)
+    batPath = 작업폴더 & "\static-dashboard\dashboard_recreate.bat"
 
     단계 "배치파일 확인"
     found = Dir$(batPath)
@@ -232,6 +344,7 @@ Public Sub 대시보드_생성()
                "찾은 경로: " & batPath & vbCrLf & vbCrLf & _
                "이 통합문서 옆에 static-dashboard 폴더가 있고 그 안에 " & _
                "dashboard_recreate.bat 가 있는지 확인해주세요.", vbExclamation, "대시보드 생성"
+        상태쓰기 "배치파일을 찾지 못해 중단됨", True, 7
         Exit Sub
     End If
 
@@ -246,7 +359,6 @@ Public Sub 대시보드_생성()
         End If
     End If
 
-    xlsmPath = ThisWorkbook.FullName
     cmd = """" & batPath & """ """ & xlsmPath & """"
 
     상태쓰기 "생성 중... (완료될 때까지 이 창이 유지됩니다)", False, 7
@@ -277,16 +389,24 @@ End Sub
 '   (완료를 기다리지 않고 바로 돌아옵니다 - 서버는 검은 콘솔 창에서 계속 실행)
 '==============================================================================
 Public Sub 웹서버_시작()
-    Dim batPath As String, xlsmPath As String, cmd As String
+    Dim batPath As String, xlsmPath As String, cmd As String, 작업폴더 As String
     Dim found As String
 
     g_단계 = ""
     On Error GoTo 처리안됨
 
     단계 "경로 확인"
-    If Not 로컬경로_확인() Then Exit Sub
+    If Left$(ThisWorkbook.FullName, 4) = "http" Then
+        상태쓰기 "클라우드 경로 감지됨 - 로컬 폴더 검색 중... (파일이 많으면 시간이 걸릴 수 있습니다)", False, 15
+    End If
+    xlsmPath = 실제_통합문서_전체경로()
+    If Len(xlsmPath) = 0 Then
+        상태쓰기 "경로를 찾지 못해 중단됨", True, 15
+        Exit Sub
+    End If
 
-    batPath = 웹서버경로()
+    작업폴더 = 폴더경로(xlsmPath)
+    batPath = 작업폴더 & "\static-dashboard\run_live_server.bat"
 
     단계 "배치파일 확인"
     found = Dir$(batPath)
@@ -295,12 +415,12 @@ Public Sub 웹서버_시작()
                "찾은 경로: " & batPath & vbCrLf & vbCrLf & _
                "이 통합문서 옆에 static-dashboard 폴더가 있고 그 안에 " & _
                "run_live_server.bat 가 있는지 확인해주세요.", vbExclamation, "실시간 입력 서버"
+        상태쓰기 "배치파일을 찾지 못해 중단됨", True, 15
         Exit Sub
     End If
 
     ' 이 서버는 지금 화면(메모리)의 상태를 COM으로 직접 읽으므로, 대시보드 생성과
     ' 달리 저장을 먼저 하라고 요구하지 않습니다.
-    xlsmPath = ThisWorkbook.FullName
     cmd = """" & batPath & """ """ & xlsmPath & """"
 
     단계 "서버 실행 요청"
