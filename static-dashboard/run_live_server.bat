@@ -39,8 +39,8 @@ echo   "%XLSM%"
 echo "%XLSM%"| findstr /i "OneDrive" >nul
 if not errorlevel 1 (
   echo [참고] OneDrive 동기화 폴더 안의 파일로 보입니다. 완전히 동기화되지
-  echo   않았거나(클라우드 전용 표시) 다른 프로그램이 열어둔 상태면 서버가
-  echo   파일을 찾지 못할 수 있습니다.
+  echo   않았거나 다른 프로그램이 열어둔 상태면 서버가 파일을 찾지 못할 수
+  echo   있습니다.
 )
 echo.
 
@@ -64,8 +64,8 @@ rem --- 3. pywin32 설치 여부 확인 - 없으면 여기서 바로 안내하고 종료 -----
 "%PY%" -c "import win32com.client" >nul 2>&1
 if errorlevel 1 (
   echo [오류] pywin32 가 설치되어 있지 않습니다.
-  echo   이 기능(웹 화면 입력을 실제 엑셀에 반영)은 pywin32(Windows COM
-  echo   자동화)가 반드시 있어야 동작합니다. static-dashboard\README.md 의
+  echo   이 기능 - 웹 화면 입력을 실제 엑셀에 반영 - 은 pywin32 Windows COM
+  echo   자동화가 반드시 있어야 동작합니다. static-dashboard\README.md 의
   echo   'pywin32 설치' 절차를 먼저 진행해주세요.
   goto :FAIL
 )
