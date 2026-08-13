@@ -442,6 +442,7 @@ _JS = r"""
 /* ── 색인: PK로 행 찾기, FK 관계 그래프 ─────────────────────────────────── */
 const byKey={};DATA.tables.forEach(t=>byKey[t.key]=t);
 const CHANGES=DATA.changes||{has_prev:false};
+const CHANGELOG=DATA.changelog||[];
 const rowIndex={},rowPos={};
 DATA.tables.forEach(t=>{
   rowIndex[t.key]={};rowPos[t.key]={};
@@ -468,6 +469,7 @@ let state={
   recent:[],pinned:[],modal:null,
   theme:readLS('ppa_theme','light'),
   homeTrend:{metric:'new',unit:'cnt',drillYm:null},
+  clog:{q:'',kind:'',table:''},
 };
 
 /* ── 문자열 유틸 ────────────────────────────────────────────────────────── */
@@ -1791,7 +1793,78 @@ function tChanges(){
     ${panel('표별 변경 건수(행 기준)','행을 클릭하면 그 표의 변경분만 보기로 이동합니다',
       `<table><thead><tr><th class="nosort">표</th><th class="nosort num">추가</th><th class="nosort num">수정</th><th class="nosort num">삭제</th></tr></thead><tbody>${tableRows}</tbody></table>`)}
     ${panel(`수정된 항목 (이전값 → 새값) · ${nf((CHANGES.details||[]).length,0)}개`,'클릭하면 관계조회로 이동',details+trunc)}
-    <div class="grid2">${panel('추가된 항목','',added)}${panel('삭제된 항목','',removed)}</div></section>`;
+    <div class="grid2">${panel('추가된 항목','',added)}${panel('삭제된 항목','',removed)}</div>
+    ${panel(`전체 변경 이력 · 최근 ${nf(CHANGELOG.length,0)}건 (최대 1,000건 보존)`,
+      '여러 번의 생성에 걸쳐 계속 쌓입니다 — 이번 생성분만이 아니라 지금까지의 추가/수정/삭제를 검색할 수 있습니다',
+      changelogView())}
+    </section>`;
+}
+
+/* ── 전체 변경 이력(여러 생성에 걸쳐 누적, 최대 1,000건) ──────────────────── */
+function changelogFiltered(){
+  const q=(state.clog.q||'').trim().toLowerCase();
+  const kind=state.clog.kind||'';
+  const table=state.clog.table||'';
+  return CHANGELOG.filter(e=>{
+    if(kind&&e.kind!==kind) return false;
+    if(table&&e.table!==table) return false;
+    if(q){
+      const hay=[e.pk,byKey[e.table]?byKey[e.table].label:e.table]
+        .concat(e.changed_cols||[]).concat(Object.values(e.cells||{}))
+        .join(' ').toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  }).slice().reverse();
+}
+function changelogRow(e){
+  const t=byKey[e.table];
+  const label=t?t.label:e.table;
+  const exists=rowIndex[e.table]&&rowIndex[e.table][String(e.pk)]!==undefined;
+  const kindBadge=e.kind==='added'?'<span class="badge ok">추가</span>'
+    :e.kind==='removed'?'<span class="badge mute">삭제</span>'
+    :'<span class="badge info">수정</span>';
+  const cls=e.kind==='added'?'add':(e.kind==='removed'?'del':'chg');
+  let detail;
+  if(e.kind==='changed'){
+    const cols=e.changed_cols||[];
+    detail=cols.slice(0,3).map(c=>
+      `<span class="dkey">${esc(c)}</span> <span class="chgold">${esc((e.prev||{})[c]||'(공란)')}</span>→<span class="chgnew">${esc((e.cells||{})[c]||'(공란)')}</span>`
+    ).join(' · ')+(cols.length>3?` 외 ${cols.length-3}건`:'');
+  } else {
+    const cols=(t?t.columns:[]).filter(c=>c!==(t?t.pk:'')).slice(0,3);
+    detail=cols.map(c=>(e.cells||{})[c]).filter(Boolean).join(' · ');
+  }
+  const clickable=exists?` onclick="jumpTo('${jsq(e.table)}','${jsq(e.pk)}')"`:' style="cursor:default"';
+  return `<div class="chk ${cls}"${clickable}>
+    <span>${esc(label)} · ${esc(e.pk||'(PK 공란)')}<span class="dkey" style="margin-left:8px">${esc((e.generated_at||'').replace('T',' ').slice(0,16))}</span></span>
+    <span class="chgval">${detail}</span>
+    <span></span>${kindBadge}</div>`;
+}
+function setClogQ(v){state.clog.q=v;state.page.clog=1;render();}
+function setClogKind(v){state.clog.kind=v;state.page.clog=1;render();}
+function setClogTable(v){state.clog.table=v;state.page.clog=1;render();}
+function changelogView(){
+  if(!CHANGELOG.length) return '<div class="nocand">아직 쌓인 이력이 없습니다 — 다음 생성부터 여기 표시됩니다.</div>';
+  const kOpts=[['','전체 종류'],['added','추가'],['changed','수정'],['removed','삭제']]
+    .map(([v,l])=>`<option value="${v}" ${state.clog.kind===v?'selected':''}>${l}</option>`).join('');
+  const tOpts=['<option value="">전체 표</option>'].concat(
+    DATA.tables.map(t=>`<option value="${jsq(t.key)}" ${state.clog.table===t.key?'selected':''}>${esc(t.label)}</option>`)).join('');
+  const rows=changelogFiltered();
+  const total=rows.length;
+  const pages=Math.max(1,Math.ceil(total/state.pageSize));
+  const page=Math.min(Math.max(1,state.page.clog||1),pages);
+  state.page.clog=page;
+  const pageRows=rows.slice((page-1)*state.pageSize,page*state.pageSize);
+  const list=pageRows.map(changelogRow).join('')||'<div class="nocand">조건에 맞는 이력이 없습니다.</div>';
+  return `<div class="toolbar">
+      <input id="clog-q" class="search" placeholder="PK·값으로 이력 검색…" value="${esc(state.clog.q)}" oninput="setClogQ(this.value)">
+      <select class="filtersel" onchange="setClogKind(this.value)">${kOpts}</select>
+      <select class="filtersel" onchange="setClogTable(this.value)">${tOpts}</select>
+      <span class="count">${nf(total,0)} / ${nf(CHANGELOG.length,0)}건</span>
+    </div>
+    <div>${list}</div>
+    ${pager({key:'clog'},total,page,pages)}`;
 }
 
 /* ── 검증 탭 ────────────────────────────────────────────────────────────── */

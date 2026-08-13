@@ -23,10 +23,35 @@
     };
 
     var optionCache = {};
+    var recordCache = {};
 
     // loadedPk: 지금 폼이 "기존 데이터를 불러온" 상태인지(삭제 가능) 아니면
     // "새 입력" 상태인지(삭제 버튼 비활성) 추적합니다.
     var formState = { loadedPk: null };
+
+    // appMode: "single"(개별입력) | "groupA" | "groupB" - 지금 어느 화면을
+    // 보여주고 있는지. 그룹 모드에서는 mainSel/fields 대신 groupWrap을 씁니다.
+    var appMode = "single";
+    var groupState = null;
+
+    var GROUP_DEFS = {
+      groupA: {
+        key: "groupA",
+        label: "그룹A: 발전소 + 구매계약",
+        master: "T_발전소",
+        child: { table: "T_구매계약", fk: "발전소ID" }
+      },
+      groupB: {
+        key: "groupB",
+        label: "그룹B: 수요기업 + 판매계약 + 전기사용지",
+        master: "T_수요기업",
+        child: {
+          table: "T_판매계약",
+          fk: "수요기업ID",
+          grandchild: { table: "T_전기사용지", fk: "판매계약ID" }
+        }
+      }
+    };
 
     function el(tag, attrs, children) {
       var node = document.createElement(tag);
@@ -123,6 +148,92 @@
       return optionCache[tableName];
     }
 
+    // /api/records 는 PK+표시용 라벨만 주는 /api/options 와 달리 전체 컬럼
+    // 값을 그대로 주므로, 컬럼별 검색과 "선택 즉시 폼 채우기"에 씁니다.
+    async function getTableRecords(tableName, forceReload) {
+      if (!forceReload && recordCache[tableName]) return recordCache[tableName];
+      var data = await apiGet("/api/records?table=" + encodeURIComponent(tableName));
+      recordCache[tableName] = data.rows || [];
+      return recordCache[tableName];
+    }
+
+    function recordLabel(tableName, row) {
+      var schema = SCHEMA_BY_KEY[tableName];
+      var pk = schema && schema.pk;
+      var parts = [];
+      (schema ? schema.columns : []).forEach(function (col) {
+        if (col === pk) return;
+        var v = (row[col] || "").toString().trim();
+        if (v && parts.length < 2) parts.push(col + ": " + v);
+      });
+      var pkVal = pk ? row[pk] : "";
+      return parts.length ? (pkVal + " — " + parts.join(", ")) : String(pkVal || "");
+    }
+
+    // 컬럼 선택(전체/특정 컬럼) + 키워드 입력으로 기존 데이터를 찾는 재사용
+    // 가능한 검색 위젯. onSelect(row) 는 사용자가 결과 목록에서 하나를
+    // 클릭했을 때 호출됩니다. recordCache[tableName] 이 미리 채워져 있어야
+    // 합니다(호출 전에 getTableRecords 로 로드).
+    function buildPicker(tableName, onSelect) {
+      var wrap = el("div", { class: "ppaf-picker" });
+      var controls = el("div", { class: "ppaf-picker-controls" });
+      var colSel = el("select", { class: "ppaf-input ppaf-picker-col" });
+      colSel.appendChild(el("option", { value: "" }, ["전체 컬럼"]));
+      var schema = SCHEMA_BY_KEY[tableName];
+      (schema ? schema.columns : []).forEach(function (col) {
+        colSel.appendChild(el("option", { value: col }, [col]));
+      });
+      var qInput = el("input", {
+        class: "ppaf-input ppaf-picker-q",
+        type: "text",
+        placeholder: "검색어 입력 (예: 이름·ID 일부...)"
+      });
+      var results = el("div", { class: "ppaf-picker-results" });
+
+      controls.appendChild(colSel);
+      controls.appendChild(qInput);
+      wrap.appendChild(controls);
+      wrap.appendChild(results);
+
+      function runFilter() {
+        var q = (qInput.value || "").trim().toLowerCase();
+        var col = colSel.value;
+        var rows = recordCache[tableName] || [];
+        results.innerHTML = "";
+        if (!q) {
+          results.appendChild(el("div", { class: "ppaf-picker-hint" }, ["검색어를 입력하면 목록이 나타납니다. (총 " + rows.length + "건)"]));
+          return;
+        }
+        var matched = rows.filter(function (row) {
+          if (col) return String(row[col] || "").toLowerCase().indexOf(q) !== -1;
+          return Object.keys(row).some(function (k) {
+            return String(row[k] || "").toLowerCase().indexOf(q) !== -1;
+          });
+        });
+        if (!matched.length) {
+          results.appendChild(el("div", { class: "ppaf-picker-hint" }, ["일치하는 데이터가 없습니다."]));
+          return;
+        }
+        var shown = matched.slice(0, 30);
+        shown.forEach(function (row) {
+          var item = el("button", { class: "ppaf-picker-item", type: "button" }, [recordLabel(tableName, row)]);
+          item.addEventListener("click", function () { onSelect(row); });
+          results.appendChild(item);
+        });
+        if (matched.length > shown.length) {
+          results.appendChild(
+            el("div", { class: "ppaf-picker-more" }, [(matched.length - shown.length) + "건 더 있음 - 검색어를 구체화해주세요."])
+          );
+        }
+      }
+
+      qInput.addEventListener("input", runFilter);
+      colSel.addEventListener("change", runFilter);
+      runFilter();
+
+      return wrap;
+    }
+
     async function prepareOptionsForTable(tableName, forceReload) {
       await getTableOptions(tableName, forceReload);
       var refs = FIELD_LOOKUP[tableName] || {};
@@ -177,7 +288,10 @@
       if (note) note.remove();
     }
 
-    function validateFieldLive(tableName, columnName, wrap, input) {
+    // alreadyLoaded: 이 레코드가 "기존 데이터를 불러온" 상태인지(true면 PK
+    // 중복 힌트를 안 보여줌 - 자기 자신이니까). 단일입력에서는
+    // formState.loadedPk 를, 그룹입력에서는 각 항목의 existing 플래그를 씁니다.
+    function validateFieldLive(tableName, columnName, wrap, input, alreadyLoaded) {
       var schema = SCHEMA_BY_KEY[tableName];
       var required = isRequiredColumn(tableName, columnName);
       var value = (input.value || "").trim();
@@ -189,7 +303,7 @@
 
       // 새 데이터 입력 중인데 PK가 이미 존재하는 값이면 - 막지는 않되(저장하면
       // 그 데이터를 덮어써 수정하는 것과 같으므로) 알려줍니다.
-      if (schema && columnName === schema.pk && value && !formState.loadedPk) {
+      if (schema && columnName === schema.pk && value && !alreadyLoaded) {
         var exists = (optionCache[tableName] || []).some(function (o) { return o.value === value; });
         if (exists) {
           markHint(wrap, "이미 존재하는 " + columnName + "입니다 - 저장하면 그 데이터가 수정됩니다.");
@@ -207,9 +321,22 @@
         var input = wrap.querySelector("[data-name^='fld_']");
         if (!input) return;
         var columnName = input.getAttribute("data-name").replace("fld_", "");
-        if (!validateFieldLive(tableName, columnName, wrap, input)) ok = false;
+        if (!validateFieldLive(tableName, columnName, wrap, input, !!formState.loadedPk)) ok = false;
       });
       return ok;
+    }
+
+    // 필수 컬럼이 채워져 있는지만 확인하는 가벼운 버전 - 그룹 저장 직전에
+    // DOM이 아니라 in-memory record 객체 자체를 검사할 때 씁니다.
+    function validateRecordRequired(tableName, record) {
+      var schema = SCHEMA_BY_KEY[tableName];
+      var errs = [];
+      (schema ? schema.columns : []).forEach(function (col) {
+        if (isRequiredColumn(tableName, col) && !(record[col] || "").toString().trim()) {
+          errs.push(col + "는 필수입니다.");
+        }
+      });
+      return errs;
     }
 
     function createField(tableName, columnName) {
@@ -235,10 +362,66 @@
       wrap.appendChild(label);
       wrap.appendChild(input);
 
-      var onLiveCheck = function () { validateFieldLive(tableName, columnName, wrap, input); };
+      var onLiveCheck = function () { validateFieldLive(tableName, columnName, wrap, input, !!formState.loadedPk); };
       input.addEventListener("blur", onLiveCheck);
       input.addEventListener("change", onLiveCheck);
       input.addEventListener("input", function () {
+        if (wrap.classList.contains("invalid")) onLiveCheck();
+      });
+
+      return wrap;
+    }
+
+    // ---------------------------------------------------------------------
+    // 그룹(마스터+자식) 폼에서 쓰는 필드 생성기 - createField와 달리
+    // data-name 기반 collectRecord() 를 쓰지 않고, 입력값을 바로 넘겨받은
+    // record 객체에 반영합니다(카드가 여러 개 동시에 떠 있으므로).
+    // ---------------------------------------------------------------------
+    function buildFieldsGrid(tableName, record, opts) {
+      opts = opts || {};
+      var exclude = opts.exclude || [];
+      var alreadyLoaded = !!opts.alreadyLoaded;
+      var grid = el("div", { class: "ppaf-fields" });
+      var schema = SCHEMA_BY_KEY[tableName];
+      var columns = (schema && schema.columns) || [];
+      columns.forEach(function (col) {
+        if (exclude.indexOf(col) !== -1) return;
+        grid.appendChild(buildBoundFieldRow(tableName, col, record, alreadyLoaded));
+      });
+      return grid;
+    }
+
+    function buildBoundFieldRow(tableName, columnName, record, alreadyLoaded) {
+      var wrap = el("div", { class: "ppaf-row" });
+      var labelClass = isRequiredColumn(tableName, columnName) ? "ppaf-label ppaf-required" : "ppaf-label";
+      wrap.appendChild(el("label", { class: labelClass }, [columnName]));
+
+      var input;
+      var lookupTable = getLookupTable(tableName, columnName);
+      if (lookupTable && (optionCache[lookupTable] || []).length > 0) {
+        input = buildSelect("x", optionCache[lookupTable] || []);
+      } else if (isTextareaColumn(columnName)) {
+        input = el("textarea", { class: "ppaf-textarea" });
+      } else if (isDateColumn(columnName)) {
+        input = el("input", { class: "ppaf-input", type: "date" });
+      } else if (isNumberColumn(columnName)) {
+        input = el("input", { class: "ppaf-input", type: "number", step: "any" });
+      } else {
+        input = el("input", { class: "ppaf-input", type: "text" });
+      }
+      input.removeAttribute("data-name");
+      input.value = record[columnName] || "";
+      wrap.appendChild(input);
+
+      var sync = function () { record[columnName] = input.value || ""; };
+      var onLiveCheck = function () {
+        sync();
+        validateFieldLive(tableName, columnName, wrap, input, alreadyLoaded);
+      };
+      input.addEventListener("blur", onLiveCheck);
+      input.addEventListener("change", onLiveCheck);
+      input.addEventListener("input", function () {
+        sync();
         if (wrap.classList.contains("invalid")) onLiveCheck();
       });
 
@@ -268,51 +451,34 @@
       fields.querySelectorAll(".ppaf-row").forEach(clearFieldNote);
       formState.loadedPk = null;
       updateDeleteButtonState();
-      var loadSel = document.getElementById("ppaf-load-select");
-      if (loadSel) loadSel.value = "";
+      var pq = fields.querySelector(".ppaf-picker-q");
+      if (pq) { pq.value = ""; pq.dispatchEvent(new Event("input")); }
     }
 
     function updateDeleteButtonState() {
+      if (appMode !== "single") return;
       deleteBtn.disabled = !formState.loadedPk;
-      deleteBtn.title = formState.loadedPk ? "" : "먼저 '불러오기'로 기존 데이터를 선택하세요.";
+      deleteBtn.title = formState.loadedPk ? "" : "먼저 검색으로 기존 데이터를 선택하세요.";
     }
 
     function renderToolbar(tableName) {
-      var toolbar = el("div", { class: "ppaf-toolbar" });
-      var loadSelect = el("select", { class: "ppaf-input", id: "ppaf-load-select" });
-      loadSelect.appendChild(el("option", { value: "" }, ["기존 데이터 선택"]));
-
-      (optionCache[tableName] || []).forEach(function (opt) {
-        loadSelect.appendChild(el("option", { value: opt.value }, [opt.label]));
-      });
-
-      var loadBtn = el("button", { class: "ppaf-btn", type: "button" }, ["불러오기"]);
+      var toolbar = el("div", { class: "ppaf-toolbar-wrap" });
       var newBtn = el("button", { class: "ppaf-btn", type: "button" }, ["새 입력"]);
+      newBtn.addEventListener("click", clearRecord);
 
-      toolbar.appendChild(loadSelect);
-      toolbar.appendChild(loadBtn);
-      toolbar.appendChild(newBtn);
-      fields.appendChild(toolbar);
-
-      loadBtn.addEventListener("click", async function () {
-        var pkValue = loadSelect.value || "";
-        if (!pkValue) {
-          showToast("불러올 데이터를 선택하세요.", "error");
-          return;
-        }
-        withBusy(loadBtn, "불러오는 중...", async function () {
-          var data = await apiGet(
-            "/api/record?table=" + encodeURIComponent(tableName) + "&pk=" + encodeURIComponent(pkValue)
-          );
-          fillRecord(data.record || {});
-          formState.loadedPk = pkValue;
-          updateDeleteButtonState();
-        }).catch(function (e) {
-          showToast("불러오기 실패: " + (e.message || e), "error");
-        });
+      var pickerLabel = el("div", { class: "ppaf-picker-label" }, ["기존 데이터 불러오기 (컬럼별 검색)"]);
+      var picker = buildPicker(tableName, function (row) {
+        fillRecord(row || {});
+        var schema = SCHEMA_BY_KEY[tableName];
+        formState.loadedPk = schema ? (row[schema.pk] || null) : null;
+        updateDeleteButtonState();
+        showToast("불러왔습니다.", "info");
       });
 
-      newBtn.addEventListener("click", clearRecord);
+      toolbar.appendChild(newBtn);
+      toolbar.appendChild(pickerLabel);
+      toolbar.appendChild(picker);
+      fields.appendChild(toolbar);
     }
 
     function renderFields(tableName) {
@@ -323,12 +489,361 @@
       });
     }
 
+    // ---------------------------------------------------------------------
+    // 그룹(PK 연계 표 일괄) CRUD - 마스터 1건 + 자식(+손자) N건을 한 화면에서
+    // 편집하고 /api/batch 로 한 번에 반영합니다. 개별입력 화면과 별개로
+    // groupWrap 안에서 그때그때 다시 그립니다(state 기반 재렌더 방식).
+    // ---------------------------------------------------------------------
+    function newGroupState(kind) {
+      return { kind: kind, master: { record: {}, existing: false }, children: [] };
+    }
+
+    async function loadChildrenFor(def, masterPkVal) {
+      var childDef = def.child;
+      var childSchema = SCHEMA_BY_KEY[childDef.table];
+      var rows = await getTableRecords(childDef.table, true);
+      var matched = rows.filter(function (r) { return String(r[childDef.fk] || "") === String(masterPkVal); });
+
+      var children = [];
+      for (var i = 0; i < matched.length; i++) {
+        var entry = { table: childDef.table, fk: childDef.fk, record: matched[i], existing: true, deleted: false, grand: [] };
+        if (childDef.grandchild) {
+          var gdef = childDef.grandchild;
+          var childPkVal = matched[i][childSchema.pk];
+          var grows = await getTableRecords(gdef.table, true);
+          var gmatched = grows.filter(function (r) { return String(r[gdef.fk] || "") === String(childPkVal); });
+          entry.grand = gmatched.map(function (g) {
+            return { table: gdef.table, fk: gdef.fk, record: g, existing: true, deleted: false };
+          });
+        }
+        children.push(entry);
+      }
+      return children;
+    }
+
+    function groupLabel(tableName) {
+      return TABLE_META[tableName] ? TABLE_META[tableName].label : tableName;
+    }
+
+    function buildGroupMasterToolbar(def) {
+      var wrap = el("div", { class: "ppaf-toolbar-wrap" });
+      var newBtn = el("button", { class: "ppaf-btn", type: "button" }, ["새 " + groupLabel(def.master) + " 입력"]);
+      newBtn.addEventListener("click", function () {
+        groupState = newGroupState(def.key);
+        renderGroup().catch(console.error);
+      });
+
+      var pickerLabel = el("div", { class: "ppaf-picker-label" }, ["기존 " + groupLabel(def.master) + " 불러오기 (컬럼별 검색)"]);
+      var picker = buildPicker(def.master, function (row) {
+        var schema = SCHEMA_BY_KEY[def.master];
+        var pkVal = schema ? row[schema.pk] : "";
+        groupState.master.record = row;
+        groupState.master.existing = true;
+        loadChildrenFor(def, pkVal)
+          .then(function (children) {
+            groupState.children = children;
+            return renderGroup();
+          })
+          .then(function () {
+            showToast("불러왔습니다 (하위 " + groupState.children.length + "건 포함).", "info");
+          })
+          .catch(function (e) {
+            showToast("하위 데이터 불러오기 실패: " + (e.message || e), "error");
+          });
+      });
+
+      wrap.appendChild(newBtn);
+      wrap.appendChild(pickerLabel);
+      wrap.appendChild(picker);
+      return wrap;
+    }
+
+    function buildChildCard(def, child) {
+      var childDef = def.child;
+      var card = el("div", { class: "ppaf-childcard" + (child.deleted ? " deleted" : "") });
+      var badge = el("span", { class: "ppaf-badge " + (child.existing ? "existing" : "new") }, [child.existing ? "기존" : "신규"]);
+
+      var toggleBtn;
+      if (child.existing) {
+        toggleBtn = el("button", { class: "ppaf-btn danger", type: "button" }, [child.deleted ? "삭제 취소" : "삭제 표시"]);
+        toggleBtn.addEventListener("click", function () {
+          child.deleted = !child.deleted;
+          if (child.deleted && child.grand) {
+            child.grand = child.grand.filter(function (g) { return g.existing; });
+            child.grand.forEach(function (g) { g.deleted = true; });
+          }
+          renderGroup().catch(console.error);
+        });
+      } else {
+        toggleBtn = el("button", { class: "ppaf-btn danger", type: "button" }, ["제거"]);
+        toggleBtn.addEventListener("click", function () {
+          var i = groupState.children.indexOf(child);
+          if (i !== -1) groupState.children.splice(i, 1);
+          renderGroup().catch(console.error);
+        });
+      }
+
+      card.appendChild(el("div", { class: "ppaf-childcard-head" }, [badge, toggleBtn]));
+
+      if (!child.deleted) {
+        card.appendChild(buildFieldsGrid(childDef.table, child.record, { exclude: [childDef.fk], alreadyLoaded: child.existing }));
+        if (childDef.grandchild) {
+          card.appendChild(buildGrandchildSection(childDef, child));
+        }
+      } else {
+        var note = "이 항목은 저장 시 삭제됩니다.";
+        if (childDef.grandchild && child.grand && child.grand.length) {
+          note = "이 항목은 저장 시 하위 " + groupLabel(childDef.grandchild.table) + " " + child.grand.length + "건과 함께 삭제됩니다.";
+        }
+        card.appendChild(el("div", { class: "ppaf-childcard-note" }, [note]));
+      }
+
+      return card;
+    }
+
+    function buildGrandchildSection(childDef, child) {
+      var gdef = childDef.grandchild;
+      var wrap = el("div", { class: "ppaf-grandwrap" });
+      var activeCount = child.grand.filter(function (g) { return !g.deleted; }).length;
+      var head = el("div", { class: "ppaf-group-headrow" }, [
+        el("div", { class: "ppaf-grouptitle small" }, [groupLabel(gdef.table) + " (" + activeCount + "건)"])
+      ]);
+      var addBtn = el("button", { class: "ppaf-btn", type: "button" }, ["+ " + groupLabel(gdef.table) + " 추가"]);
+      addBtn.addEventListener("click", function () {
+        child.grand.push({ table: gdef.table, fk: gdef.fk, record: {}, existing: false, deleted: false });
+        renderGroup().catch(console.error);
+      });
+      head.appendChild(addBtn);
+      wrap.appendChild(head);
+
+      child.grand.forEach(function (g) {
+        var gcard = el("div", { class: "ppaf-grandcard" + (g.deleted ? " deleted" : "") });
+        var gbadge = el("span", { class: "ppaf-badge " + (g.existing ? "existing" : "new") }, [g.existing ? "기존" : "신규"]);
+        var gToggle;
+        if (g.existing) {
+          gToggle = el("button", { class: "ppaf-btn danger", type: "button" }, [g.deleted ? "삭제 취소" : "삭제 표시"]);
+          gToggle.addEventListener("click", function () { g.deleted = !g.deleted; renderGroup().catch(console.error); });
+        } else {
+          gToggle = el("button", { class: "ppaf-btn danger", type: "button" }, ["제거"]);
+          gToggle.addEventListener("click", function () {
+            var i = child.grand.indexOf(g);
+            if (i !== -1) child.grand.splice(i, 1);
+            renderGroup().catch(console.error);
+          });
+        }
+        gcard.appendChild(el("div", { class: "ppaf-childcard-head" }, [gbadge, gToggle]));
+        if (!g.deleted) {
+          gcard.appendChild(buildFieldsGrid(gdef.table, g.record, { exclude: [gdef.fk], alreadyLoaded: g.existing }));
+        } else {
+          gcard.appendChild(el("div", { class: "ppaf-childcard-note" }, ["이 항목은 저장 시 삭제됩니다."]));
+        }
+        wrap.appendChild(gcard);
+      });
+
+      return wrap;
+    }
+
+    function buildChildrenSection(def) {
+      var childDef = def.child;
+      var section = el("div", { class: "ppaf-group-children" });
+      var activeCount = groupState.children.filter(function (c) { return !c.deleted; }).length;
+      var head = el("div", { class: "ppaf-group-headrow" }, [
+        el("div", { class: "ppaf-grouptitle" }, [groupLabel(childDef.table) + " (" + activeCount + "건)"])
+      ]);
+      var addBtn = el("button", { class: "ppaf-btn", type: "button" }, ["+ " + groupLabel(childDef.table) + " 추가"]);
+      addBtn.addEventListener("click", function () {
+        groupState.children.push({ table: childDef.table, fk: childDef.fk, record: {}, existing: false, deleted: false, grand: [] });
+        renderGroup().catch(console.error);
+      });
+      head.appendChild(addBtn);
+      section.appendChild(head);
+
+      groupState.children.forEach(function (child) {
+        section.appendChild(buildChildCard(def, child));
+      });
+
+      return section;
+    }
+
+    function updateGroupDeleteButtonState() {
+      if (appMode === "single") return;
+      var loaded = !!(groupState && groupState.master.existing);
+      deleteBtn.disabled = !loaded;
+      deleteBtn.title = loaded ? "" : "먼저 검색으로 기존 데이터를 불러오세요.";
+    }
+
+    async function renderGroup() {
+      var def = GROUP_DEFS[groupState.kind];
+      var childDef = def.child;
+      var gdef = childDef.grandchild;
+
+      await getTableOptions(def.master, false);
+      await getTableOptions(childDef.table, false);
+      if (gdef) await getTableOptions(gdef.table, false);
+      await getTableRecords(def.master, false);
+
+      groupWrap.innerHTML = "";
+      groupWrap.appendChild(
+        el("div", { class: "ppaf-help" }, [
+          "마스터(" + groupLabel(def.master) + ")와 하위 항목을 함께 검증한 뒤, 하나라도 실패하면 아무것도 반영하지 않고 " +
+          "전부 통과해야 한 번에 엑셀에 저장됩니다."
+        ])
+      );
+      groupWrap.appendChild(buildGroupMasterToolbar(def));
+      groupWrap.appendChild(el("div", { class: "ppaf-grouptitle" }, [groupLabel(def.master)]));
+      groupWrap.appendChild(
+        buildFieldsGrid(def.master, groupState.master.record, { alreadyLoaded: groupState.master.existing })
+      );
+      groupWrap.appendChild(buildChildrenSection(def));
+
+      updateGroupDeleteButtonState();
+    }
+
+    async function switchMode(mode) {
+      appMode = mode;
+      modeBtnSingle.classList.toggle("on", mode === "single");
+      modeBtnA.classList.toggle("on", mode === "groupA");
+      modeBtnB.classList.toggle("on", mode === "groupB");
+
+      if (mode === "single") {
+        singleWrap.style.display = "";
+        groupWrap.style.display = "none";
+        saveBtn.textContent = "엑셀에 저장";
+        deleteBtn.textContent = "삭제";
+        await renderMode(true);
+      } else {
+        singleWrap.style.display = "none";
+        groupWrap.style.display = "";
+        saveBtn.textContent = "일괄 저장";
+        deleteBtn.textContent = "그룹 전체 삭제";
+        groupState = newGroupState(mode);
+        await renderGroup();
+      }
+    }
+
+    async function saveGroup() {
+      var def = GROUP_DEFS[groupState.kind];
+      var childDef = def.child;
+      var gdef = childDef.grandchild;
+      var masterSchema = SCHEMA_BY_KEY[def.master];
+      var childSchema = SCHEMA_BY_KEY[childDef.table];
+      var masterPk = masterSchema.pk;
+
+      var errors = [];
+      var masterPkVal = (groupState.master.record[masterPk] || "").toString().trim();
+      if (!masterPkVal) errors.push(groupLabel(def.master) + "의 " + masterPk + "를 입력하세요.");
+      validateRecordRequired(def.master, groupState.master.record).forEach(function (m) {
+        errors.push(groupLabel(def.master) + ": " + m);
+      });
+
+      var activeChildren = groupState.children.filter(function (c) { return !c.deleted; });
+      activeChildren.forEach(function (c, i) {
+        c.record[childDef.fk] = masterPkVal;
+        validateRecordRequired(childDef.table, c.record).forEach(function (m) {
+          errors.push(groupLabel(childDef.table) + " #" + (i + 1) + ": " + m);
+        });
+        if (gdef) {
+          var childPkVal = (c.record[childSchema.pk] || "").toString().trim();
+          var activeGrand = (c.grand || []).filter(function (g) { return !g.deleted; });
+          activeGrand.forEach(function (g, gi) {
+            g.record[gdef.fk] = childPkVal;
+            validateRecordRequired(gdef.table, g.record).forEach(function (m) {
+              errors.push(groupLabel(gdef.table) + " #" + (i + 1) + "-" + (gi + 1) + ": " + m);
+            });
+          });
+        }
+      });
+
+      if (errors.length) {
+        showToast("입력값을 확인해주세요: " + errors[0] + (errors.length > 1 ? " 외 " + (errors.length - 1) + "건" : ""), "error");
+        return;
+      }
+
+      var operations = [{ table: def.master, action: "save", record: groupState.master.record }];
+      activeChildren.forEach(function (c) {
+        operations.push({ table: childDef.table, action: "save", record: c.record });
+        if (gdef) {
+          (c.grand || []).filter(function (g) { return !g.deleted; }).forEach(function (g) {
+            operations.push({ table: gdef.table, action: "save", record: g.record });
+          });
+        }
+      });
+      groupState.children.filter(function (c) { return c.deleted; }).forEach(function (c) {
+        if (gdef) {
+          (c.grand || []).filter(function (g) { return g.existing; }).forEach(function (g) {
+            operations.push({ table: gdef.table, action: "delete", pk: g.record[SCHEMA_BY_KEY[gdef.table].pk] });
+          });
+        }
+        operations.push({ table: childDef.table, action: "delete", pk: c.record[childSchema.pk] });
+      });
+
+      try {
+        var data = await withBusy(saveBtn, "일괄 저장 중...", function () {
+          return apiPost("/api/batch", { operations: operations });
+        });
+        showToast(data.message || "일괄 저장 완료", "success");
+        delete recordCache[def.master];
+        delete optionCache[def.master];
+        delete recordCache[childDef.table];
+        delete optionCache[childDef.table];
+        if (gdef) { delete recordCache[gdef.table]; delete optionCache[gdef.table]; }
+        setTimeout(function () { location.reload(); }, 700);
+      } catch (e) {
+        showToast("일괄 저장 실패: " + (e.message || e), "error");
+      }
+    }
+
+    async function performGroupDelete() {
+      if (!groupState || !groupState.master.existing) return;
+      var def = GROUP_DEFS[groupState.kind];
+      var childDef = def.child;
+      var gdef = childDef.grandchild;
+      var masterSchema = SCHEMA_BY_KEY[def.master];
+      var childSchema = SCHEMA_BY_KEY[childDef.table];
+      var masterPkVal = groupState.master.record[masterSchema.pk];
+
+      var confirmed = window.confirm(
+        groupLabel(def.master) + "(" + masterPkVal + ")와(과) 연결된 하위 데이터를 전부 삭제합니다. " +
+        "되돌릴 수 없습니다. 계속할까요?"
+      );
+      if (!confirmed) return;
+
+      var operations = [];
+      groupState.children.forEach(function (c) {
+        if (!c.existing) return;
+        if (gdef) {
+          (c.grand || []).forEach(function (g) {
+            if (g.existing) operations.push({ table: gdef.table, action: "delete", pk: g.record[SCHEMA_BY_KEY[gdef.table].pk] });
+          });
+        }
+        operations.push({ table: childDef.table, action: "delete", pk: c.record[childSchema.pk] });
+      });
+      operations.push({ table: def.master, action: "delete", pk: masterPkVal });
+
+      try {
+        var data = await withBusy(deleteBtn, "삭제 중...", function () {
+          return apiPost("/api/batch", { operations: operations });
+        });
+        showToast(data.message || "그룹 삭제 완료", "success");
+        delete recordCache[def.master];
+        delete optionCache[def.master];
+        delete recordCache[childDef.table];
+        delete optionCache[childDef.table];
+        if (gdef) { delete recordCache[gdef.table]; delete optionCache[gdef.table]; }
+        groupState = newGroupState(def.key);
+        setTimeout(function () { location.reload(); }, 700);
+      } catch (e) {
+        showToast("그룹 삭제 실패: " + (e.message || e), "error");
+      }
+    }
+
     async function renderMode(forceReload) {
       var tableName = currentTable();
       fields.innerHTML = "";
       formState.loadedPk = null;
       help.textContent = "저장하면 지금 열려 있는(또는 열려 있지 않으면 새로 열리는) 엑셀 파일에 바로 반영됩니다.";
       await prepareOptionsForTable(tableName, !!forceReload);
+      await getTableRecords(tableName, !!forceReload);
       renderToolbar(tableName);
       renderFields(tableName);
       updateDeleteButtonState();
@@ -351,7 +866,7 @@
             modeSel.appendChild(el("option", { value: key }, [TABLE_META[key] ? TABLE_META[key].label : key]));
           });
         }
-        await renderMode(true);
+        await switchMode("single");
       } catch (e) {
         showToast("화면 로딩 실패: " + (e.message || e), "error");
       }
@@ -413,13 +928,11 @@
         showToast(data.message || "저장 완료", "success");
 
         delete optionCache[tableName];
+        delete recordCache[tableName];
         await renderMode(true);
         fillRecord(record);
         formState.loadedPk = record[pkName] || null;
         updateDeleteButtonState();
-
-        var loadSel = document.getElementById("ppaf-load-select");
-        if (loadSel) loadSel.value = record[pkName] || "";
 
         setTimeout(function () { location.reload(); }, 700);
       } catch (e) {
@@ -507,6 +1020,7 @@
         closeDeleteConfirm();
         clearRecord();
         delete optionCache[tableName];
+        delete recordCache[tableName];
         await renderMode(true);
         setTimeout(function () { location.reload(); }, 700);
       } catch (e) {
@@ -551,7 +1065,34 @@
         ".ppaf-btn.danger{background:var(--ppaf-bg);border-color:var(--ppaf-danger);color:var(--ppaf-danger)}" +
         ".ppaf-btn.danger:hover:not(:disabled){background:var(--ppaf-danger-bg)}" +
         ".ppaf-required::after{content:' *';color:var(--ppaf-danger);font-weight:800}" +
-        ".ppaf-toolbar{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:end;margin:8px 0 16px;grid-column:1 / -1}" +
+        ".ppaf-toolbar-wrap{display:flex;flex-direction:column;gap:6px;margin:4px 0 18px;grid-column:1 / -1}" +
+        ".ppaf-picker-label{font-size:11.5px;font-weight:700;color:var(--ppaf-sub);margin-top:4px}" +
+        ".ppaf-picker{border:1.5px solid var(--ppaf-line);border-radius:10px;padding:10px;background:rgba(11,133,119,.03)}" +
+        ".ppaf-picker-controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}" +
+        ".ppaf-picker-col{flex:0 0 auto;min-width:120px}" +
+        ".ppaf-picker-q{flex:1 1 220px}" +
+        ".ppaf-picker-results{max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:4px}" +
+        ".ppaf-picker-item{text-align:left;border:1px solid transparent;background:var(--ppaf-bg);color:var(--ppaf-ink);border-radius:7px;padding:8px 10px;font-size:12.5px;cursor:pointer;transition:background .12s ease,border-color .12s ease}" +
+        ".ppaf-picker-item:hover{background:rgba(11,133,119,.1);border-color:var(--ppaf-teal)}" +
+        ".ppaf-picker-hint,.ppaf-picker-more{color:var(--ppaf-sub);font-size:12px;padding:6px 2px}" +
+        ".ppaf-modeswitch{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}" +
+        ".ppaf-modebtn{border:1.5px solid var(--ppaf-line);background:var(--ppaf-bg);color:var(--ppaf-sub);border-radius:999px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer;transition:all .12s ease}" +
+        ".ppaf-modebtn.on{background:var(--ppaf-teal);border-color:var(--ppaf-teal);color:#fff}" +
+        ".ppaf-modebtn:hover:not(.on){border-color:var(--ppaf-teal);color:var(--ppaf-ink)}" +
+        ".ppaf-grouptitle{font-size:13.5px;font-weight:800;margin:6px 0 10px}" +
+        ".ppaf-grouptitle.small{font-size:12px;margin:0}" +
+        ".ppaf-group-headrow{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}" +
+        ".ppaf-group-children{margin-top:18px;padding-top:14px;border-top:1px dashed var(--ppaf-line)}" +
+        ".ppaf-childcard{border:1.5px solid var(--ppaf-line);border-radius:12px;padding:12px 14px;margin-bottom:12px;background:rgba(11,133,119,.02)}" +
+        ".ppaf-childcard.deleted{background:var(--ppaf-danger-bg);border-color:var(--ppaf-danger)}" +
+        ".ppaf-childcard-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}" +
+        ".ppaf-childcard-note{color:var(--ppaf-danger);font-size:12.5px;font-weight:600}" +
+        ".ppaf-badge{font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:999px}" +
+        ".ppaf-badge.existing{background:rgba(11,133,119,.14);color:var(--ppaf-teal-d)}" +
+        ".ppaf-badge.new{background:rgba(154,107,0,.14);color:#9a6b00}" +
+        ".ppaf-grandwrap{margin-top:10px;padding:10px;border:1px dashed var(--ppaf-line);border-radius:10px}" +
+        ".ppaf-grandcard{border:1px solid var(--ppaf-line);border-radius:9px;padding:10px 12px;margin-bottom:8px;background:var(--ppaf-bg)}" +
+        ".ppaf-grandcard.deleted{background:var(--ppaf-danger-bg);border-color:var(--ppaf-danger)}" +
         ".ppaf-spinner{display:inline-block;width:13px;height:13px;border-radius:50%;border:2px solid rgba(255,255,255,.5);border-top-color:#fff;animation:ppaf-spin .7s linear infinite;vertical-align:-2px}" +
         ".ppaf-btn:not(.primary):not(.danger) .ppaf-spinner{border-color:rgba(11,133,119,.3);border-top-color:var(--ppaf-teal)}" +
         "@keyframes ppaf-spin{to{transform:rotate(360deg)}}" +
@@ -574,7 +1115,7 @@
         ".ppaf-confirm-error{color:var(--ppaf-danger)}" +
         ".ppaf-confirm-loading{color:var(--ppaf-sub)}" +
         ".ppaf-confirm-foot{display:flex;justify-content:flex-end;gap:8px;padding:16px 20px 20px}" +
-        "@media(max-width:640px){.ppaf-modal{right:12px;bottom:72px;width:calc(100vw - 24px)}.ppaf-fields{grid-template-columns:1fr}.ppaf-toolbar{grid-template-columns:1fr}.ppaf-open{right:16px;bottom:16px;padding:12px 16px;font-size:13px}}"
+        "@media(max-width:640px){.ppaf-modal{right:12px;bottom:72px;width:calc(100vw - 24px)}.ppaf-fields{grid-template-columns:1fr}.ppaf-picker-controls{flex-direction:column}.ppaf-open{right:16px;bottom:16px;padding:12px 16px;font-size:13px}}"
     });
 
     var openBtn = el("button", { class: "ppaf-open", type: "button" }, ["✎ 간편 입력/저장"]);
@@ -593,10 +1134,23 @@
     var bodyWrap = el("div", { class: "ppaf-body" });
     var fields = el("div", { class: "ppaf-fields" });
 
+    var singleWrap = el("div", { class: "ppaf-singlewrap" });
+    singleWrap.appendChild(modeSel);
+    singleWrap.appendChild(help);
+    singleWrap.appendChild(fields);
+
+    var groupWrap = el("div", { class: "ppaf-groupwrap" });
+    groupWrap.style.display = "none";
+
+    var modeBtnSingle = el("button", { class: "ppaf-modebtn on", type: "button" }, ["개별입력"]);
+    var modeBtnA = el("button", { class: "ppaf-modebtn", type: "button" }, [GROUP_DEFS.groupA.label]);
+    var modeBtnB = el("button", { class: "ppaf-modebtn", type: "button" }, [GROUP_DEFS.groupB.label]);
+    var modeSwitchWrap = el("div", { class: "ppaf-modeswitch" }, [modeBtnSingle, modeBtnA, modeBtnB]);
+
     modal.appendChild(el("div", { class: "ppaf-head" }, [el("div", { class: "ppaf-title" }, ["간편 입력/저장 (엑셀에 바로 반영)"]), closeBtn]));
-    bodyWrap.appendChild(modeSel);
-    bodyWrap.appendChild(help);
-    bodyWrap.appendChild(fields);
+    bodyWrap.appendChild(modeSwitchWrap);
+    bodyWrap.appendChild(singleWrap);
+    bodyWrap.appendChild(groupWrap);
     modal.appendChild(bodyWrap);
     modal.appendChild(el("div", { class: "ppaf-foot" }, [clearBtn, deleteBtn, rebuildBtn, saveBtn]));
 
@@ -623,16 +1177,32 @@
     openBtn.addEventListener("click", function () { openModal().catch(console.error); });
     closeBtn.addEventListener("click", closeModal);
     backdrop.addEventListener("click", closeModal);
-    clearBtn.addEventListener("click", clearRecord);
+    clearBtn.addEventListener("click", function () {
+      if (appMode === "single") {
+        clearRecord();
+      } else {
+        groupState = newGroupState(appMode);
+        renderGroup().catch(console.error);
+      }
+    });
     rebuildBtn.addEventListener("click", function () { rebuildDashboard().catch(console.error); });
-    saveBtn.addEventListener("click", function () { saveCurrentTable().catch(console.error); });
-    deleteBtn.addEventListener("click", function () { openDeleteConfirm().catch(console.error); });
+    saveBtn.addEventListener("click", function () {
+      if (appMode === "single") saveCurrentTable().catch(console.error);
+      else saveGroup().catch(console.error);
+    });
+    deleteBtn.addEventListener("click", function () {
+      if (appMode === "single") openDeleteConfirm().catch(console.error);
+      else performGroupDelete().catch(console.error);
+    });
     confirmCancelBtn.addEventListener("click", closeDeleteConfirm);
     confirmBackdrop.addEventListener("click", closeDeleteConfirm);
     confirmDeleteBtn.addEventListener("click", function () { performDelete().catch(console.error); });
     modeSel.addEventListener("change", function () {
       renderMode(true).catch(function (e) { showToast("목록 로딩 실패: " + (e.message || e), "error"); });
     });
+    modeBtnSingle.addEventListener("click", function () { switchMode("single").catch(console.error); });
+    modeBtnA.addEventListener("click", function () { switchMode("groupA").catch(console.error); });
+    modeBtnB.addEventListener("click", function () { switchMode("groupB").catch(console.error); });
 
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Escape") return;

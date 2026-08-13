@@ -14,11 +14,16 @@ import json
 import os
 from typing import Optional
 
-from ppa_schema import TABLES
+from ppa_schema import TABLE_BY_KEY, TABLES
 
 # 변경 상세는 화면 표시용이라, 대량 편집이 있었을 때 HTML이 과도하게
 # 커지지 않도록 상한을 둡니다(집계 건수는 상한과 무관하게 정확합니다).
 MAX_DETAILS = 1000
+
+# 이번 한 번의 생성에서 바뀐 것만 보여주는 위 MAX_DETAILS와 달리, 이건 여러 번의
+# 생성에 걸쳐 계속 쌓이는 "전체 변경 이력"의 상한입니다 - 최근 1,000건만 남기고
+# 오래된 것부터 버립니다(집계가 아니라 실제 항목 개수 기준).
+CHANGELOG_MAX = 1000
 
 
 def _s(v: object) -> str:
@@ -144,3 +149,94 @@ def compute_changes(tables_data: dict[str, list[dict]], prev: Optional[dict]) ->
         changes["total_changed"] += len(changed_pks)
 
     return changes, marks
+
+
+def default_changelog_path(out_path: str) -> str:
+    stem, _ = os.path.splitext(out_path)
+    return stem + "_changelog.json"
+
+
+def load_changelog(path: str) -> list[dict]:
+    if not path or not os.path.exists(path):
+        return []
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError) as exc:
+        print(f"[알림] 이전 변경 이력을 읽지 못해 새로 시작합니다: {exc}")
+        return []
+    return data if isinstance(data, list) else []
+
+
+def build_changelog_entries(
+    tables_data: dict[str, list[dict]], changes: dict, marks: dict, generated_at: str
+) -> list[dict]:
+    """이번 생성에서 감지된 추가/수정/삭제를, 누적 이력에 그대로 추가할 수 있는
+    평평한 항목 리스트로 만듭니다(marks는 "added"/"changed"만, 삭제는
+    changes["removed_rows"]에 전체 스냅샷 값으로 들어있음)."""
+    entries: list[dict] = []
+
+    for (table_key, row_idx), mark in marks.items():
+        schema = TABLE_BY_KEY.get(table_key)
+        if not schema:
+            continue
+        row = tables_data.get(table_key, [])[row_idx]
+        pk_val = _s(row.get(schema.pk))
+
+        if mark["change"] == "added":
+            entries.append(
+                {
+                    "generated_at": generated_at,
+                    "kind": "added",
+                    "table": table_key,
+                    "pk": pk_val,
+                    "cells": {c: _s(row.get(c)) for c in schema.columns},
+                }
+            )
+        elif mark["change"] == "changed":
+            entries.append(
+                {
+                    "generated_at": generated_at,
+                    "kind": "changed",
+                    "table": table_key,
+                    "pk": pk_val,
+                    "changed_cols": mark["changed_cols"],
+                    "prev": mark["prev"],
+                    "cells": {c: _s(row.get(c)) for c in mark["changed_cols"]},
+                }
+            )
+
+    for table_key, rows in (changes.get("removed_rows") or {}).items():
+        schema = TABLE_BY_KEY.get(table_key)
+        if not schema:
+            continue
+        for cells in rows:
+            entries.append(
+                {
+                    "generated_at": generated_at,
+                    "kind": "removed",
+                    "table": table_key,
+                    "pk": _s(cells.get(schema.pk)),
+                    "cells": dict(cells),
+                }
+            )
+
+    return entries
+
+
+def append_changelog(path: str, new_entries: list[dict], cap: int = CHANGELOG_MAX) -> list[dict]:
+    """기존 이력 뒤에 새 항목을 붙이고, cap을 넘으면 오래된 것부터 버립니다.
+
+    저장까지 하고, 최종 저장된(=화면에 그대로 쓸 수 있는) 리스트를 돌려줍니다.
+    """
+    combined = load_changelog(path) + new_entries
+    if len(combined) > cap:
+        combined = combined[-cap:]
+
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(combined, f, ensure_ascii=False)
+    except OSError as exc:
+        print(f"[알림] 변경 이력을 저장하지 못했습니다(다음 실행까지는 화면에서만 보임): {exc}")
+
+    return combined

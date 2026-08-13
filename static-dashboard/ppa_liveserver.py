@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import os
 import sys
@@ -74,7 +75,15 @@ class App:
     def rebuild(self) -> dict:
         """엑셀에서 6개 표를 다시 읽어 PPA현황.html 을 갱신합니다."""
         from build_dashboard import build_payload, default_snapshot_path
-        from ppa_changes import compute_changes, load_snapshot, save_snapshot
+        from ppa_changes import (
+            append_changelog,
+            build_changelog_entries,
+            compute_changes,
+            default_changelog_path,
+            load_changelog,
+            load_snapshot,
+            save_snapshot,
+        )
         from ppa_dashboard_render import render_dashboard
 
         with self._rebuild_lock:
@@ -83,7 +92,17 @@ class App:
             snapshot_path = default_snapshot_path(self.html_path)
             prev = load_snapshot(snapshot_path)
             changes, marks = compute_changes(tables_data, prev)
-            payload = build_payload(tables_data, is_demo=False, changes=changes, marks=marks)
+
+            changelog_path = default_changelog_path(self.html_path)
+            changelog = load_changelog(changelog_path)
+            generated_at = datetime.datetime.now().isoformat(timespec="seconds")
+            if changes.get("has_prev"):
+                new_entries = build_changelog_entries(tables_data, changes, marks, generated_at)
+                if new_entries:
+                    changelog = append_changelog(changelog_path, new_entries)
+
+            payload = build_payload(tables_data, is_demo=False, changes=changes, marks=marks, changelog=changelog)
+            payload["generated_at"] = generated_at
 
             with open(self.html_path, "w", encoding="utf-8") as f:
                 f.write(render_dashboard(payload))
@@ -115,6 +134,14 @@ class App:
         payload = self.rebuild()
         return {
             "delete": result,
+            "validation_errors": payload["validation"]["total_errors"],
+        }
+
+    def batch_and_rebuild(self, operations: list[dict]) -> dict:
+        result = self.bridge.batch_apply(operations)
+        payload = self.rebuild()
+        return {
+            "batch": result,
             "validation_errors": payload["validation"]["total_errors"],
         }
 
@@ -163,6 +190,19 @@ def make_handler(app: App):
                     return
                 try:
                     self._send_json({"ok": True, "options": app.bridge.get_options(table)})
+                except ExcelComError as e:
+                    self._send_json({"ok": False, "error": str(e)})
+                except Exception as e:
+                    self._send_json({"ok": False, "error": f"예상하지 못한 오류: {e}"})
+                return
+
+            if path == "/api/records":
+                table = (qs.get("table") or [""])[0]
+                if table not in TABLE_BY_KEY:
+                    self._send_json({"ok": False, "error": "지원하지 않는 표입니다."})
+                    return
+                try:
+                    self._send_json({"ok": True, "rows": app.bridge.read_table(table)["rows"]})
                 except ExcelComError as e:
                     self._send_json({"ok": False, "error": str(e)})
                 except Exception as e:
@@ -239,6 +279,24 @@ def make_handler(app: App):
                 try:
                     result = app.delete_and_rebuild(table, pk)
                     self._send_json({"ok": True, **result, "message": "엑셀에서 삭제하고 대시보드를 갱신했습니다."})
+                except ExcelComError as e:
+                    self._send_json({"ok": False, "error": str(e)})
+                except Exception as e:
+                    self._send_json({"ok": False, "error": f"예상하지 못한 오류: {e}"})
+                return
+
+            if path == "/api/batch":
+                operations = payload.get("operations") or []
+                if not isinstance(operations, list) or not operations:
+                    self._send_json({"ok": False, "error": "적용할 작업이 없습니다."})
+                    return
+                bad = [op for op in operations if str(op.get("table") or "") not in TABLE_BY_KEY]
+                if bad:
+                    self._send_json({"ok": False, "error": "지원하지 않는 표가 포함돼 있습니다."})
+                    return
+                try:
+                    result = app.batch_and_rebuild(operations)
+                    self._send_json({"ok": True, **result, "message": "일괄 작업을 엑셀에 반영하고 대시보드를 갱신했습니다."})
                 except ExcelComError as e:
                     self._send_json({"ok": False, "error": str(e)})
                 except Exception as e:

@@ -28,7 +28,15 @@ import zipfile
 # import하려면 이 폴더를 직접 sys.path에 추가해줘야 합니다.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from ppa_changes import compute_changes, load_snapshot, save_snapshot
+from ppa_changes import (
+    append_changelog,
+    build_changelog_entries,
+    compute_changes,
+    default_changelog_path,
+    load_changelog,
+    load_snapshot,
+    save_snapshot,
+)
 from ppa_dashboard_render import render_dashboard
 from ppa_loader import load_from_csv_dir, load_from_xlsm
 from ppa_schema import TABLES, validate
@@ -85,6 +93,7 @@ def build_payload(
     is_demo: bool,
     changes: dict | None = None,
     marks: dict | None = None,
+    changelog: list | None = None,
 ) -> dict:
     validation = validate(tables_data)
     marks = marks or {}
@@ -126,6 +135,7 @@ def build_payload(
             "errors": validation["errors"],
         },
         "changes": changes or {"has_prev": False},
+        "changelog": changelog or [],
     }
 
 
@@ -173,7 +183,17 @@ def main():
     prev = load_snapshot(snapshot_path)
     changes, marks = compute_changes(tables_data, prev)
 
-    payload = build_payload(tables_data, is_demo=False, changes=changes, marks=marks)
+    changelog_path = default_changelog_path(args.out)
+    changelog = load_changelog(changelog_path)
+
+    generated_at = datetime.datetime.now().isoformat(timespec="seconds")
+    if changes.get("has_prev") and not args.no_snapshot:
+        new_entries = build_changelog_entries(tables_data, changes, marks, generated_at)
+        if new_entries:
+            changelog = append_changelog(changelog_path, new_entries)
+
+    payload = build_payload(tables_data, is_demo=False, changes=changes, marks=marks, changelog=changelog)
+    payload["generated_at"] = generated_at
 
     with open(args.out, "w", encoding="utf-8") as f:
         f.write(render_dashboard(payload))

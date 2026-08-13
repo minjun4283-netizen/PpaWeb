@@ -19,7 +19,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from build_dashboard import build_payload
-from ppa_changes import compute_changes
+from ppa_changes import build_changelog_entries, compute_changes
 from ppa_dashboard_render import render_dashboard
 
 tables_data = {
@@ -102,7 +102,20 @@ def fake_previous(cur: dict) -> dict:
 
 if __name__ == "__main__":
     changes, marks = compute_changes(tables_data, fake_previous(tables_data))
-    payload = build_payload(tables_data, is_demo=True, changes=changes, marks=marks)
+    generated_at = datetime.datetime.now().isoformat(timespec="seconds")
+    changelog = build_changelog_entries(tables_data, changes, marks, generated_at)
+    # 누적 이력 화면 시연용으로, 이번 건 말고도 며칠 전 생성 때 있었던 것처럼
+    # 보이는 가짜 항목 몇 개를 앞에 더 붙입니다.
+    older = (datetime.datetime.now() - datetime.timedelta(days=3)).isoformat(timespec="seconds")
+    changelog = [
+        {"generated_at": older, "kind": "added", "table": "T_수요기업",
+         "pk": "D002", "cells": {"수요기업ID": "D002", "기업명": "한빛반도체㈜"}},
+        {"generated_at": older, "kind": "changed", "table": "T_판매계약",
+         "pk": "판매-D002-2026-01", "changed_cols": ["판매단가(원/kWh)"],
+         "prev": {"판매단가(원/kWh)": "160"}, "cells": {"판매단가(원/kWh)": "165"}},
+    ] + changelog
+    payload = build_payload(tables_data, is_demo=True, changes=changes, marks=marks, changelog=changelog)
+    payload["generated_at"] = generated_at
     with open("PPA현황_데모.html", "w", encoding="utf-8") as f:
         f.write(render_dashboard(payload))
     print("생성: PPA현황_데모.html")

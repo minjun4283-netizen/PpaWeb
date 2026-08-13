@@ -152,6 +152,9 @@ class ExcelBridge:
     def delete_record(self, table_key: str, pk_value: str, force: bool = False) -> dict:
         return self._call(self._delete_record, table_key, pk_value, force)
 
+    def batch_apply(self, operations: list[dict]) -> dict:
+        return self._call(self._batch_apply, operations)
+
     def shutdown(self) -> None:
         self._jobs.put(None)
 
@@ -411,7 +414,12 @@ class ExcelBridge:
         return options
 
     # ---- 검증 (엑셀에 쓰기 전에 확인 — VBA 입력폼과 동일한 최소 기준) ----
-    def _validate(self, table_key: str, record: dict) -> list[str]:
+    def _validate(self, table_key: str, record: dict, extra_valid_fk: dict | None = None) -> list[str]:
+        """extra_valid_fk: {표이름: {아직 저장 전이지만 이번 배치에서 같이
+        생기는 PK, ...}} - 그룹 일괄 입력에서 "새 부모 + 그 부모를 참조하는
+        새 자식"을 한 배치로 같이 만들 때, 부모가 아직 엑셀에 없어도 FK
+        검증을 통과시키기 위해 씁니다."""
+        extra_valid_fk = extra_valid_fk or {}
         schema = TABLE_BY_KEY[table_key]
         errors = []
 
@@ -428,6 +436,7 @@ class ExcelBridge:
             ref_values = {
                 str(r.get(ref_schema.pk) or "").strip() for r in self._read_table(ref_key)["rows"]
             }
+            ref_values |= extra_valid_fk.get(ref_key, set())
             if val not in ref_values:
                 errors.append(f"{fk_col} 값 '{val}'을(를) {ref_key}에서 찾을 수 없습니다.")
 
@@ -461,8 +470,16 @@ class ExcelBridge:
         if errors:
             raise ExcelComError(" / ".join(errors))
 
-        pk_value = str(record.get(schema.pk) or "").strip()
         wb = self._ensure_workbook()
+        result = self._write_row(wb, table_key, record)
+        wb.Save()
+        return result
+
+    def _write_row(self, wb, table_key: str, record: dict) -> dict:
+        """검증은 이미 끝났다고 보고 실제로 셀에 씁니다(저장은 호출자 책임 -
+        배치 작업은 마지막에 한 번만 저장해야 해서 여기서 매번 저장하지 않음)."""
+        schema = TABLE_BY_KEY[table_key]
+        pk_value = str(record.get(schema.pk) or "").strip()
         ws = self._worksheet(wb, table_key)
 
         values, start_row, start_col, col_at, target_row = self._locate_row(ws, schema, pk_value)
@@ -481,25 +498,40 @@ class ExcelBridge:
                 continue
             ws.Cells(target_row, abs_col).Value = _coerce_for_excel(col, record.get(col, ""))
 
-        wb.Save()
-
         return {"action": action, "table": table_key, "pk_value": pk_value, "row": target_row}
 
     # ---- 참조 확인 (삭제 전에 다른 표가 이 PK를 쓰고 있는지) ----
-    def _referencing_records(self, table_key: str, pk_value: str) -> list[dict]:
+    def _referencing_rows(self, table_key: str, pk_value: str) -> list[dict]:
+        """참조하는 개별 행까지 돌려줍니다(표별 집계가 아니라) - 배치 삭제에서
+        "이번 배치에서 같이 지워지는 행"은 걸림돌에서 빼기 위해 필요합니다."""
         target = str(pk_value or "").strip()
-        refs: list[dict] = []
+        out: list[dict] = []
 
         for t in TABLES:
             for fk_col, ref_key in t.fk.items():
                 if ref_key != table_key:
                     continue
-                rows = self._read_table(t.key)["rows"]
-                count = sum(1 for r in rows if str(r.get(fk_col) or "").strip() == target)
-                if count > 0:
-                    refs.append({"table": t.key, "label": t.label, "fk_col": fk_col, "count": count})
+                for r in self._read_table(t.key)["rows"]:
+                    if str(r.get(fk_col) or "").strip() == target:
+                        out.append({"table": t.key, "fk_col": fk_col, "pk": str(r.get(t.pk) or "").strip()})
 
-        return refs
+        return out
+
+    def _referencing_records(
+        self, table_key: str, pk_value: str, exclude: set | None = None
+    ) -> list[dict]:
+        exclude = exclude or set()
+        rows = [r for r in self._referencing_rows(table_key, pk_value) if (r["table"], r["pk"]) not in exclude]
+
+        agg: dict[tuple[str, str], int] = {}
+        for r in rows:
+            key = (r["table"], r["fk_col"])
+            agg[key] = agg.get(key, 0) + 1
+
+        return [
+            {"table": tk, "label": TABLE_BY_KEY[tk].label, "fk_col": fc, "count": c}
+            for (tk, fc), c in agg.items()
+        ]
 
     # ---- 삭제 ----
     def _delete_record(self, table_key: str, pk_value: str, force: bool = False) -> dict:
@@ -517,6 +549,18 @@ class ExcelBridge:
             )
 
         wb = self._ensure_workbook()
+        result = self._delete_row(wb, table_key, pk_value)
+        wb.Save()
+        return result
+
+    def _delete_row(self, wb, table_key: str, pk_value: str) -> dict:
+        """참조 검사는 이미 끝났다고 보고 실제로 행을 지웁니다(저장은 호출자
+        책임). 표(ListObject) 안에 있는 행이든 아니든, 행 전체 삭제는 엑셀이
+        알아서 표 범위/서식을 줄이고 나머지 행을 한 칸씩 끌어올립니다 - 별도의
+        ListObject 전용 삭제 API가 필요 없습니다. 이 시트들은 검증/파생값을
+        전부 이 시스템이 계산하고 엑셀 수식을 쓰지 않으므로(스키마 설계상),
+        셀 참조가 깨질 걱정도 없습니다."""
+        schema = TABLE_BY_KEY[table_key]
         ws = self._worksheet(wb, table_key)
         values, start_row, start_col, col_at, target_row = self._locate_row(ws, schema, pk_value)
 
@@ -525,15 +569,79 @@ class ExcelBridge:
                 f"{schema.pk} '{pk_value}'을(를) {table_key}에서 찾지 못했습니다(이미 삭제됐을 수 있습니다)."
             )
 
-        # 표(ListObject) 안에 있는 행이든 아니든, 행 전체 삭제는 엑셀이 알아서
-        # 표 범위/서식을 줄이고 나머지 행을 한 칸씩 끌어올립니다 - 별도의
-        # ListObject 전용 삭제 API가 필요 없습니다. 이 시트들은 검증/파생값을
-        # 전부 이 시스템이 계산하고 엑셀 수식을 쓰지 않으므로(스키마 설계상),
-        # 셀 참조가 깨질 걱정도 없습니다.
         ws.Rows(target_row).Delete()
-        wb.Save()
-
         return {"action": "deleted", "table": table_key, "pk_value": pk_value}
+
+    # ---- 일괄(배치) 작업: 여러 표에 걸친 저장/삭제를 한 번에 검증 → 전부 적용
+    # → 마지막에 한 번만 저장. 검증에서 하나라도 실패하면 아무것도 쓰지
+    # 않습니다("트랜잭션"에 가장 가까운, COM으로 실제 구현 가능한 형태). ----
+    def _batch_apply(self, operations: list[dict]) -> dict:
+        if not operations:
+            raise ExcelComError("적용할 작업이 없습니다.")
+
+        scheduled_deletes = {
+            (op.get("table"), str(op.get("pk") or "").strip())
+            for op in operations
+            if op.get("action") == "delete"
+        }
+
+        # 배치 안에서 "이번에 새로 같이 생기는" PK들 - 아직 저장 전이라도
+        # 부모+자식을 한 번에 새로 만들 때 FK 검증을 통과시키기 위함.
+        batch_new_pks: dict[str, set] = {}
+        for op in operations:
+            if op.get("action") != "save":
+                continue
+            table = op.get("table")
+            schema = TABLE_BY_KEY.get(table)
+            if not schema:
+                continue
+            pk_value = str((op.get("record") or {}).get(schema.pk) or "").strip()
+            if pk_value:
+                batch_new_pks.setdefault(table, set()).add(pk_value)
+
+        errors: list[str] = []
+        for idx, op in enumerate(operations, start=1):
+            table = op.get("table")
+            action = op.get("action")
+
+            if table not in TABLE_BY_KEY:
+                errors.append(f"{idx}번째 작업: 지원하지 않는 표입니다 ({table}).")
+                continue
+
+            if action == "save":
+                errs = self._validate(table, op.get("record") or {}, extra_valid_fk=batch_new_pks)
+                if errs:
+                    errors.append(f"{idx}번째 작업({TABLE_BY_KEY[table].label}): " + " / ".join(errs))
+            elif action == "delete":
+                pk_value = str(op.get("pk") or "").strip()
+                if not pk_value:
+                    errors.append(f"{idx}번째 작업({TABLE_BY_KEY[table].label}): 삭제할 PK가 없습니다.")
+                    continue
+                refs = self._referencing_records(table, pk_value, exclude=scheduled_deletes)
+                if refs:
+                    detail = ", ".join(f"{r['label']} {r['count']}건({r['fk_col']})" for r in refs)
+                    errors.append(
+                        f"{idx}번째 작업({TABLE_BY_KEY[table].label} {pk_value}): "
+                        f"이 배치 밖에서 참조하고 있어 삭제할 수 없습니다 - {detail}."
+                    )
+            else:
+                errors.append(f"{idx}번째 작업: 알 수 없는 action '{action}' 입니다.")
+
+        if errors:
+            raise ExcelComError(
+                "일괄 작업을 적용하지 못했습니다(하나도 반영되지 않았습니다):\n" + "\n".join(errors)
+            )
+
+        wb = self._ensure_workbook()
+        results = []
+        for op in operations:
+            if op.get("action") == "save":
+                results.append(self._write_row(wb, op["table"], op.get("record") or {}))
+            else:
+                results.append(self._delete_row(wb, op["table"], str(op.get("pk") or "").strip()))
+
+        wb.Save()
+        return {"results": results}
 
     def _append_row_target(self, ws, start_row: int, used_row_count: int) -> int:
         """새 행을 추가할 위치. 시트에 표(ListObject)가 있으면 표를 확장해서
