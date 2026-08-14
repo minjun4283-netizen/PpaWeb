@@ -2249,12 +2249,12 @@ function tHome(){
     ${kpi(SOON_DAYS+'일 내 공급기한',nf(bExp+sExp,0),`구매 ${bExp} · 판매 ${sExp}`,'')}
     </div>
     ${statusPanel()}
+    ${trendPanel()}
     <div class="grid2">
       ${panel('발전원별 설비용량 비중','',mixBars)}
       ${actionItemsPanel()}
     </div>
     ${capacityGapPanel()}
-    ${trendPanel()}
     ${schemaDiagram()?panel('표 관계 구조','박스를 누르면 해당 표로 이동합니다',schemaDiagram()):''}</section>`;
 }
 
