@@ -146,22 +146,23 @@ section{margin-top:20px}
 #view{animation:fadein .15s ease}
 @keyframes fadein{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:none}}
 
-/* KPI */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;margin-bottom:16px}
-.kpi{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 15px;display:flex;flex-direction:column;gap:3px;text-align:left;box-shadow:var(--shadow-sm)}
+/* KPI — 엔터프라이즈 SaaS 대시보드 느낌의 타이포그래피 계층: 라벨은
+   작고 옅은 대문자 eyebrow, 값은 크고 굵게, 보조문구는 더 작고 옅게. */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;margin-bottom:18px}
+.kpi{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 17px;display:flex;flex-direction:column;gap:5px;text-align:left;box-shadow:var(--shadow-sm)}
 .kpi.accent{background:var(--teal);border-color:var(--teal)}
 .kpi.accent .kk,.kpi.accent .ks{color:#CDE8E6}.kpi.accent .kv{color:#fff}
 .kpi.warn{background:var(--fail);border-color:var(--fail)}
 .kpi.warn .kk,.kpi.warn .ks{color:#F9DEDC}.kpi.warn .kv{color:#fff}
 .kpi.warn::after{content:'⚠';position:absolute;top:11px;right:13px;font-size:13px;opacity:.85;line-height:1}
 .kpi.clickable{cursor:pointer}.kpi.clickable:hover{border-color:var(--teal);box-shadow:var(--shadow)}
-.kk{font-size:11.5px;color:var(--sub);font-weight:600}
-.kv{font-size:21px;font-weight:700}
-.ks{font-size:11px;color:var(--sub)}
+.kk{font-size:10.5px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.045em}
+.kv{font-size:23px;font-weight:800;letter-spacing:-.015em}
+.ks{font-size:11.5px;color:var(--sub)}
 
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow-sm)}
-.ph{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap}
-.ph h3{font-size:14.5px;margin:0;font-weight:700}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:18px;box-shadow:var(--shadow-sm)}
+.ph{display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.ph h3{font-size:15px;margin:0;font-weight:800;letter-spacing:-.01em}
 .ph .sub{font-size:12px;color:var(--sub);margin-left:auto}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 
@@ -292,8 +293,15 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 .insight p .dim{color:#CDE8E6;font-weight:600}
 @media(max-width:640px){.insight p{font-size:14.5px}}
 
-.unsecrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+.unsecrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 5px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}
 .unsecrow:last-child{border-bottom:none}.unsecrow:hover{background:var(--paper)}
+.unsecrow.isok{opacity:.6}
+
+/* 우선순위 조치 필요 항목 — 카테고리별 그룹핑 */
+.actionsummary{display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 14px}
+.actioncat+.actioncat{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.actioncathead{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:var(--sub);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.actioncatcount{font-size:10.5px;font-weight:700;color:var(--ink);background:var(--paper);border-radius:20px;padding:1px 8px;letter-spacing:0;text-transform:none}
 .mixrow{display:flex;align-items:center;gap:8px;padding:6px 0}
 .mixdot{width:9px;height:9px;border-radius:3px;flex-shrink:0}
 .mixlabel{width:70px;font-size:12.5px;color:var(--sub);flex-shrink:0}
@@ -323,6 +331,11 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 
 /* 년월별 추이 */
 .trendtools{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.trendrange{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;font-size:12px;color:var(--sub)}
+.trendrange label{display:flex;align-items:center;gap:6px;font-weight:600}
+.trendrangeinput{font-family:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)}
+.trendrangesep{color:var(--mute)}
+.trendrangenote{font-size:11px;color:var(--amber)}
 .segtoggle{display:inline-flex;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:2px}
 .segtoggle button{font-size:12px;font-weight:600;color:var(--sub);background:none;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;white-space:nowrap}
 .segtoggle button.on{background:var(--teal);color:#fff}
@@ -404,7 +417,7 @@ footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-si
 @media print{
   @page{size:A4 landscape;margin:11mm}
   .sidebar,.sidebarbackdrop,.topbar,.menubtn,.gsearchwrap,.toolbar,.filterbar,.chiprow,.candlist,.subtabbar,
-  .pager,.btn,.drop,.iconbtn,.pill,#globalResults,#toast,.backdrop,footer,.segtoggle{display:none!important}
+  .pager,.btn,.drop,.iconbtn,.pill,#globalResults,#toast,.backdrop,footer,.segtoggle,.trendrange{display:none!important}
   .insight{background:#fff!important;color:#000!important;border:1px solid #999}
   .insight .ieyebrow,.insight p .dim{color:#333!important}
   .trendlabel{color:#000}
@@ -468,7 +481,7 @@ let state={
   lookup:null,lookupTable:DATA.tables[0].key,lookupQ:'',lookupDepth:Number(readLS('ppa_depth','2')),
   recent:[],pinned:[],modal:null,
   theme:readLS('ppa_theme','light'),
-  homeTrend:{metric:'new',unit:'cnt',drillYm:null},
+  homeTrend:{metric:'new',unit:'cnt',drillYm:null,rangeFrom:null,rangeTo:null},
   clog:{q:'',kind:'',table:''},
 };
 /* dashboard_form.js(실시간 입력 서버가 붙어 있을 때만 로드됨)가 저장 후
@@ -1401,6 +1414,42 @@ function jumpToDateWindow(tk,col,days){
   const end=new Date(TODAY);end.setDate(end.getDate()+days);
   state.dateFilters[tk][col]={from:TODAY,to:end.toISOString().slice(0,10)};
   state.page[tk]=1;render();}
+function jumpToDateWindowRange(tk,col,minDays,maxDays){
+  state.tab=tk;state.dateFilters[tk]=state.dateFilters[tk]||{};
+  const from=new Date(TODAY),to=new Date(TODAY);
+  from.setDate(from.getDate()+minDays);to.setDate(to.getDate()+maxDays);
+  state.dateFilters[tk][col]={from:from.toISOString().slice(0,10),to:to.toISOString().slice(0,10)};
+  state.page[tk]=1;render();}
+/* [minDays,maxDays] 구간(오늘 기준 상대일)에 걸리는 건수·용량 — D-30/D-60
+   같은 "임박" 구간 집계에 재사용. */
+function dateBucket(tk,col,capCol,minDays,maxDays){
+  const t=byKey[tk];if(!t||!TODAY) return {n:0,cap:0};
+  let n=0,cap=0;
+  t.rows.forEach(r=>{
+    const v=String(r.cells[col]||'');if(!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+    const d=daysBetween(TODAY,v);
+    if(d>=minDays&&d<=maxDays){n++;const c=Number(r.cells[capCol]);cap+=isNaN(c)?0:c;}
+  });
+  return {n,cap};
+}
+function dateExpiredBucket(tk,col,capCol){
+  const t=byKey[tk];if(!t||!TODAY) return {n:0,cap:0};
+  let n=0,cap=0;
+  t.rows.forEach(r=>{
+    const v=String(r.cells[col]||'');if(!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+    if(daysBetween(TODAY,v)<0){n++;const c=Number(r.cells[capCol]);cap+=isNaN(c)?0:c;}
+  });
+  return {n,cap};
+}
+/* 시작일이 종료일보다 뒤인("날짜 역전") 행 개수 — 데이터 정합성 이상치 */
+function countDateInversion(tk,startCol,endCol){
+  const t=byKey[tk];if(!t) return 0;
+  return t.rows.filter(r=>{
+    const a=String(r.cells[startCol]||''),b=String(r.cells[endCol]||'');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(a)||!/^\d{4}-\d{2}-\d{2}$/.test(b)) return false;
+    return a>b;
+  }).length;
+}
 
 /* 현황별로 값을 다른 표(FK)에서 끌어와 합산 — 예: 수급매칭 현황별 구매계약 용량 */
 function groupSumJoinFK(tk,gcol,fkCol,refTk,refCapCol){
@@ -1414,6 +1463,62 @@ function groupSumJoinFK(tk,gcol,fkCol,refTk,refCapCol){
   });
   return Object.entries(m).map(([g,v])=>({g,cnt:v.cnt,cap:v.cap})).sort((a,b)=>b.cnt-a.cnt);
 }
+/* "N. 라벨" 형태의 현황 값에서 정렬용 코드와 사람이 읽는 라벨을 분리 —
+   화면에는 라벨만 보여주고, 정렬은 코드 기준 오름차순으로 합니다. 코드가
+   없는 값(자유 텍스트로 입력된 경우)은 맨 뒤로, 라벨 가나다순으로 정렬. */
+function parseStatus(raw){
+  const s=String(raw||'').trim();
+  const m=s.match(/^(\d+)\s*\.?\s*(.*)$/);
+  if(m&&m[2]) return {code:Number(m[1]),label:m[2].trim()};
+  return {code:null,label:s};
+}
+/* 구매계약/판매계약 표 자체엔 "종료" 상태 컬럼이 없어서, 그 계약에 걸린
+   수급매칭 현황을 근거로 판단합니다: 매칭이 하나 이상 있고 그 전부가
+   종료류(statusClass==='mute': 종료/해지/중단/취소/보류)일 때만 "완전히
+   종료"로 봅니다. 매칭이 하나도 없으면 판단할 근거가 없으니 활성으로
+   취급합니다(계약이 아직 매칭 전 단계일 수도 있으므로). */
+function purchaseTerminatedIds(){
+  const M=byKey['T_수급매칭'];const out=new Set();
+  if(!M) return out;
+  const agg={};
+  M.rows.forEach(r=>{
+    const pk=String(r.cells['구매계약ID']||'');if(!pk) return;
+    if(!agg[pk]) agg[pk]={total:0,term:0};
+    agg[pk].total++;
+    if(statusClass(r.cells['현황'])==='mute') agg[pk].term++;
+  });
+  Object.entries(agg).forEach(([pk,v])=>{if(v.total>0&&v.term===v.total) out.add(pk);});
+  return out;
+}
+function saleTerminatedIds(){
+  const E=byKey['T_전기사용지'],M=byKey['T_수급매칭'];const out=new Set();
+  if(!E||!M) return out;
+  const elecToSale={};
+  E.rows.forEach(r=>{elecToSale[String(r.cells['전기사용지ID']||'')]=String(r.cells['판매계약ID']||'');});
+  const agg={};
+  M.rows.forEach(r=>{
+    const saleId=elecToSale[String(r.cells['전기사용지ID']||'')];if(!saleId) return;
+    if(!agg[saleId]) agg[saleId]={total:0,term:0};
+    agg[saleId].total++;
+    if(statusClass(r.cells['현황'])==='mute') agg[saleId].term++;
+  });
+  Object.entries(agg).forEach(([id,v])=>{if(v.total>0&&v.term===v.total) out.add(id);});
+  return out;
+}
+/* 종료 건을 뺀 유효 용량과, 뺀 종료 건 자체의 건수·용량을 한 번에 계산 —
+   메인 KPI(유효 집계)와 보조 "종료/만료 용량" 카드가 이 하나의 함수를
+   같은 기준으로 나눠 쓰게 해서 두 숫자가 항상 서로 앞뒤가 맞습니다. */
+function sumCapSplit(tk,capCol,excludeIds){
+  const t=byKey[tk];if(!t) return {activeN:0,activeMW:0,termN:0,termMW:0};
+  let activeN=0,activeMW=0,termN=0,termMW=0;
+  t.rows.forEach(r=>{
+    const pk=String(r.cells[t.pk]||'');
+    const n=Number(r.cells[capCol]);const v=isNaN(n)?0:n;
+    if(excludeIds.has(pk)){termN++;termMW+=v;} else {activeN++;activeMW+=v;}
+  });
+  return {activeN,activeMW,termN,termMW};
+}
+
 /* ── 용량 정합성 분석 ────────────────────────────────────────────────────
    "구매계약 총 용량이 왜 발전소 총 설비용량과 다른가" 같은 질문에 숫자
    차이만 보여주는 게 아니라, 그 차이를 발전소 단위로 쪼개 "계약이 아예
@@ -1487,53 +1592,89 @@ function capacityGapPanel(){
 }
 
 /* ── 우선순위 조치 필요 항목 ─────────────────────────────────────────────
-   "시급한 이슈"와 "수정/입력이 필요한 것"을 한 목록에 심각도순으로 모아
-   보여줍니다 — 검증 오류/이미 만료된 계약(가장 시급) → 미확보·초과계약
-   (데이터 이상) → 공급기한 임박(곧 조치 필요) → 계약 없는 발전소(참고) 순. */
+   PPA 운영 실무 관점 3개 카테고리로 나눠 보여줍니다:
+     A. 계약/공급 임박 알림 — 공급기한 D-30/D-60, 이미 만료
+     B. 수급 불균형·미확보 모니터링 — 잔여(미매칭) 용량, 초과계약, 미확보
+     C. 데이터 정합성 이상치 — 검증 오류, 날짜 역전
+   각 행은 건수와 함께(가능하면) 용량(MW)을 보여주고, 심각도 뱃지
+   (위험/주의/정상)와 클릭 시 해당 조건으로 이동하는 바로가기를 갖습니다. */
+function actionRow(label,n,capMW,badgeCls,badgeText,action){
+  const has=n>0;
+  const finalCls=has?badgeCls:'ok';
+  const finalText=has?badgeText:'정상';
+  const capStr=(has&&capMW!=null)?` · ${nf(capMW)} MW`:'';
+  return `<div class="unsecrow${has?'':' isok'}"${action?` onclick="${action}"`:''}>
+    <span>${esc(label)}</span>
+    <span class="chgval mono">${nf(n,0)}건${capStr}</span>
+    <span class="badge ${finalCls}">${finalText}</span></div>`;
+}
+function actionCategory(title,rows){
+  const activeN=rows.filter(r=>r.n>0).length;
+  const body=rows.map(r=>actionRow(r.label,r.n,r.cap,r.badgeCls,r.badgeText,r.action)).join('');
+  return `<div class="actioncat">
+      <div class="actioncathead">${esc(title)}${activeN?`<span class="actioncatcount">${activeN}</span>`:''}</div>
+      ${body}
+    </div>`;
+}
 function actionItemsPanel(){
   const P=byKey['T_발전소'],B=byKey['T_구매계약'],S=byKey['T_판매계약'];
-  const errN=DATA.validation.total_errors;
-  const bExpired=B?countExpired('T_구매계약','공급기한_구매'):0;
-  const sExpired=S?countExpired('T_판매계약','공급기한_판매'):0;
-  const bUn=B?countWhere('T_구매계약','수요기업 미확보','TRUE'):0;
-  const sUn=S?countWhere('T_판매계약','공급자원 미확보','TRUE'):0;
-  const bExp=B?countExpiring('T_구매계약','공급기한_구매',SOON_DAYS):0;
-  const sExp=S?countExpiring('T_판매계약','공급기한_판매',SOON_DAYS):0;
-  const g=(P&&B&&P.rows.length)?capacityGap('T_발전소','설비용량(MW)','발전소명','T_구매계약','발전소ID','구매계약용량(MW)'):null;
-  const zeroN=g?g.zero.length:0;
-  const overN=g?g.over.length:0;
 
-  const rows=[
-    {sev:4,label:'검증 오류 (PK/FK/조합중복)',n:errN,action:"state.tab='검증';render()"},
-    {sev:4,label:'구매계약 — 공급기한 이미 만료',n:bExpired,action:"jumpToExpired('T_구매계약','공급기한_구매')"},
-    {sev:4,label:'판매계약 — 공급기한 이미 만료',n:sExpired,action:"jumpToExpired('T_판매계약','공급기한_판매')"},
-    {sev:3,label:'발전소 — 설비용량 초과 계약(데이터 확인 필요)',n:overN,action:"state.tab='T_구매계약';render()"},
-    {sev:3,label:'구매계약 — 수요기업 미확보',n:bUn,action:"jumpToFilter('T_구매계약','수요기업 미확보','TRUE')"},
-    {sev:3,label:'판매계약 — 공급자원 미확보',n:sUn,action:"jumpToFilter('T_판매계약','공급자원 미확보','TRUE')"},
-    {sev:2,label:SOON_DAYS+'일 내 공급기한 도래 — 구매계약',n:bExp,action:`jumpToDateWindow('T_구매계약','공급기한_구매',${SOON_DAYS})`},
-    {sev:2,label:SOON_DAYS+'일 내 공급기한 도래 — 판매계약',n:sExp,action:`jumpToDateWindow('T_판매계약','공급기한_판매',${SOON_DAYS})`},
-    {sev:1,label:'구매계약이 아직 없는 발전소',n:zeroN,action:"state.tab='T_발전소';render()"},
+  /* A. 계약/공급 임박 알림 */
+  const bExpired=B?dateExpiredBucket('T_구매계약','공급기한_구매','구매계약용량(MW)'):{n:0,cap:0};
+  const sExpired=S?dateExpiredBucket('T_판매계약','공급기한_판매','판매계약용량(MW)'):{n:0,cap:0};
+  const b30=B?dateBucket('T_구매계약','공급기한_구매','구매계약용량(MW)',0,30):{n:0,cap:0};
+  const s30=S?dateBucket('T_판매계약','공급기한_판매','판매계약용량(MW)',0,30):{n:0,cap:0};
+  const b60=B?dateBucket('T_구매계약','공급기한_구매','구매계약용량(MW)',31,60):{n:0,cap:0};
+  const s60=S?dateBucket('T_판매계약','공급기한_판매','판매계약용량(MW)',31,60):{n:0,cap:0};
+  const catA=[
+    {label:'구매계약 — 공급기한 이미 만료',n:bExpired.n,cap:bExpired.cap,badgeCls:'no',badgeText:'위험',action:"jumpToExpired('T_구매계약','공급기한_구매')"},
+    {label:'판매계약 — 공급기한 이미 만료',n:sExpired.n,cap:sExpired.cap,badgeCls:'no',badgeText:'위험',action:"jumpToExpired('T_판매계약','공급기한_판매')"},
+    {label:'구매계약 — 공급기한 D-30 이내',n:b30.n,cap:b30.cap,badgeCls:'no',badgeText:'위험',action:"jumpToDateWindow('T_구매계약','공급기한_구매',30)"},
+    {label:'판매계약 — 공급기한 D-30 이내',n:s30.n,cap:s30.cap,badgeCls:'no',badgeText:'위험',action:"jumpToDateWindow('T_판매계약','공급기한_판매',30)"},
+    {label:'구매계약 — 공급기한 D-31~60',n:b60.n,cap:b60.cap,badgeCls:'warn',badgeText:'주의',action:"jumpToDateWindowRange('T_구매계약','공급기한_구매',31,60)"},
+    {label:'판매계약 — 공급기한 D-31~60',n:s60.n,cap:s60.cap,badgeCls:'warn',badgeText:'주의',action:"jumpToDateWindowRange('T_판매계약','공급기한_판매',31,60)"},
   ];
-  rows.sort((a,b)=>(b.n>0)-(a.n>0)||b.sev-a.sev||b.n-a.n);
-  const body=rows.map(r=>{
-    const has=r.n>0;
-    const badge=!has?'ok':(r.sev>=3?'no':'warn');
-    return `<div class="unsecrow" onclick="${r.action}"><span>${esc(r.label)}</span><span class="badge ${badge}">${nf(r.n,0)}건</span></div>`;
-  }).join('');
-  const urgentN=rows.filter(r=>r.sev>=4&&r.n>0).length;
-  const warnN=rows.filter(r=>r.sev===3&&r.n>0).length;
-  const infoN=rows.filter(r=>r.sev<=2&&r.n>0).length;
-  const totalIssues=urgentN+warnN+infoN;
-  const summaryHtml=totalIssues
-    ?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 10px">
-        ${urgentN?`<span class="badge no">긴급 ${nf(urgentN,0)}</span>`:''}
-        ${warnN?`<span class="badge warn">주의 ${nf(warnN,0)}</span>`:''}
-        ${infoN?`<span class="badge ok" style="color:var(--sub);background:var(--paper)">참고 ${nf(infoN,0)}</span>`:''}
-      </div>`
-    :'';
+
+  /* B. 수급 불균형·미확보 모니터링 */
+  const g=(P&&B&&P.rows.length)?capacityGap('T_발전소','설비용량(MW)','발전소명','T_구매계약','발전소ID','구매계약용량(MW)'):null;
+  const residualN=g?(g.zero.length+g.under.length):0;
+  const residualMW=g?(g.zero.reduce((s,x)=>s+x.installed,0)+g.under.reduce((s,x)=>s+x.gap,0)):0;
+  const overN=g?g.over.length:0;
+  const overMW=g?g.over.reduce((s,x)=>s-x.gap,0):0;
+  const bUn=B?countWhere('T_구매계약','수요기업 미확보','TRUE'):0;
+  const bUnMW=B?B.rows.filter(r=>r.cells['수요기업 미확보']==='TRUE').reduce((s,r)=>{const n=Number(r.cells['구매계약용량(MW)']);return s+(isNaN(n)?0:n);},0):0;
+  const sUn=S?countWhere('T_판매계약','공급자원 미확보','TRUE'):0;
+  const sUnMW=S?S.rows.filter(r=>r.cells['공급자원 미확보']==='TRUE').reduce((s,r)=>{const n=Number(r.cells['판매계약용량(MW)']);return s+(isNaN(n)?0:n);},0):0;
+  const catB=[
+    {label:'발전 설비용량 대비 수요계약 미매칭 잔여용량',n:residualN,cap:residualMW,badgeCls:'warn',badgeText:'주의',action:"state.tab='T_발전소';render()"},
+    {label:'설비용량 초과 계약(데이터 확인 필요)',n:overN,cap:overMW,badgeCls:'no',badgeText:'위험',action:"state.tab='T_구매계약';render()"},
+    {label:'구매계약 — 수요기업 미확보',n:bUn,cap:bUnMW,badgeCls:'warn',badgeText:'주의',action:"jumpToFilter('T_구매계약','수요기업 미확보','TRUE')"},
+    {label:'판매계약 — 공급자원 미확보',n:sUn,cap:sUnMW,badgeCls:'warn',badgeText:'주의',action:"jumpToFilter('T_판매계약','공급자원 미확보','TRUE')"},
+  ];
+
+  /* C. 데이터 정합성 이상치 */
+  const errN=DATA.validation.total_errors;
+  const dateInvN=S?countDateInversion('T_판매계약','계약일','공급기한_판매'):0;
+  const catC=[
+    {label:'검증 오류 (PK 누락·중복, FK 누락·참조, 조합중복)',n:errN,cap:null,badgeCls:'no',badgeText:'위험',action:"state.tab='검증';render()"},
+    {label:'날짜 역전 오류 (판매계약 계약일 > 공급기한)',n:dateInvN,cap:null,badgeCls:'no',badgeText:'위험',action:S?"state.tab='T_판매계약';render()":''},
+  ];
+
+  const allRows=[...catA,...catB,...catC];
+  const dangerN=allRows.filter(r=>r.n>0&&r.badgeCls==='no').length;
+  const warnN=allRows.filter(r=>r.n>0&&r.badgeCls==='warn').length;
+  const totalIssues=dangerN+warnN;
+  const summaryHtml=`<div class="actionsummary">
+      ${dangerN?`<span class="badge no">위험 ${nf(dangerN,0)}</span>`:''}
+      ${warnN?`<span class="badge warn">주의 ${nf(warnN,0)}</span>`:''}
+      ${!totalIssues?`<span class="badge ok">위험·주의 항목 없음</span>`:''}
+    </div>`;
   return panel('우선순위 조치 필요 항목',
-    totalIssues?`${totalIssues}개 항목에서 확인이 필요합니다(심각도순) · 클릭하면 해당 조건으로 이동`:'지금 확인이 필요한 항목이 없습니다',
-    summaryHtml+body);
+    totalIssues?`${totalIssues}개 항목에서 확인이 필요합니다 · 클릭하면 해당 조건으로 이동`:'지금 확인이 필요한 항목이 없습니다',
+    summaryHtml
+    +actionCategory('계약/공급 임박 알림',catA)
+    +actionCategory('수급 불균형 · 미확보 모니터링',catB)
+    +actionCategory('데이터 정합성 이상치',catC));
 }
 
 const STATUS_COLOR={ok:'var(--pass)',warn:'var(--amber)',mute:'var(--sub)'};
@@ -1606,17 +1747,26 @@ function statusPanel(){
   const M=byKey['T_수급매칭'];if(!M||!M.rows.length) return '';
   const groups=groupSumJoinFK('T_수급매칭','현황','구매계약ID','T_구매계약','구매계약용량(MW)');
   if(!groups.length) return '';
-  const total=groups.reduce((s,g)=>s+g.cnt,0);
-  const totalCap=groups.reduce((s,g)=>s+g.cap,0);
-  const segs=groups.map(g=>{
+  /* "N. 라벨" 값에서 코드를 뽑아 코드 오름차순(1→99)으로 정렬 — 화면엔
+     라벨만 보여주고 원래 값(g.g)은 필터링용으로만 씁니다. */
+  const withMeta=groups.map(g=>({...g,parsed:parseStatus(g.g)}));
+  withMeta.sort((a,b)=>{
+    if(a.parsed.code!=null&&b.parsed.code!=null) return a.parsed.code-b.parsed.code;
+    if(a.parsed.code!=null) return -1;
+    if(b.parsed.code!=null) return 1;
+    return a.parsed.label.localeCompare(b.parsed.label,'ko');
+  });
+  const total=withMeta.reduce((s,g)=>s+g.cnt,0);
+  const totalCap=withMeta.reduce((s,g)=>s+g.cap,0);
+  const segs=withMeta.map(g=>{
     const pct=total?g.cnt/total*100:0;
-    return `<div class="statusseg" style="width:${pct}%;background:${statusColor(g.g)}" title="${esc(g.g)} · ${nf(g.cnt,0)}건 (${nf(pct,0)}%)"></div>`;
+    return `<div class="statusseg" style="width:${pct}%;background:${statusColor(g.g)}" title="${esc(g.parsed.label)} · ${nf(g.cnt,0)}건 (${nf(pct,0)}%)"></div>`;
   }).join('');
-  const legend=groups.map(g=>{
+  const legend=withMeta.map(g=>{
     const pct=total?g.cnt/total*100:0;
     return `<div class="statusrow" onclick="jumpToFilter('T_수급매칭','현황','${jsq(g.g)}')">
       <span class="statusdot" style="background:${statusColor(g.g)}"></span>
-      <span class="statuslabel">${esc(g.g)}</span>
+      <span class="statuslabel">${esc(g.parsed.label)}</span>
       <span class="statuspct mono">${nf(pct,0)}%</span>
       <span class="statuscnt mono">${nf(g.cnt,0)}건</span>
       <span class="statuscap mono">${nf(g.cap)} MW</span></div>`;
@@ -1631,6 +1781,23 @@ function statusPanel(){
 /* ── 홈: 년월별 추이 ────────────────────────────────────────────────────── */
 function ymIdx(ym){const p=ym.split('-').map(Number);return p[0]*12+(p[1]-1);}
 function idxYm(i){const y=Math.floor(i/12),mo=i%12;return y+'-'+String(mo+1).padStart(2,'0');}
+/* 두 YYYY-MM 사이(포함) 월 목록 — 순서가 뒤바뀌어 입력돼도 알아서
+   맞바꾸고, 화면이 너무 넓어지지 않도록 한 번에 최대 36개월까지만. */
+function monthRangeBetween(fromYm,toYm){
+  let a=ymIdx(fromYm),b=ymIdx(toYm);
+  if(a>b){const t=a;a=b;b=t;}
+  if(b-a>35) b=a+35;
+  const out=[];for(let i=a;i<=b;i++) out.push(idxYm(i));
+  return out;
+}
+/* 조회 기간 필터가 설정돼 있으면 그 구간을, 아니면 기존 기본값(최근
+   12개월)을 돌려줍니다. */
+function trendRangeKeys(){
+  const {rangeFrom,rangeTo}=state.homeTrend;
+  if(rangeFrom&&rangeTo) return monthRangeBetween(rangeFrom,rangeTo);
+  return monthRange(12);
+}
+function resetHomeTrendRange(){state.homeTrend.rangeFrom=null;state.homeTrend.rangeTo=null;render();}
 const TREND_METRICS={
   new:{label:'신규 판매계약',tk:'T_판매계약',col:'계약일',cap:'판매계약용량(MW)'},
   buyexp:{label:'구매계약 공급기한',tk:'T_구매계약',col:'공급기한_구매',cap:'구매계약용량(MW)'},
@@ -1690,8 +1857,7 @@ function buildTrendChart(keys,m,unit,labelFn,onclickFn,titleFn){
    1년 전 같은 12개월(점선, 무채색)을 겹쳐서 전년 동기와 비교합니다.
    작년 구간에 데이터가 하나도 없으면(워크북 역사가 짧은 경우) 비교선은
    조용히 숨기고 이번 구간만 보여줍니다 — 텅 빈 선을 그리지 않습니다. */
-function buildTrendLineChart(cfg,m,unit){
-  const curKeys=monthRange(12);
+function buildTrendLineChart(cfg,m,unit,curKeys){
   const prevKeys=curKeys.map(ym=>idxYm(ymIdx(ym)-12));
   const valOf=k=>{const b=m[k];return b?(unit==='cap'?b.cap:b.cnt):0;};
   const curVals=curKeys.map(valOf);
@@ -1731,9 +1897,18 @@ function buildTrendLineChart(cfg,m,unit){
   svg+=endLabel;
   svg+='</svg>';
 
-  const xticks=curKeys.map(k=>`<span class="trendtick">${Number(k.slice(5,7))}월</span>`).join('');
+  /* 범위가 12개월을 넘거나 연도 경계를 넘나들면 "3월"만으론 헷갈리므로
+     "'26.03" 형식(monthLabel)으로, 점 개수가 많을 때는 겹치지 않게
+     솎아서(tickStep) 보여줍니다. */
+  const tickStep=Math.max(1,Math.ceil(n/12));
+  const xticks=curKeys.map((k,i)=>{
+    const show=i%tickStep===0||i===n-1;
+    const lbl=show?(n>12?monthLabel(k):Number(k.slice(5,7))+'월'):'';
+    return `<span class="trendtick">${esc(lbl)}</span>`;
+  }).join('');
+  const rangeLabel=n===12&&!(state.homeTrend.rangeFrom&&state.homeTrend.rangeTo)?'최근 12개월':`${monthLabel(curKeys[0])} ~ ${monthLabel(curKeys[n-1])}`;
   const legend=hasPrev?`<div class="trendlegend">
-      <span><span class="trendlegendline"></span>최근 12개월</span>
+      <span><span class="trendlegendline"></span>${esc(rangeLabel)}</span>
       <span><span class="trendlegendline prev"></span>전년 동기</span>
     </div>`:'';
   const chart=`<div class="trendplot">
@@ -1755,6 +1930,21 @@ function trendToolsHtml(avail,unit){
         <button class="${unit==='cnt'?'on':''}" onclick="setHomeTrend('unit','cnt')">건수</button>
         <button class="${unit==='cap'?'on':''}" onclick="setHomeTrend('unit','cap')">용량(MW)</button>
       </div>
+    </div>`;
+}
+/* 조회 시작/종료 년월 필터 — <input type=month>는 브라우저 기본 달력
+   선택기와 직접 타이핑을 동시에 지원합니다(공급기한 입력과 동일한 이유로
+   선택). 값이 바뀌면 즉시 다시 그립니다. */
+function trendRangeToolsHtml(){
+  const {rangeFrom,rangeTo}=state.homeTrend;
+  const custom=!!(rangeFrom&&rangeTo);
+  const clamped=custom&&(Math.abs(ymIdx(rangeTo)-ymIdx(rangeFrom))>35);
+  return `<div class="trendrange">
+      <label>조회 시작<input type="month" class="trendrangeinput" value="${esc(rangeFrom||'')}" onchange="setHomeTrend('rangeFrom',this.value)"></label>
+      <span class="trendrangesep">~</span>
+      <label>조회 종료<input type="month" class="trendrangeinput" value="${esc(rangeTo||'')}" onchange="setHomeTrend('rangeTo',this.value)"></label>
+      ${custom?`<button class="btn" onclick="resetHomeTrendRange()">최근 12개월로</button>`:''}
+      ${clamped?`<span class="trendrangenote">한 번에 최대 36개월까지 표시됩니다</span>`:''}
     </div>`;
 }
 function trendPanel(){
@@ -1787,16 +1977,21 @@ function trendPanel(){
 
   const m=groupByMonth(cfg.tk,cfg.col,cfg.cap);
   const keys=Object.keys(m);
+  const rangeTools=trendRangeToolsHtml();
   if(!keys.length) return panel('년월별 추이','',`<div class="nocand">${esc(cfg.label)} 항목에 날짜가 입력된 데이터가 없습니다.</div>
     <div style="margin-top:10px">${tools}</div>`);
-  const {chart,totalCnt,totalCap,hasPrev,prevTotalCnt}=buildTrendLineChart(cfg,m,unit);
+  const curKeys=trendRangeKeys();
+  const {chart,totalCnt,totalCap,hasPrev,prevTotalCnt}=buildTrendLineChart(cfg,m,unit,curKeys);
+  const isCustom=!!(state.homeTrend.rangeFrom&&state.homeTrend.rangeTo);
+  const rangeDesc=isCustom?`${monthLabel(curKeys[0])} ~ ${monthLabel(curKeys[curKeys.length-1])} (${curKeys.length}개월)`:'최근 12개월';
   const yoy=hasPrev
     ?(prevTotalCnt>0?` · 전년 동기 대비 ${(totalCnt-prevTotalCnt)>=0?'+':''}${nf(totalCnt-prevTotalCnt,0)}건`:'')
     :' · 전년 동기 데이터 없음';
   return panel('년월별 추이','선 위의 점을 누르면 그 달의 일별 추이를 볼 수 있습니다',`
     ${tools}
+    ${rangeTools}
     ${chart}
-    <div class="trendfoot"><span>최근 12개월${esc(yoy)}</span><span>합계 ${nf(totalCnt,0)}건 · ${nf(totalCap)} MW</span></div>`);
+    <div class="trendfoot"><span>${esc(rangeDesc)}${esc(yoy)}</span><span>합계 ${nf(totalCnt,0)}건 · ${nf(totalCap)} MW</span></div>`);
 }
 
 /* ── 홈: 한눈에 보기 인사이트 문장 ──────────────────────────────────────── */
@@ -1804,8 +1999,14 @@ function homeInsight(){
   const P=byKey['T_발전소'],B=byKey['T_구매계약'],S=byKey['T_판매계약'],M=byKey['T_수급매칭'];
   const parts=[];
   if(P) parts.push(`발전소 <b>${nf(P.rows.length,0)}개</b>(<span class="dim">${nf(sumCol('T_발전소','설비용량(MW)'))}MW</span>)`);
-  if(B) parts.push(`구매계약 <b>${nf(B.rows.length,0)}건</b>(<span class="dim">${nf(sumCol('T_구매계약','구매계약용량(MW)'))}MW</span>)`);
-  if(S) parts.push(`판매계약 <b>${nf(S.rows.length,0)}건</b>(<span class="dim">${nf(sumCol('T_판매계약','판매계약용량(MW)'))}MW</span>)`);
+  if(B){
+    const bs=sumCapSplit('T_구매계약','구매계약용량(MW)',purchaseTerminatedIds());
+    parts.push(`구매계약 <b>${nf(bs.activeN,0)}건</b>(<span class="dim">${nf(bs.activeMW)}MW</span>)`);
+  }
+  if(S){
+    const ss=sumCapSplit('T_판매계약','판매계약용량(MW)',saleTerminatedIds());
+    parts.push(`판매계약 <b>${nf(ss.activeN,0)}건</b>(<span class="dim">${nf(ss.activeMW)}MW</span>)`);
+  }
   if(!parts.length) return '';
   let statusPart='';
   if(M&&M.rows.length){
@@ -1813,7 +2014,7 @@ function homeInsight(){
     const top=groups[0];
     if(top){
       const pct=nf(top.cnt/M.rows.length*100,0);
-      statusPart=` 수급매칭 <b>${nf(M.rows.length,0)}건</b> 중 <b>${esc(top.g)}</b>이 ${pct}%(<span class="dim">${nf(top.cap)}MW</span>)로 가장 많습니다.`;
+      statusPart=` 수급매칭 <b>${nf(M.rows.length,0)}건</b> 중 <b>${esc(parseStatus(top.g).label)}</b>이 ${pct}%(<span class="dim">${nf(top.cap)}MW</span>)로 가장 많습니다.`;
     }
   }
   let trendPart='';
@@ -1832,8 +2033,14 @@ function homeInsight(){
 function tHome(){
   const P=byKey['T_발전소'],B=byKey['T_구매계약'],S=byKey['T_판매계약'];
   const supplyMW=P?sumCol('T_발전소','설비용량(MW)'):0;
-  const purchMW=B?sumCol('T_구매계약','구매계약용량(MW)'):0;
-  const saleMW=S?sumCol('T_판매계약','판매계약용량(MW)'):0;
+  /* 메인 용량 KPI는 "계약 종료" 건(수급매칭 현황이 전부 종료류인 계약)을
+     빼고 집계하고, 뺀 만큼은 아래 "종료/만료 용량" 카드로 따로 보여줍니다
+     — sumCapSplit()이 활성/종료 두 값을 한 번에 계산해서 서로 앞뒤가
+     맞게 유지합니다. */
+  const purchSplit=B?sumCapSplit('T_구매계약','구매계약용량(MW)',purchaseTerminatedIds()):{activeN:0,activeMW:0,termN:0,termMW:0};
+  const saleSplit=S?sumCapSplit('T_판매계약','판매계약용량(MW)',saleTerminatedIds()):{activeN:0,activeMW:0,termN:0,termMW:0};
+  const purchMW=purchSplit.activeMW,saleMW=saleSplit.activeMW;
+  const termN=purchSplit.termN+saleSplit.termN,termMW=purchSplit.termMW+saleSplit.termMW;
   const bUn=B?countWhere('T_구매계약','수요기업 미확보','TRUE'):0;
   const sUn=S?countWhere('T_판매계약','공급자원 미확보','TRUE'):0;
   const bExp=B?countExpiring('T_구매계약','공급기한_구매',SOON_DAYS):0;
@@ -1863,9 +2070,10 @@ function tHome(){
     ${homeInsight()}
     <div class="kpis">
     ${kpi('발전소 설비용량 합계',nf(supplyMW)+' MW',P?nf(P.rows.length,0)+'개 발전소':'','accent',"state.tab='T_발전소';render()")}
-    ${kpi('구매계약 총 용량',nf(purchMW)+' MW',B?nf(B.rows.length,0)+'건':'','',"state.tab='T_구매계약';render()")}
-    ${kpi('판매계약 총 용량',nf(saleMW)+' MW',S?nf(S.rows.length,0)+'건':'','',"state.tab='T_판매계약';render()")}
+    ${kpi('구매계약 총 용량 (유효)',nf(purchMW)+' MW',B?(purchSplit.termN?`${nf(purchSplit.activeN,0)}건 · 종료 ${nf(purchSplit.termN,0)}건 제외`:nf(purchSplit.activeN,0)+'건'):'','',"state.tab='T_구매계약';render()")}
+    ${kpi('판매계약 총 용량 (유효)',nf(saleMW)+' MW',S?(saleSplit.termN?`${nf(saleSplit.activeN,0)}건 · 종료 ${nf(saleSplit.termN,0)}건 제외`:nf(saleSplit.activeN,0)+'건'):'','',"state.tab='T_판매계약';render()")}
     ${kpi('구매 − 판매 밸런스',(balance>=0?'+':'')+nf(balance)+' MW',balance>=0?'구매 우위(여유)':'판매 우위(부족)',balance<0?'warn':'')}
+    ${kpi('종료/만료 용량',nf(termMW)+' MW',termN?`구매 ${purchSplit.termN}건 · 판매 ${saleSplit.termN}건 (메인 지표 제외됨)`:'해당 없음','')}
     </div>
     <div class="kpis">
     ${kpi('검증 오류',nf(DATA.validation.total_errors,0),ok?'전 표 정상':'클릭해서 확인',ok?'':'warn',"state.tab='검증';render()")}
