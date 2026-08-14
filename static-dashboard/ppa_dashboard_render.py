@@ -792,7 +792,9 @@ function tData(t){
       '',chgRows>0?`toggleOnlyChg('${jsq(t.key)}')`:'')}
     ${kpi('컬럼 수',t.columns.length,(state.hidden[t.key]||new Set()).size?((state.hidden[t.key]||new Set()).size+'개 숨김'):'전체 표시')}
     </div>
-    ${panel(t.label+' 전체 목록','행 클릭 시 상세 · PK/FK 클릭 시 관계조회 · 머리글 클릭 시 정렬',tableView(t))}</section>`;
+    ${panel(t.label+' 전체 목록','행 클릭 시 상세(수정/삭제 가능) · PK/FK 클릭 시 관계조회 · 머리글 클릭 시 정렬',
+      `<div style="margin-bottom:10px"><button class="btn primary" onclick="openInlineAdd('${jsq(t.key)}')">+ 새 ${esc(t.label)} 추가</button></div>`
+      +tableView(t))}</section>`;
 }
 
 /* ── 상세 모달 ──────────────────────────────────────────────────────────── */
@@ -832,7 +834,9 @@ function modalHtml(){
       </div>
       <div class="modalbody">${rows}</div>
       <div class="modalfoot">
-        <button class="btn primary" onclick="closeDetail();jumpTo('${jsq(t.key)}','${jsq(pkv)}')">관계조회로 보기</button>
+        <button class="btn primary" onclick="openInlineEdit('${jsq(t.key)}','${jsq(pkv)}')">수정</button>
+        <button class="btn danger" onclick="openInlineDelete('${jsq(t.key)}','${jsq(pkv)}')">삭제</button>
+        <button class="btn" onclick="closeDetail();jumpTo('${jsq(t.key)}','${jsq(pkv)}')">관계조회로 보기</button>
         <button class="btn" onclick="togglePin('${jsq(t.key)}','${jsq(pkv)}')">${isPinned(t.key,pkv)?'비교에서 제거':'비교에 추가'}</button>
         <button class="btn" onclick="copyText(detailText('${jsq(t.key)}',${state.modal.i}))">내용 복사</button>
         <button class="btn" onclick="closeDetail()">닫기</button>
@@ -1784,6 +1788,9 @@ function tChanges(){
     ||'<div class="nocand">추가된 항목은 없습니다.</div>';
 
   return `<section>${printHead('변경 내역','기준: '+esc((CHANGES.prev_generated_at||'').replace('T',' '))+' → '+esc((DATA.generated_at||'').replace('T',' ')))}
+    <div style="margin:-4px 0 12px">
+      <button class="btn" onclick="openInlineResetBaseline()" title="지금 시점을 새 비교 기준으로 리셋합니다(전체 변경 이력은 유지됨)">변경 비교 기준 리셋</button>
+    </div>
     <div class="kpis">
       ${kpi('추가',nf(CHANGES.total_added,0),'새로 생긴 행','')}
       ${kpi('수정',nf(CHANGES.total_changed,0),'값이 바뀐 행 ('+nf((CHANGES.details||[]).length,0)+'개 항목)','')}
@@ -2098,6 +2105,34 @@ function toast(msg){
   el.textContent=msg;el.classList.add('show');
   clearTimeout(window._toastTimer);
   window._toastTimer=setTimeout(()=>el.classList.remove('show'),2200);
+}
+
+/* ── 표 안에서 바로 수정/추가/삭제 ─────────────────────────────────────────
+   실제 입력/저장 로직은 여기가 아니라 dashboard_form.js(실시간 입력 서버가
+   붙어 있을 때만 로드됨)가 갖고 있고, window.PPA_FORM 으로 그 진입점만
+   노출됩니다. 이 대시보드 화면은 그 창을 원하는 표/레코드로 열어달라고
+   요청만 합니다 - 검증·FK 확인·삭제 시 참조 검사 등은 전부 기존 폼이
+   그대로 재사용하므로 여기서 따로 구현하지 않습니다. */
+function needsLiveServer(){
+  toast('실시간 입력 서버 실행 중에만 사용할 수 있습니다 (간편 입력/저장 버튼 참고).');
+}
+function openInlineAdd(tk){
+  if(!window.PPA_FORM){needsLiveServer();return;}
+  window.PPA_FORM.add(tk);
+}
+function openInlineEdit(tk,pkv){
+  if(!window.PPA_FORM){needsLiveServer();return;}
+  closeDetail();
+  window.PPA_FORM.edit(tk,pkv);
+}
+function openInlineDelete(tk,pkv){
+  if(!window.PPA_FORM){needsLiveServer();return;}
+  closeDetail();
+  window.PPA_FORM.del(tk,pkv);
+}
+function openInlineResetBaseline(){
+  if(!window.PPA_FORM){needsLiveServer();return;}
+  window.PPA_FORM.resetBaseline();
 }
 function fallbackCopy(text){
   const ta=document.createElement('textarea');

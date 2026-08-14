@@ -2,3 +2,4 @@
 # 깨지지 않습니다(vba-form/.gitattributes의 *.bas와 같은 이유). Git 이
 # 인코딩이나 줄바꿈을 건드리지 않도록 바이너리로 취급합니다.
 *.bat binary
+*.vbs binary

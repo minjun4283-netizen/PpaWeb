@@ -51,6 +51,38 @@ def find_first_xlsm(base_dir: Path) -> Path:
     return files[0]
 
 
+# 서버 시작 직후 첫 rebuild가 끝나기 전까지 GET / 요청에 보여주는 안내 화면.
+# /api/ready를 짧은 간격으로 폴링하다가 준비되면 스스로 새로고침합니다 -
+# 그래서 main()이 rebuild를 기다리지 않고 서버/브라우저를 바로 띄워도 사용자는
+# "아무것도 안 뜬 검은 창"이 아니라 이 화면을 즉시 보게 됩니다.
+_LOADING_HTML = """<!doctype html>
+<html><head><meta charset="utf-8"><title>PPA현황 - 불러오는 중</title>
+<style>
+  :root{color-scheme:light dark}
+  body{font-family:-apple-system,'맑은 고딕',sans-serif;display:flex;align-items:center;
+    justify-content:center;height:100vh;margin:0;background:#f3f6f5;color:#16262b}
+  @media(prefers-color-scheme:dark){body{background:#131c1e;color:#e9f3f0}}
+  .box{text-align:center;max-width:360px;padding:0 20px}
+  .spinner{width:34px;height:34px;border:4px solid rgba(14,124,123,.18);
+    border-top-color:#0e7c7b;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 18px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  p{font-size:14px;line-height:1.6;color:#5c6b6e}
+  @media(prefers-color-scheme:dark){p{color:#a7b6b1}}
+</style></head>
+<body><div class="box"><div class="spinner"></div>
+<p>엑셀에서 최신 데이터를 불러오는 중입니다...<br>완료되면 자동으로 화면이 바뀝니다.</p>
+</div>
+<script>
+(function poll(){
+  fetch('/api/ready', {cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+    if (d && d.ok && d.ready) { location.reload(); }
+    else { setTimeout(poll, 700); }
+  }).catch(function(){ setTimeout(poll, 700); });
+})();
+</script>
+</body></html>"""
+
+
 class App:
     def __init__(self, xlsm_path: str, html_path: str, form_js_path: str):
         self.xlsm_path = os.path.abspath(xlsm_path)
@@ -59,6 +91,17 @@ class App:
         self.bridge = ExcelBridge(self.xlsm_path)
         self._rebuild_lock = threading.Lock()
         self._last_payload: dict | None = None
+
+    def is_ready(self) -> bool:
+        """이 프로세스가 뜬 뒤 최소 한 번은 엑셀에서 읽어 대시보드를 만들었는지.
+
+        서버 시작 직후에는 아직 엑셀을 못 읽었을 수 있어(초기 rebuild가
+        백그라운드 스레드에서 진행 중), 그 사이 GET / 요청에는 실제 데이터
+        대신 안내 화면을 보여주는 데 씁니다 - 디스크에 지난 실행의 HTML이
+        남아있어도 지금 이 세션이 최소 한 번 확인한 최신 데이터는 아니므로
+        구분합니다.
+        """
+        return self._last_payload is not None
 
     def schema_json(self) -> list[dict]:
         return [
@@ -139,8 +182,15 @@ class App:
         return self.rebuild()
 
     def dashboard_html(self) -> str:
-        if not os.path.exists(self.html_path):
-            self.rebuild()
+        # 서버가 막 시작돼 아직 이번 세션의 첫 rebuild가 안 끝났으면(백그라운드
+        # 스레드에서 진행 중), 디스크에 지난번 실행의 HTML이 남아있어도 그걸
+        # 그대로 보여주지 않고 안내 화면을 먼저 보여줍니다 - 오래된 데이터를
+        # 최신인 것처럼 조용히 보여주는 대신, 서버가 콘솔/브라우저를 최대한
+        # 빨리 띄우면서도(main()이 rebuild를 기다리지 않고 바로 서버를 열고
+        # 브라우저를 띄움) 화면에는 항상 "지금 세션 기준 최신 데이터"만 보이게
+        # 하기 위함입니다. /api/ready 를 폴링하다 준비되면 자동으로 새로고침됩니다.
+        if not self.is_ready():
+            return _LOADING_HTML
         html = Path(self.html_path).read_text(encoding="utf-8", errors="replace")
         tag = f'<script src="/dashboard_form.js?v={int(time.time())}"></script>'
         idx = html.lower().rfind("</body>")
@@ -208,6 +258,10 @@ def make_handler(app: App):
 
             if path == "/api/schema":
                 self._send_json({"ok": True, "schema": app.schema_json()})
+                return
+
+            if path == "/api/ready":
+                self._send_json({"ok": True, "ready": app.is_ready()})
                 return
 
             if path == "/api/options":
@@ -422,12 +476,6 @@ def main():
     except ExcelComError as e:
         sys.exit(str(e))
 
-    try:
-        app.rebuild()
-        print("[정보] 초기 대시보드 생성 완료")
-    except Exception as e:
-        print(f"[경고] 초기 대시보드 생성 실패 (서버는 계속 시작합니다): {e}")
-
     _install_console_close_handler(app)
 
     server = ThreadingHTTPServer((args.host, args.port), make_handler(app))
@@ -435,11 +483,31 @@ def main():
     print(f"[OK] 서버 시작: {url}")
     print("[안내] 이 창을 닫으면 서버가 종료됩니다. 끝내려면 Ctrl+C 를 누르세요.")
 
+    # 서버 바인딩/브라우저 열기를 초기 rebuild(엑셀 COM 연결 + 6개 표 읽기 +
+    # HTML 렌더링, 엑셀이 안 열려 있으면 몇 초 걸릴 수 있음) 뒤로 미루지 않고
+    # 먼저 처리합니다 - 그래야 콘솔/브라우저가 최대한 빨리 뜹니다. 첫 rebuild는
+    # 백그라운드 스레드에서 진행하고, 그 사이 GET / 요청에는 dashboard_html()이
+    # 자동으로 안내 화면(불러오는 중)을 보여주다가 준비되면 스스로 새로고침
+    # 합니다(app.is_ready() 참고) - 지난 실행의 오래된 HTML을 최신인 것처럼
+    # 조용히 보여주는 일은 없습니다.
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+
     if not args.no_browser:
-        threading.Timer(0.6, lambda: webbrowser.open(url)).start()
+        threading.Timer(0.3, lambda: webbrowser.open(url)).start()
+
+    def _initial_rebuild():
+        try:
+            app.rebuild()
+            print("[정보] 초기 대시보드 생성 완료")
+        except Exception as e:
+            print(f"[경고] 초기 대시보드 생성 실패 (서버는 계속 실행됩니다): {e}")
+
+    threading.Thread(target=_initial_rebuild, daemon=True).start()
 
     try:
-        server.serve_forever()
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
         print("\n[종료] 서버를 멈춥니다.")
     finally:

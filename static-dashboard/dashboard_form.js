@@ -625,6 +625,25 @@
       deleteBtn.title = formState.loadedPk ? "" : "먼저 검색으로 기존 데이터를 선택하세요.";
     }
 
+    // 단일입력 화면에 레코드를 불러온 상태로 반영합니다(필드 채우기 + 불러옴
+    // 표시 칩 + 삭제/복제 버튼 활성화). 컬럼별 검색 결과 클릭과, 외부(표 탭의
+    // 상세 모달 "수정"/"삭제" 버튼)에서 레코드를 여는 경로 둘 다 이 함수를
+    // 씁니다 - closure가 아니라 클래스로 요소를 찾으므로 호출 시점의 toolbar
+    // DOM이 어떻게 만들어졌는지와 무관하게 항상 동작합니다.
+    function applyLoadedRecord(tableName, row) {
+      fillRecord(row || {});
+      var schema = SCHEMA_BY_KEY[tableName];
+      formState.loadedPk = schema ? (row[schema.pk] || null) : null;
+      formDirty = false;
+      updateDeleteButtonState();
+      var indicator = fields.querySelector(".ppaf-loaded-indicator");
+      var label = fields.querySelector(".ppaf-loaded-label");
+      var dupBtn = fields.querySelector(".ppaf-dup-btn");
+      if (indicator) indicator.style.display = "";
+      if (label) label.textContent = recordLabel(tableName, row);
+      if (dupBtn) dupBtn.disabled = false;
+    }
+
     function renderToolbar(tableName, autofocusPicker) {
       var toolbar = el("div", { class: "ppaf-toolbar-wrap" });
       var newBtn = el("button", { class: "ppaf-btn", type: "button" }, ["새 입력"]);
@@ -665,14 +684,7 @@
       var pickerLabel = el("div", { class: "ppaf-picker-label" }, ["기존 데이터 불러오기 (컬럼별 검색)"]);
       var picker = buildPicker(tableName, function (row) {
         if (!confirmDiscardIfDirty()) return;
-        fillRecord(row || {});
-        var schema = SCHEMA_BY_KEY[tableName];
-        formState.loadedPk = schema ? (row[schema.pk] || null) : null;
-        formDirty = false;
-        updateDeleteButtonState();
-        loadedLabel.textContent = recordLabel(tableName, row);
-        loadedIndicator.style.display = "";
-        dupBtn.disabled = false;
+        applyLoadedRecord(tableName, row);
         showToast("불러왔습니다.", "info");
       });
 
@@ -937,9 +949,12 @@
       }
     }
 
+    // 반환값: 실제로 전환했으면 true, 저장 안 한 변경 확인창에서 사용자가
+    // 취소해 전환하지 않았으면 false - 외부(표 탭)에서 호출할 때 이어서
+    // 레코드를 불러와도 되는지 판단하는 데 씁니다.
     async function switchMode(mode) {
       if (mode !== appMode && !confirmDiscardIfDirty("저장하지 않은 변경 내용이 있습니다. 화면을 바꾸면 사라집니다. 계속할까요?")) {
-        return;
+        return false;
       }
       formDirty = false;
       groupDirty = false;
@@ -962,6 +977,7 @@
         groupState = newGroupState(mode);
         await renderGroup(true);
       }
+      return true;
     }
 
     async function saveGroup() {
@@ -1512,6 +1528,69 @@
       if (confirmBox.classList.contains("show")) { closeDeleteConfirm(); return; }
       if (modal.classList.contains("show")) { closeModal(); }
     });
+
+    // ---------------------------------------------------------------------
+    // 대시보드 각 표 탭(상세 모달의 "수정"/"삭제", 목록 위의 "+ 추가")에서
+    // 이 플로팅 폼을 원격으로 여는 진입점. window.PPA_FORM 이 있는지로 "지금
+    // 실시간 입력 서버가 붙어 있는지"를 판단하므로, 정적으로 생성된 HTML을
+    // 서버 없이 열었을 때는 이 객체 자체가 없어 대시보드 쪽에서 안내 메시지로
+    // 대체합니다.
+    // ---------------------------------------------------------------------
+    async function externalSelectTable(tableKey) {
+      await ensureSchema();
+      if (!modeSel.options.length) {
+        Object.keys(SCHEMA_BY_KEY).forEach(function (key) {
+          modeSel.appendChild(el("option", { value: key }, [TABLE_META[key] ? TABLE_META[key].label : key]));
+        });
+      }
+      if (!SCHEMA_BY_KEY[tableKey]) throw new Error("알 수 없는 표: " + tableKey);
+
+      if (!modal.classList.contains("show")) {
+        backdrop.classList.add("show");
+        modal.classList.add("show");
+      }
+
+      if (appMode !== "single") {
+        var switched = await switchMode("single");
+        if (!switched) return false;
+      } else if (modeSel.value !== tableKey && !confirmDiscardIfDirty()) {
+        return false;
+      }
+
+      if (modeSel.value !== tableKey) {
+        modeSel.value = tableKey;
+        await renderMode(true, false);
+      }
+      return true;
+    }
+
+    window.PPA_FORM = {
+      edit: function (tableKey, pkValue) {
+        return externalSelectTable(tableKey).then(function (ok) {
+          if (!ok || !pkValue) return;
+          return apiGet("/api/record?table=" + encodeURIComponent(tableKey) + "&pk=" + encodeURIComponent(pkValue))
+            .then(function (data) { applyLoadedRecord(tableKey, data.record || {}); });
+        }).catch(function (e) { showToast("불러오기 실패: " + (e.message || e), "error"); });
+      },
+      add: function (tableKey) {
+        return externalSelectTable(tableKey).catch(function (e) {
+          showToast("화면 전환 실패: " + (e.message || e), "error");
+        });
+      },
+      del: function (tableKey, pkValue) {
+        return externalSelectTable(tableKey).then(function (ok) {
+          if (!ok || !pkValue) return;
+          return apiGet("/api/record?table=" + encodeURIComponent(tableKey) + "&pk=" + encodeURIComponent(pkValue))
+            .then(function (data) {
+              applyLoadedRecord(tableKey, data.record || {});
+              return openDeleteConfirm();
+            });
+        }).catch(function (e) { showToast("불러오기 실패: " + (e.message || e), "error"); });
+      },
+      resetBaseline: function () {
+        return resetChangeBaseline();
+      }
+    };
 
     console.log("[ppa] dashboard_form.js loaded");
   } catch (e) {

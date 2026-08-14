@@ -60,15 +60,9 @@ if errorlevel 1 (
   )
 )
 
-rem --- 3. pywin32 설치 여부 확인 - 없으면 여기서 바로 안내하고 종료 -----
-"%PY%" -c "import win32com.client" >nul 2>&1
-if errorlevel 1 (
-  echo [오류] pywin32 가 설치되어 있지 않습니다.
-  echo   이 기능 - 웹 화면 입력을 실제 엑셀에 반영 - 은 pywin32 Windows COM
-  echo   자동화가 반드시 있어야 동작합니다. static-dashboard\README.md 의
-  echo   'pywin32 설치' 절차를 먼저 진행해주세요.
-  goto :FAIL
-)
+rem --- pywin32 설치 여부는 ppa_liveserver.py 자신이 시작하자마자 바로
+rem     확인해서(별도로 python을 한 번 더 띄워 미리 검사하지 않음 - 그만큼
+rem     시작이 빨라집니다) 없으면 친절한 안내와 함께 즉시 종료합니다.
 
 echo 서버를 시작합니다. 이 창을 닫으면 서버도 함께 종료됩니다.
 echo 브라우저가 몇 초 안에 자동으로 열립니다(안 열리면 아래 주소를 직접

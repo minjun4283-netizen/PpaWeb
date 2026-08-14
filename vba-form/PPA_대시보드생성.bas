@@ -386,11 +386,16 @@ End Sub
 
 '==============================================================================
 ' [실시간 입력 서버 시작] 버튼에 연결된 동작 - 계속 떠 있는 서버를 띄웁니다
-'   (완료를 기다리지 않고 바로 돌아옵니다 - 서버는 검은 콘솔 창에서 계속 실행)
+'   (완료를 기다리지 않고 바로 돌아옵니다). run_live_server_hidden.vbs 를
+'   통해 콘솔 창 없이 백그라운드로 띄웁니다 - 정상적으로 시작되면 브라우저가
+'   자동으로 열리는 것 외에는 아무 창도 뜨지 않습니다. 문제가 있을 때만(엑셀/
+'   python을 못 찾음, 서버가 응답하지 않음) 그 vbs가 스스로 안내 창을 띄웁니다
+'   - 이 매크로는 그 결과를 기다리지 않으므로(Wait:=False) 엑셀 화면이
+'   멈추지 않습니다.
 '==============================================================================
 Public Sub 웹서버_시작()
-    Dim batPath As String, xlsmPath As String, cmd As String, 작업폴더 As String
-    Dim found As String
+    Dim vbsPath As String, batPath As String, xlsmPath As String, cmd As String
+    Dim 작업폴더 As String, found As String
 
     g_단계 = ""
     On Error GoTo 처리안됨
@@ -406,33 +411,38 @@ Public Sub 웹서버_시작()
     End If
 
     작업폴더 = 폴더경로(xlsmPath)
+    vbsPath = 작업폴더 & "\static-dashboard\run_live_server_hidden.vbs"
     batPath = 작업폴더 & "\static-dashboard\run_live_server.bat"
 
-    단계 "배치파일 확인"
-    found = Dir$(batPath)
-    If Len(found) = 0 Then
-        MsgBox "run_live_server.bat 를 찾을 수 없습니다." & vbCrLf & vbCrLf & _
-               "찾은 경로: " & batPath & vbCrLf & vbCrLf & _
-               "이 통합문서 옆에 static-dashboard 폴더가 있고 그 안에 " & _
-               "run_live_server.bat 가 있는지 확인해주세요.", vbExclamation, "실시간 입력 서버"
-        상태쓰기 "배치파일을 찾지 못해 중단됨", True, 15
+    단계 "실행 파일 확인"
+    found = Dir$(vbsPath)
+    If Len(found) > 0 Then
+        ' 콘솔 창 없이 백그라운드로 - 정상 작동 시 아무 창도 뜨지 않습니다.
+        cmd = "wscript.exe """ & vbsPath & """ """ & xlsmPath & """"
+        단계 "서버 실행 요청(숨김)"
+        CreateObject("WScript.Shell").Run cmd, 0, False
+        상태쓰기 "시작 요청됨 " & Format$(Now, "yyyy-mm-dd hh:nn") & _
+                 " - 몇 초 안에 브라우저가 자동으로 열립니다(문제가 있으면 알림 창이 뜹니다)", False, 15
         Exit Sub
     End If
 
-    ' 이 서버는 지금 화면(메모리)의 상태를 COM으로 직접 읽으므로, 대시보드 생성과
-    ' 달리 저장을 먼저 하라고 요구하지 않습니다.
+    ' run_live_server_hidden.vbs 가 없는 예전 static-dashboard 폴더 대비 -
+    ' 예전처럼 검은 콘솔 창이 뜨는 방식으로 대체합니다.
+    found = Dir$(batPath)
+    If Len(found) = 0 Then
+        MsgBox "run_live_server_hidden.vbs 도 run_live_server.bat 도 찾을 수 없습니다." & vbCrLf & vbCrLf & _
+               "이 통합문서 옆에 static-dashboard 폴더가 있고 그 안에 실행 파일이 " & _
+               "있는지 확인해주세요(최신 버전으로 폴더를 통째로 다시 받아보세요).", vbExclamation, "실시간 입력 서버"
+        상태쓰기 "실행 파일을 찾지 못해 중단됨", True, 15
+        Exit Sub
+    End If
+
     cmd = """" & batPath & """ """ & xlsmPath & """"
-
-    단계 "서버 실행 요청"
+    단계 "서버 실행 요청(콘솔 표시)"
     CreateObject("WScript.Shell").Run cmd, 1, False
-
-    상태쓰기 "시작 요청됨 " & Format$(Now, "yyyy-mm-dd hh:nn") & " (성공 여부는 새로 뜬 검은 창에서 확인)", False, 15
-
-    MsgBox "실시간 입력 서버를 시작했습니다." & vbCrLf & vbCrLf & _
-           "몇 초 안에 브라우저가 자동으로 열립니다(안 열리면 " & _
-           "http://127.0.0.1:8842 를 직접 열어주세요)." & vbCrLf & vbCrLf & _
-           "새로 뜬 검은 콘솔 창이 서버입니다 - 그 창을 닫으면 서버도 함께 " & _
-           "종료됩니다. pywin32가 없으면 그 창에 안내가 뜨고 바로 멈춥니다.", _
+    상태쓰기 "시작 요청됨 " & Format$(Now, "yyyy-mm-dd hh:nn") & " (구버전 방식 - 검은 콘솔 창에서 확인)", False, 15
+    MsgBox "실시간 입력 서버를 시작했습니다(구버전 방식 - 콘솔 창이 뜹니다)." & vbCrLf & vbCrLf & _
+           "static-dashboard 폴더를 최신 버전으로 갱신하면 콘솔 창 없이 시작할 수 있습니다.", _
            vbInformation, "실시간 입력 서버"
     Exit Sub
 
