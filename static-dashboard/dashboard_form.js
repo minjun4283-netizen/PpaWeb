@@ -132,6 +132,18 @@
       }, 3400);
     }
 
+    // 저장/삭제 뒤 location.reload() 하면 최신 데이터를 다시 반영하기 위해
+    // 페이지를 통째로 다시 불러오는데, 그냥 두면 대시보드의 state.tab이
+    // 기본값('홈')으로 초기화돼 방금까지 보던 화면과 무관하게 항상 홈으로
+    // 튕깁니다. reload 직전에 지금 탭을 세션스토리지에 남겨두면, 대시보드의
+    // restoreTabFromSession()이 다시 로드된 뒤 그 탭으로 복원합니다.
+    function rememberDashboardTab() {
+      try {
+        var st = window.PPA_DASHBOARD_STATE;
+        if (st && st.tab) sessionStorage.setItem("ppa_return_tab", st.tab);
+      } catch (e) { /* 세션스토리지 사용 불가 환경 - 조용히 무시(그냥 홈으로 감) */ }
+    }
+
     // ---------------------------------------------------------------------
     // 필드 판별 규칙
     // ---------------------------------------------------------------------
@@ -1047,6 +1059,7 @@
         delete recordCache[childDef.table];
         delete optionCache[childDef.table];
         if (gdef) { delete recordCache[gdef.table]; delete optionCache[gdef.table]; }
+        rememberDashboardTab();
         setTimeout(function () { location.reload(); }, 700);
       } catch (e) {
         showToast("일괄 저장 실패: " + (e.message || e), "error");
@@ -1092,6 +1105,7 @@
         delete optionCache[childDef.table];
         if (gdef) { delete recordCache[gdef.table]; delete optionCache[gdef.table]; }
         groupState = newGroupState(def.key);
+        rememberDashboardTab();
         setTimeout(function () { location.reload(); }, 700);
       } catch (e) {
         showToast("그룹 삭제 실패: " + (e.message || e), "error");
@@ -1165,6 +1179,7 @@
         await withBusy(rebuildBtn, "새로고침 중...", function () {
           return apiPost("/api/rebuild", {});
         });
+        rememberDashboardTab();
         location.reload();
       } catch (e) {
         showToast("새로고침 실패: " + (e.message || e), "error");
@@ -1186,6 +1201,7 @@
           return apiPost("/api/reset_snapshot", {});
         });
         showToast(data.message || "리셋 완료", "success");
+        rememberDashboardTab();
         setTimeout(function () { location.reload(); }, 700);
       } catch (e) {
         showToast("리셋 실패: " + (e.message || e), "error");
@@ -1221,6 +1237,7 @@
         formDirty = false;
         updateDeleteButtonState();
 
+        rememberDashboardTab();
         setTimeout(function () { location.reload(); }, 700);
       } catch (e) {
         showToast("저장 실패: " + (e.message || e), "error");
@@ -1309,6 +1326,7 @@
         delete optionCache[tableName];
         delete recordCache[tableName];
         await renderMode(true);
+        rememberDashboardTab();
         setTimeout(function () { location.reload(); }, 700);
       } catch (e) {
         showToast("삭제 실패: " + (e.message || e), "error");
