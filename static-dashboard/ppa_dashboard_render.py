@@ -85,6 +85,12 @@ body{margin:0;background:var(--paper);color:var(--ink);padding-bottom:60px;
 .mono,.kv,.ks,.count{font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .wrap{max-width:1280px;margin:0 auto;padding:0 22px}
 button,input,select{font-family:inherit}
+/* 전역 포커스 표시 — 브라우저 기본값 대신 브랜드색으로 통일(키보드 탐색
+   접근성 + 시각적 일관성). 마우스 클릭 시엔 표시 안 함(:focus-visible). */
+input:focus-visible,select:focus-visible,textarea:focus-visible,
+button:focus-visible,.search:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
+.search:focus,input[type="date"]:focus,input[type="month"]:focus,select:focus{
+  border-color:var(--teal);outline:none}
 
 /* 셸: 사이드바 + 상단바 — z-index 스케일: 상단바(sticky)=30, 사이드바
    (데스크톱 sticky·모바일 드로어 공용)=36, 드로어 백드롭=35(사이드바
@@ -157,6 +163,9 @@ section{margin-top:20px}
 .kpi.warn::after{content:'⚠';position:absolute;top:11px;right:13px;font-size:13px;opacity:.85;line-height:1}
 .kpi.clickable{cursor:pointer}.kpi.clickable:hover{border-color:var(--teal);box-shadow:var(--shadow)}
 .kk{font-size:10.5px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.045em}
+.infotip{display:inline-flex;align-items:center;justify-content:center;margin-left:4px;color:var(--mute);
+  font-size:11px;cursor:help;text-transform:none;letter-spacing:0}
+.infotip:hover,.infotip:focus-visible{color:var(--teal)}
 .kv{font-size:23px;font-weight:800;letter-spacing:-.015em}
 .ks{font-size:11.5px;color:var(--sub)}
 
@@ -198,8 +207,8 @@ section{margin-top:20px}
 /* 표 */
 .tbl-wrap{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:10px}
 table{width:100%;border-collapse:separate;border-spacing:0;background:var(--panel)}
-th,td{padding:9px 13px;font-size:13px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;background:var(--panel)}
-thead th{position:sticky;top:0;background:var(--thead-bg);font-size:11px;letter-spacing:.02em;color:var(--sub);font-weight:700;cursor:pointer;z-index:2}
+th,td{padding:10px 14px;font-size:13px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;background:var(--panel)}
+thead th{position:sticky;top:0;background:var(--thead-bg);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--sub);font-weight:700;cursor:pointer;z-index:2}
 thead th.nosort{cursor:default}
 thead th .ar{color:var(--teal);margin-left:3px}
 tbody tr:hover td{background:var(--row-hover)}
@@ -280,6 +289,19 @@ td.num,th.num{text-align:right;font-family:ui-monospace,SFMono-Regular,Consolas,
 .colgroup{padding:8px 0;border-bottom:1px solid var(--line)}
 .colgroup:last-child{border-bottom:none}
 .colgrouphead{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;margin-bottom:7px}
+
+/* 출력 컬럼 순서 — 순수 HTML5 Drag and Drop 칩 목록 */
+.excol-draglist{display:flex;flex-wrap:wrap;gap:7px;padding:2px 2px 10px;margin-bottom:10px;border-bottom:1px dashed var(--line)}
+.excol-chip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--ink);
+  background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:6px 8px 6px 6px;
+  cursor:grab;user-select:none;box-shadow:var(--shadow-sm);transition:opacity .15s,border-color .15s}
+.excol-chip:active{cursor:grabbing}
+.excol-chip.dragging{opacity:.35}
+.excol-chip.dragover{border-color:var(--teal);box-shadow:0 0 0 2px var(--teal-w)}
+.excol-handle{color:var(--mute);font-size:11px;letter-spacing:-2px;line-height:1}
+.excol-remove{border:none;background:none;color:var(--sub);cursor:pointer;font-size:12px;padding:0 0 0 2px;line-height:1}
+.excol-remove:hover{color:var(--fail)}
+.excol-hint{font-size:11.5px;color:var(--sub);margin:-4px 0 12px}
 .thtable{display:block;font-size:9.5px;font-weight:700;color:var(--teal-d);letter-spacing:.02em;margin-bottom:1px}
 td.cellmiss{color:var(--mute);text-align:center}
 tbody tr.rowmiss td{background:var(--amber-w)}
@@ -295,6 +317,10 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 
 .unsecrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 5px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}
 .unsecrow:last-child{border-bottom:none}.unsecrow:hover{background:var(--paper)}
+/* 라벨이 길어도(예: "발전 설비용량 대비 수요계약 미매칭 잔여용량") 좁은
+   화면에서 가로로 넘치지 않고 줄바꿈되도록 — 값·배지 칸은 줄어들지 않게 */
+.unsecrow>span:first-child{flex:1 1 auto;min-width:0;white-space:normal;word-break:keep-all}
+.unsecrow>span:not(:first-child){flex:0 0 auto}
 .unsecrow.isok{opacity:.6}
 
 /* 우선순위 조치 필요 항목 — 카테고리별 그룹핑 */
@@ -416,10 +442,15 @@ footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-si
 /* 보고용 인쇄 */
 @media print{
   @page{size:A4 landscape;margin:11mm}
+  /* 화면 조작용 UI(탐색·필터·버튼·드래그순서·툴팁 아이콘 등)는 종이에서
+     의미가 없으므로 전부 숨기고, 데이터와 인사이트만 A4 보고서 형태로
+     남깁니다. */
   .sidebar,.sidebarbackdrop,.topbar,.menubtn,.gsearchwrap,.toolbar,.filterbar,.chiprow,.candlist,.subtabbar,
-  .pager,.btn,.drop,.iconbtn,.pill,#globalResults,#toast,.backdrop,footer,.segtoggle,.trendrange{display:none!important}
+  .pager,.btn,.drop,.iconbtn,.pill,#globalResults,#toast,.backdrop,footer,.segtoggle,.trendrange,
+  .excol-draglist,.excol-hint,.infotip,.excol-remove{display:none!important}
   .insight{background:#fff!important;color:#000!important;border:1px solid #999}
   .insight .ieyebrow,.insight p .dim{color:#333!important}
+  .insight span[title]{border-bottom:none!important}
   .trendlabel{color:#000}
   body{background:#fff;color:#000;padding:0}
   .shell{display:block}
@@ -430,12 +461,14 @@ footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-si
   .printhead h2{margin:0 0 3px;font-size:15pt}
   .printhead .pmeta{font-size:8.5pt;color:#333}
   .panel{break-inside:auto;border:1px solid #999;box-shadow:none;margin-bottom:10px;padding:8px 10px}
+  .ph{break-after:avoid-page}
+  .actioncathead{break-after:avoid-page}
   .tbl-wrap{max-height:none;overflow:visible;border:none}
   table{font-size:8pt}
   th,td{padding:3px 5px;background:#fff!important;border-bottom:1px solid #ccc;white-space:normal}
   thead{display:table-header-group}
-  tr{break-inside:avoid}
-  thead th{background:#eee!important;color:#000;position:static}
+  tr,.kpi,.unsecrow,.statusrow,.excol-chip{break-inside:avoid}
+  thead th{background:#eee!important;color:#000;position:static;text-transform:none}
   td.cellerr{color:#000;font-weight:700;box-shadow:none;outline:1.2px solid #b23a3a}
   td.cellchg{color:#000;font-weight:700;box-shadow:none;outline:1.2px dashed #1e63a8}
   a.idlink{color:#000;text-decoration:none}
@@ -443,6 +476,9 @@ footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-si
   .kpi.accent,.kpi.warn{background:#fff!important}
   .kpi.accent .kk,.kpi.accent .kv,.kpi.accent .ks,
   .kpi.warn .kk,.kpi.warn .kv,.kpi.warn .ks{color:#000!important}
+  /* 배지는 배경색 인쇄 옵션이 꺼져 있어도 구분되도록 글자색 테두리를 둡니다 */
+  .badge{border:1px solid currentColor;background:transparent!important}
+  .actioncatcount{border:1px solid #999;background:transparent!important;color:#000!important}
 }
 """
 
@@ -475,7 +511,7 @@ function readLS(k,f){try{const v=localStorage.getItem(k);return v===null?f:v;}ca
 function writeLS(k,v){try{localStorage.setItem(k,v);}catch(e){}}
 
 let state={
-  tab:'홈',sort:{},q:{},filters:{},dateFilters:{},colQ:{},
+  tab:'홈',sort:{},q:{},filters:{},dateFilters:{},colQ:{},pkFilter:{},
   hidden:{},page:{},pageSize:Number(readLS('ppa_pagesize','50'))||50,
   onlyErr:{},onlyChg:{},
   lookup:null,lookupTable:DATA.tables[0].key,lookupQ:'',lookupDepth:Number(readLS('ppa_depth','2')),
@@ -602,7 +638,7 @@ function setDateFilter(k,col,edge,val){
   state.page[k]=1;render();
 }
 function clearAllFilters(k){
-  state.filters[k]={};state.colQ[k]={};state.dateFilters[k]={};
+  state.filters[k]={};state.colQ[k]={};state.dateFilters[k]={};state.pkFilter[k]=null;
   state.q[k]='';state.onlyErr[k]=false;state.onlyChg[k]=false;
   state.page[k]=1;render();
 }
@@ -614,6 +650,7 @@ function activeFilterCount(k){
   if((state.q[k]||'').trim()) n++;
   if(state.onlyErr[k]) n++;
   if(state.onlyChg[k]) n++;
+  if(state.pkFilter[k]&&state.pkFilter[k].length) n++;
   return n;
 }
 function filterDescription(k){
@@ -627,15 +664,53 @@ function filterDescription(k){
     if(r&&(r.from||r.to)) parts.push(c+' '+(r.from||'')+'~'+(r.to||''));});
   if(state.onlyErr[k]) parts.push('검증오류만');
   if(state.onlyChg[k]) parts.push('변경분만');
+  if(state.pkFilter[k]&&state.pkFilter[k].length) parts.push('조치 필요 항목 '+state.pkFilter[k].length+'건');
   return parts.length?parts.join(' · '):'전체';
+}
+/* 홈 탭 "우선순위 조치 필요 항목"처럼 단일 컬럼 값 비교로는 표현할 수 없는
+   계산된 조건(용량 잔여·날짜 역전 등)의 결과를, 해당 표에 PK 목록으로
+   그대로 필터링해서 보여주기 위한 범용 드릴다운. */
+function jumpToPkSet(tk,pks){
+  state.tab=tk;state.pkFilter[tk]=pks;state.page[tk]=1;render();
+}
+function clearPkFilter(k){state.pkFilter[k]=null;state.page[k]=1;render();}
+/* jumpToPkSet(...)를 onclick 문자열 안에 그대로 박아 넣기 위한 JS 배열
+   리터럴 문자열화 — onclick 속성 전체가 큰따옴표로 감싸여 있으므로 각 PK는
+   작은따옴표 문자열로, jsq()로 이스케이프해서 넣습니다(다른 곳의 onclick
+   패턴과 동일한 관례). */
+function pkArrLiteral(pks){return '['+pks.map(p=>"'"+jsq(p)+"'").join(',')+']';}
+
+/* 여러 컬럼에 걸쳐 검색어를 매칭 — 공백으로 구분된 각 낱말이 대상 텍스트
+   어딘가에 전부(AND) 있으면 매치로 봅니다. "영광 풍력"처럼 띄어 쓴 검색어가
+   "영광풍력1호"처럼 붙어 있는 값과도 매치되고, 검색어 전체가 한 컬럼 안에
+   고스란히 들어있어야 하던 예전 제약(다중 컬럼에 걸친 값은 못 찾던 문제)도
+   없앱니다. */
+function matchesSearch(hayText,q){
+  const terms=String(q||'').trim().split(/\s+/).filter(Boolean);
+  if(!terms.length) return true;
+  const hay=String(hayText).toLowerCase();
+  return terms.every(t=>hay.includes(t.toLowerCase()));
+}
+let _searchTimer=null;
+/* 검색창 input 핸들러 — 조합 중(한글 등 IME)에는 절대 렌더링하지 않습니다.
+   렌더링은 #view.innerHTML을 통째로 새로 그리는데, 이게 조합 중에 일어나면
+   입력창 DOM이 재생성되며 브라우저의 IME 조합 세션이 끊겨 한글이 자모로
+   쪼개지거나 마지막 글자가 씹히는 등으로 깨져 보입니다. 타이핑이 잠시
+   멈췄을 때만(디바운스) 실제로 상태를 반영해, 대량 데이터에서 매 키 입력마다
+   표 전체를 다시 그리는 렉도 함께 줄입니다. */
+function onSearchType(e,setter){
+  if(e.isComposing) return;
+  const v=e.target.value;
+  clearTimeout(_searchTimer);
+  _searchTimer=setTimeout(()=>setter(v),140);
 }
 
 /* 필터·검색·정렬을 모두 적용한 행 목록 (페이징 전) — 화면과 내려받기가 공유 */
 function filteredRows(t){
   const k=t.key;
-  const q=(state.q[k]||'').trim().toLowerCase();
+  const q=(state.q[k]||'').trim();
   let rows=t.rows.map((r,i)=>({r,i}));
-  if(q) rows=rows.filter(({r})=>t.columns.some(c=>String(r.cells[c]??'').toLowerCase().includes(q)));
+  if(q) rows=rows.filter(({r})=>matchesSearch(t.columns.map(c=>r.cells[c]??'').join(' '),q));
   Object.entries(state.filters[k]||{}).forEach(([col,val])=>{
     if(val) rows=rows.filter(({r})=>String(r.cells[col]??'')===val);});
   Object.entries(state.colQ[k]||{}).forEach(([col,val])=>{
@@ -651,6 +726,10 @@ function filteredRows(t){
       return true;});});
   if(state.onlyErr[k]) rows=rows.filter(({r})=>(r.error_cols||[]).length>0);
   if(state.onlyChg[k]) rows=rows.filter(({r})=>!!r.change);
+  if(state.pkFilter[k]&&state.pkFilter[k].length){
+    const pkSet=new Set(state.pkFilter[k]);
+    rows=rows.filter(({r})=>pkSet.has(String(r.cells[t.pk]??'')));
+  }
   const sc=state.sort[k];
   if(sc) rows=[...rows].sort((a,b)=>{
     const av=a.r.cells[sc.key]??'',bv=b.r.cells[sc.key]??'';
@@ -677,6 +756,9 @@ function setPageSize(v){
 }
 
 /* ── 공통 조각 ──────────────────────────────────────────────────────────── */
+/* 용어 설명 아이콘 — 네이티브 title 속성만 쓰는 가벼운 툴팁(외부 라이브러리
+   없이 브라우저 기본 동작으로 마우스 오버 시 설명이 뜸). */
+const infoTip=(text)=>`<span class="infotip" title="${esc(text)}" tabindex="0">ⓘ</span>`;
 const kpi=(k,v,s,cls,onclick)=>
   `<div class="kpi${cls?' '+cls:''}${onclick?' clickable':''}"${onclick?` onclick="${onclick}"`:''}>
      <span class="kk">${k}</span><span class="kv">${v}</span><span class="ks">${s||''}</span></div>`;
@@ -736,6 +818,8 @@ function filterBar(t){
     chips.push(`<span class="fchip">${esc(col)} ~ "${esc(val)}"<button onclick="setColQ('${jsq(k)}','${jsq(col)}','')">✕</button></span>`);});
   Object.entries(df).forEach(([col,r])=>{if(!r||(!r.from&&!r.to)) return;
     chips.push(`<span class="fchip">${esc(col)} ${esc(r.from||'')}~${esc(r.to||'')}<button onclick="setDateFilter('${jsq(k)}','${jsq(col)}','from','');setDateFilter('${jsq(k)}','${jsq(col)}','to','')">✕</button></span>`);});
+  if(state.pkFilter[k]&&state.pkFilter[k].length)
+    chips.push(`<span class="fchip">홈의 조치 필요 항목에서 이동 (${nf(state.pkFilter[k].length,0)}건)<button onclick="clearPkFilter('${jsq(k)}')">✕</button></span>`);
   const chipRow=chips.length?`<div class="chiprow">${chips.join('')}</div>`:'';
   const bar=(selects||dates)?`<div class="filterbar">${selects}${dates}</div>`:'';
   return bar+chipRow;
@@ -781,10 +865,10 @@ function tableView(t){
     `<label class="colopt" style="display:block"><span class="dkey">${esc(c)}</span>
       <input id="cq-${esc(k)}-${esc(c)}" class="search" style="width:100%;min-width:0;margin-top:3px"
         value="${esc((state.colQ[k]||{})[c]||'')}" placeholder="이 컬럼에서 찾기…"
-        oninput="setColQ('${jsq(k)}','${jsq(c)}',this.value)"></label>`).join('');
+        oninput="onSearchType(event,v=>setColQ('${jsq(k)}','${jsq(c)}',v))"></label>`).join('');
 
   return `<div class="toolbar">
-      <input id="search-${esc(k)}" class="search" placeholder="${esc(t.label)} 전체 컬럼 검색…" value="${esc(raw)}" oninput="setQ('${jsq(k)}',this.value)">
+      <input id="search-${esc(k)}" class="search" placeholder="${esc(t.label)} 전체 컬럼 검색…" value="${esc(raw)}" oninput="onSearchType(event,v=>setQ('${jsq(k)}',v))">
       ${errN?`<button class="btn ${state.onlyErr[k]?'on':''}" onclick="toggleOnlyErr('${jsq(k)}')">검증오류만 ${errN}</button>`:''}
       ${chgN?`<button class="btn ${state.onlyChg[k]?'on':''}" onclick="toggleOnlyChg('${jsq(k)}')">변경분만 ${chgN}</button>`:''}
       <details class="drop"><summary>컬럼별 찾기</summary><div class="dropbody">${colSearchOpts}</div></details>
@@ -979,8 +1063,8 @@ function tLookup(){
   const activeT=byKey[state.lookupTable];
   const pickTabs=DATA.tables.map(t=>
     `<button class="subtab ${t.key===state.lookupTable?'on':''}" onclick="setLookupTable('${jsq(t.key)}')">${esc(t.label)}</button>`).join('');
-  const q=(state.lookupQ||'').trim().toLowerCase();
-  const matches=q?activeT.rows.filter(r=>activeT.columns.some(c=>String(r.cells[c]??'').toLowerCase().includes(q))):activeT.rows;
+  const q=(state.lookupQ||'').trim();
+  const matches=q?activeT.rows.filter(r=>matchesSearch(activeT.columns.map(c=>r.cells[c]??'').join(' '),q)):activeT.rows;
   const cand=matches.slice(0,25).map(r=>{
     const pkv=r.cells[activeT.pk];
     const label=activeT.columns.slice(0,3).map(c=>r.cells[c]).filter(v=>v!==undefined&&v!=='').join(' · ');
@@ -993,7 +1077,7 @@ function tLookup(){
   const picker=`<div class="panel"><div class="ph"><h3>1. 표 선택</h3></div>
     <div class="subtabbar">${pickTabs}</div>
     <div class="ph" style="margin-top:16px"><h3>2. 검색해서 선택</h3><span class="sub">비워두면 목록이 그대로 보입니다</span></div>
-    <input id="lookupSearchInput" class="search" style="width:100%" placeholder="${esc(activeT.label)} 검색 (ID, 이름 등)…" value="${esc(state.lookupQ||'')}" oninput="setLookupQ(this.value)">
+    <input id="lookupSearchInput" class="search" style="width:100%" placeholder="${esc(activeT.label)} 검색 (ID, 이름 등)…" value="${esc(state.lookupQ||'')}" oninput="onSearchType(event,setLookupQ)">
     <div class="candlist">${cand}</div>${more}</div>`;
 
   if(!state.lookup) return `<section>${recent}${picker}</section>`;
@@ -1206,17 +1290,19 @@ function buildExplore(){
     const tk=ex.missing.slice(8);
     out=out.filter(rec=>!rec[tk]);
   }
-  /* 표시 컬럼 — 고른 순서가 아니라 "표 순서 → 그 표의 원래 컬럼 순서"로 정렬해
-     클릭 순서와 무관하게 항상 같은 모양으로 나오게 합니다. */
-  const cols=ex.cols.filter(id=>eff.includes(id.split('|')[0])).sort((a,b)=>{
-    const [at,ac]=a.split('|'),[bt,bc]=b.split('|');
-    if(at!==bt) return eff.indexOf(at)-eff.indexOf(bt);
-    return byKey[at].columns.indexOf(ac)-byKey[bt].columns.indexOf(bc);});
-  /* 검색 (표시 중인 컬럼 기준) */
-  const q=(ex.q||'').trim().toLowerCase();
-  if(q) out=out.filter(rec=>cols.some(id=>{
-    const [tk,c]=id.split('|');
-    return String((rec[tk]&&rec[tk].cells[c])??'').toLowerCase().includes(q);}));
+  /* 표시 컬럼 — ex.cols 배열의 순서를 그대로 씁니다("3. 출력 컬럼"에서
+     끌어서 바꾼 순서, 또는 새로 켠 컬럼이 뒤에 붙는 기본 순서). 더 이상
+     "표 순서 → 원래 컬럼 순서"로 강제 정렬하지 않습니다 — 그렇게 하면
+     드래그로 바꾼 순서가 매번 원래대로 되돌아가 버립니다. */
+  const cols=ex.cols.filter(id=>eff.includes(id.split('|')[0]));
+  /* 검색 — 표시 중인 컬럼들을 한 줄로 합친 텍스트에서, 검색어를 공백
+     기준으로 쪼갠 낱말이 전부(AND) 어딘가에 있으면 매치. 특정 한 컬럼에
+     검색어 전체가 고스란히 들어있어야 했던 예전 방식보다 여러 컬럼에
+     걸친 값도 잘 찾고, 검색어에 공백이 있어도(예: "영광 풍력") 값에 공백이
+     없어도(예: "영광풍력1호") 매치됩니다. */
+  const q=(ex.q||'').trim();
+  if(q) out=out.filter(rec=>matchesSearch(
+    cols.map(id=>{const [tk,c]=id.split('|');return (rec[tk]&&rec[tk].cells[c])??'';}).join(' '),q));
   /* 정렬 */
   if(ex.sort){
     const [stk,sc]=ex.sort.key.split('|');
@@ -1229,6 +1315,60 @@ function buildExplore(){
       return ex.sort.dir*cmp;});
   }
   return {rows:out,cols,eff,joined,truncated};
+}
+/* ── 출력 컬럼 드래그 앤 드롭 순서 변경 (순수 HTML5 Drag and Drop API) ────
+   외부 라이브러리 없이 draggable 속성 + drag* 이벤트만으로 구현합니다.
+   드롭하면 ex.cols 배열 안에서 항목을 옮기고 다시 그리는데, 그 사이에도
+   네이티브 드래그 동작(dragend)은 브라우저가 알아서 정리하므로 별도 처리가
+   필요 없습니다. */
+let _exDragId=null;
+function exColDragStart(e,id){
+  _exDragId=id;
+  e.dataTransfer.effectAllowed='move';
+  e.dataTransfer.setData('text/plain',id); /* Firefox는 이게 없으면 드래그 자체가 시작 안 됨 */
+  e.currentTarget.classList.add('dragging');
+}
+function exColDragOver(e){
+  e.preventDefault(); /* dragover에서 preventDefault를 해야 그 자리를 드롭 대상으로 허용함 */
+  e.dataTransfer.dropEffect='move';
+  e.currentTarget.classList.add('dragover');
+}
+function exColDragLeave(e){e.currentTarget.classList.remove('dragover');}
+function exColDrop(e,targetId){
+  e.preventDefault();
+  e.currentTarget.classList.remove('dragover');
+  const ex=state.explore,fromId=_exDragId;
+  _exDragId=null;
+  if(!fromId||fromId===targetId||!ex) return;
+  const cols=ex.cols;
+  const from=cols.indexOf(fromId);
+  if(from<0) return;
+  cols.splice(from,1); /* 옮길 항목을 먼저 빼고 */
+  const to=cols.indexOf(targetId); /* 뺀 뒤 기준으로 목표 위치를 다시 찾아 */
+  cols.splice(to<0?from:to,0,fromId); /* 그 앞에 끼워 넣습니다(못 찾으면 원위치로 안전 복구) */
+  render();
+}
+function exColDragEnd(e){
+  e.currentTarget.classList.remove('dragging');
+  _exDragId=null;
+}
+function exploreSelectedColsHtml(cols){
+  if(!cols.length) return '';
+  const chips=cols.map(id=>{
+    const [tk,c]=id.split('|');
+    return `<span class="excol-chip" draggable="true"
+      ondragstart="exColDragStart(event,'${jsq(id)}')"
+      ondragover="exColDragOver(event)"
+      ondragleave="exColDragLeave(event)"
+      ondrop="exColDrop(event,'${jsq(id)}')"
+      ondragend="exColDragEnd(event)"
+      title="끌어서 순서 변경">
+      <span class="excol-handle">⠿⠿</span>${esc(byKey[tk].label)}.${esc(c)}
+      <button class="excol-remove" onclick="event.stopPropagation();toggleExploreCol('${jsq(tk)}','${jsq(c)}')" title="이 컬럼 빼기">✕</button>
+    </span>`;
+  }).join('');
+  return `<div class="excol-draglist">${chips}</div>
+    <div class="excol-hint">칩을 마우스로 끌어서 표에 나오는 컬럼 순서를 바꿀 수 있습니다.</div>`;
 }
 function exploreExport(){
   const {rows,cols}=buildExplore();
@@ -1355,10 +1495,10 @@ function tExplore(){
     ${panel('1. 기준 표','이 표의 각 행이 결과의 기준이 됩니다',`<div class="subtabbar">${baseTabs}</div>`)}
     ${panel('2. 연결할 표','숫자는 기준 표에서 몇 단계 떨어져 있는지 · 회색은 경로상 자동으로 거쳐가는 표',
       joinChips?`<div class="chiprow">${joinChips}</div>`:'<div class="nocand">연결할 수 있는 표가 없습니다.</div>')}
-    ${panel('3. 출력 컬럼','보고 싶은 컬럼만 눌러서 켜고 끄세요',colGroups)}
+    ${panel('3. 출력 컬럼','보고 싶은 컬럼만 눌러서 켜고 끄세요',exploreSelectedColsHtml(cols)+colGroups)}
     ${panel('4. 결과',truncated?`행이 너무 많아 ${nf(EXPLORE_CAP,0)}건에서 끊었습니다 — 조건을 좁혀주세요`:'',
       `<div class="toolbar">
-        <input id="exploreSearch" class="search" placeholder="결과에서 검색…" value="${esc(ex.q||'')}" oninput="setExploreQ(this.value)">
+        <input id="exploreSearch" class="search" placeholder="결과에서 검색… (여러 낱말 가능)" value="${esc(ex.q||'')}" oninput="onSearchType(event,setExploreQ)">
         ${missSel}
         <details class="drop"><summary>내려받기</summary><div class="dropbody right">
           <div class="nocand" style="padding:2px 2px 8px">현재 결과 <b>${nf(total,0)}건</b> · 선택 컬럼 ${cols.length}개</div>
@@ -1396,19 +1536,8 @@ function countExpiring(tk,col,days){
     if(!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
     const d=daysBetween(TODAY,v);
     return d>=0&&d<=days;}).length;}
-function countExpired(tk,col){
-  const t=byKey[tk];if(!t||!TODAY) return 0;
-  return t.rows.filter(r=>{
-    const v=String(r.cells[col]||'');
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
-    return daysBetween(TODAY,v)<0;}).length;}
 function jumpToFilter(tk,col,val){
   state.tab=tk;state.filters[tk]=state.filters[tk]||{};state.filters[tk][col]=val;state.page[tk]=1;render();}
-function jumpToExpired(tk,col){
-  state.tab=tk;state.dateFilters[tk]=state.dateFilters[tk]||{};
-  const y=new Date(TODAY);y.setDate(y.getDate()-1);
-  state.dateFilters[tk][col]={from:'2000-01-01',to:y.toISOString().slice(0,10)};
-  state.page[tk]=1;render();}
 function jumpToDateWindow(tk,col,days){
   state.tab=tk;state.dateFilters[tk]=state.dateFilters[tk]||{};
   const end=new Date(TODAY);end.setDate(end.getDate()+days);
@@ -1432,23 +1561,15 @@ function dateBucket(tk,col,capCol,minDays,maxDays){
   });
   return {n,cap};
 }
-function dateExpiredBucket(tk,col,capCol){
-  const t=byKey[tk];if(!t||!TODAY) return {n:0,cap:0};
-  let n=0,cap=0;
-  t.rows.forEach(r=>{
-    const v=String(r.cells[col]||'');if(!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
-    if(daysBetween(TODAY,v)<0){n++;const c=Number(r.cells[capCol]);cap+=isNaN(c)?0:c;}
-  });
-  return {n,cap};
-}
-/* 시작일이 종료일보다 뒤인("날짜 역전") 행 개수 — 데이터 정합성 이상치 */
-function countDateInversion(tk,startCol,endCol){
-  const t=byKey[tk];if(!t) return 0;
+/* 시작일이 종료일보다 뒤인("날짜 역전") 행의 PK 목록 — 개수만 필요하면
+   .length를 쓰고, 드릴다운(jumpToPkSet)에는 배열 자체를 그대로 씁니다. */
+function dateInversionPks(tk,startCol,endCol){
+  const t=byKey[tk];if(!t) return [];
   return t.rows.filter(r=>{
     const a=String(r.cells[startCol]||''),b=String(r.cells[endCol]||'');
     if(!/^\d{4}-\d{2}-\d{2}$/.test(a)||!/^\d{4}-\d{2}-\d{2}$/.test(b)) return false;
     return a>b;
-  }).length;
+  }).map(r=>String(r.cells[t.pk]??''));
 }
 
 /* 현황별로 값을 다른 표(FK)에서 끌어와 합산 — 예: 수급매칭 현황별 구매계약 용량 */
@@ -1508,6 +1629,29 @@ function saleTerminatedIds(){
 /* 종료 건을 뺀 유효 용량과, 뺀 종료 건 자체의 건수·용량을 한 번에 계산 —
    메인 KPI(유효 집계)와 보조 "종료/만료 용량" 카드가 이 하나의 함수를
    같은 기준으로 나눠 쓰게 해서 두 숫자가 항상 서로 앞뒤가 맞습니다. */
+/* 지난 기준점(스냅샷) 대비 용량 증감(MW) — added/changed는 현재 표의
+   change 마크(prev)로, removed는 CHANGES.removed_rows(삭제 당시 값 그대로
+   보존됨)로 계산해 셋을 합칩니다. Executive 요약에서 "늘었는지 줄었는지"를
+   3초 안에 보여주기 위한 델타 표시용. */
+function capacityDelta(tk,capCol){
+  const t=byKey[tk];if(!t||!CHANGES.has_prev) return 0;
+  let d=0;
+  t.rows.forEach(r=>{
+    const n=Number(r.cells[capCol]);if(isNaN(n)) return;
+    if(r.change==='added') d+=n;
+    else if(r.change==='changed'&&r.prev&&Object.prototype.hasOwnProperty.call(r.prev,capCol)){
+      const pn=Number(r.prev[capCol]);d+=n-(isNaN(pn)?0:pn);
+    }
+  });
+  const removed=(CHANGES.removed_rows&&CHANGES.removed_rows[tk])||[];
+  removed.forEach(cells=>{const n=Number(cells[capCol]);if(!isNaN(n)) d-=n;});
+  return d;
+}
+function deltaBadge(delta){
+  if(!CHANGES.has_prev||Math.abs(delta)<0.005) return '';
+  const up=delta>0;
+  return ` <span style="color:${up?'var(--pass)':'var(--fail)'};font-weight:700" title="지난 기준점 대비 변화">${up?'▲':'▼'} ${up?'+':''}${nf(delta)}MW</span>`;
+}
 function sumCapSplit(tk,capCol,excludeIds){
   const t=byKey[tk];if(!t) return {activeN:0,activeMW:0,termN:0,termMW:0};
   let activeN=0,activeMW=0,termN=0,termMW=0;
@@ -1619,45 +1763,47 @@ function actionCategory(title,rows){
 function actionItemsPanel(){
   const P=byKey['T_발전소'],B=byKey['T_구매계약'],S=byKey['T_판매계약'];
 
-  /* A. 계약/공급 임박 알림 */
-  const bExpired=B?dateExpiredBucket('T_구매계약','공급기한_구매','구매계약용량(MW)'):{n:0,cap:0};
-  const sExpired=S?dateExpiredBucket('T_판매계약','공급기한_판매','판매계약용량(MW)'):{n:0,cap:0};
+  /* A. 계약/공급 임박 알림 — 이미 만료된 건은 지금 손을 쓸 수 없는(과거가
+     된) 사안이라 "조치 필요" 목록에서 완전히 제외합니다. 아직 조치할 시간이
+     남아 있는(공급기한이 다가오는) 항목만 보여줍니다. */
   const b30=B?dateBucket('T_구매계약','공급기한_구매','구매계약용량(MW)',0,30):{n:0,cap:0};
   const s30=S?dateBucket('T_판매계약','공급기한_판매','판매계약용량(MW)',0,30):{n:0,cap:0};
   const b60=B?dateBucket('T_구매계약','공급기한_구매','구매계약용량(MW)',31,60):{n:0,cap:0};
   const s60=S?dateBucket('T_판매계약','공급기한_판매','판매계약용량(MW)',31,60):{n:0,cap:0};
   const catA=[
-    {label:'구매계약 — 공급기한 이미 만료',n:bExpired.n,cap:bExpired.cap,badgeCls:'no',badgeText:'위험',action:"jumpToExpired('T_구매계약','공급기한_구매')"},
-    {label:'판매계약 — 공급기한 이미 만료',n:sExpired.n,cap:sExpired.cap,badgeCls:'no',badgeText:'위험',action:"jumpToExpired('T_판매계약','공급기한_판매')"},
     {label:'구매계약 — 공급기한 D-30 이내',n:b30.n,cap:b30.cap,badgeCls:'no',badgeText:'위험',action:"jumpToDateWindow('T_구매계약','공급기한_구매',30)"},
     {label:'판매계약 — 공급기한 D-30 이내',n:s30.n,cap:s30.cap,badgeCls:'no',badgeText:'위험',action:"jumpToDateWindow('T_판매계약','공급기한_판매',30)"},
     {label:'구매계약 — 공급기한 D-31~60',n:b60.n,cap:b60.cap,badgeCls:'warn',badgeText:'주의',action:"jumpToDateWindowRange('T_구매계약','공급기한_구매',31,60)"},
     {label:'판매계약 — 공급기한 D-31~60',n:s60.n,cap:s60.cap,badgeCls:'warn',badgeText:'주의',action:"jumpToDateWindowRange('T_판매계약','공급기한_판매',31,60)"},
   ];
 
-  /* B. 수급 불균형·미확보 모니터링 */
+  /* B. 수급 불균형·미확보 모니터링 — "발전소 탭으로 이동" 정도가 아니라
+     실제 문제가 있는 발전소 PK만 골라 그 표를 필터링해서 보여줍니다
+     (jumpToPkSet). g.zero/g.under/g.over는 전부 발전소 행 기준입니다 —
+     "초과 계약"도 어떤 구매계약이 초과인지가 아니라 어떤 발전소가 설비
+     용량보다 많이 계약됐는지를 가리키므로 발전소 표로 드릴다운합니다. */
   const g=(P&&B&&P.rows.length)?capacityGap('T_발전소','설비용량(MW)','발전소명','T_구매계약','발전소ID','구매계약용량(MW)'):null;
-  const residualN=g?(g.zero.length+g.under.length):0;
+  const residualPks=g?[...g.zero,...g.under].map(x=>String(x.pk)):[];
   const residualMW=g?(g.zero.reduce((s,x)=>s+x.installed,0)+g.under.reduce((s,x)=>s+x.gap,0)):0;
-  const overN=g?g.over.length:0;
+  const overPks=g?g.over.map(x=>String(x.pk)):[];
   const overMW=g?g.over.reduce((s,x)=>s-x.gap,0):0;
   const bUn=B?countWhere('T_구매계약','수요기업 미확보','TRUE'):0;
   const bUnMW=B?B.rows.filter(r=>r.cells['수요기업 미확보']==='TRUE').reduce((s,r)=>{const n=Number(r.cells['구매계약용량(MW)']);return s+(isNaN(n)?0:n);},0):0;
   const sUn=S?countWhere('T_판매계약','공급자원 미확보','TRUE'):0;
   const sUnMW=S?S.rows.filter(r=>r.cells['공급자원 미확보']==='TRUE').reduce((s,r)=>{const n=Number(r.cells['판매계약용량(MW)']);return s+(isNaN(n)?0:n);},0):0;
   const catB=[
-    {label:'발전 설비용량 대비 수요계약 미매칭 잔여용량',n:residualN,cap:residualMW,badgeCls:'warn',badgeText:'주의',action:"state.tab='T_발전소';render()"},
-    {label:'설비용량 초과 계약(데이터 확인 필요)',n:overN,cap:overMW,badgeCls:'no',badgeText:'위험',action:"state.tab='T_구매계약';render()"},
+    {label:'발전 설비용량 대비 수요계약 미매칭 잔여용량',n:residualPks.length,cap:residualMW,badgeCls:'warn',badgeText:'주의',action:`jumpToPkSet('T_발전소',${pkArrLiteral(residualPks)})`},
+    {label:'발전소 — 설비용량 초과 계약(구매계약 합계 > 설비용량)',n:overPks.length,cap:overMW,badgeCls:'no',badgeText:'위험',action:`jumpToPkSet('T_발전소',${pkArrLiteral(overPks)})`},
     {label:'구매계약 — 수요기업 미확보',n:bUn,cap:bUnMW,badgeCls:'warn',badgeText:'주의',action:"jumpToFilter('T_구매계약','수요기업 미확보','TRUE')"},
     {label:'판매계약 — 공급자원 미확보',n:sUn,cap:sUnMW,badgeCls:'warn',badgeText:'주의',action:"jumpToFilter('T_판매계약','공급자원 미확보','TRUE')"},
   ];
 
   /* C. 데이터 정합성 이상치 */
   const errN=DATA.validation.total_errors;
-  const dateInvN=S?countDateInversion('T_판매계약','계약일','공급기한_판매'):0;
+  const dateInvPks=S?dateInversionPks('T_판매계약','계약일','공급기한_판매'):[];
   const catC=[
     {label:'검증 오류 (PK 누락·중복, FK 누락·참조, 조합중복)',n:errN,cap:null,badgeCls:'no',badgeText:'위험',action:"state.tab='검증';render()"},
-    {label:'날짜 역전 오류 (판매계약 계약일 > 공급기한)',n:dateInvN,cap:null,badgeCls:'no',badgeText:'위험',action:S?"state.tab='T_판매계약';render()":''},
+    {label:'날짜 역전 오류 (판매계약 계약일 > 공급기한)',n:dateInvPks.length,cap:null,badgeCls:'no',badgeText:'위험',action:dateInvPks.length?`jumpToPkSet('T_판매계약',${pkArrLiteral(dateInvPks)})`:''},
   ];
 
   const allRows=[...catA,...catB,...catC];
@@ -1995,19 +2141,35 @@ function trendPanel(){
 }
 
 /* ── 홈: 한눈에 보기 인사이트 문장 ──────────────────────────────────────── */
+/* 공급기한 컬럼에서 "아직 지나지 않은 것 중 가장 임박한" 한 건을 찾음 —
+   "지금 당장 뭘 봐야 하는지"를 숫자 하나로 압축해 보여주는 용도. */
+function nearestDeadline(tk,col){
+  const t=byKey[tk];if(!t||!TODAY) return null;
+  let best=null;
+  t.rows.forEach(r=>{
+    const v=String(r.cells[col]||'');if(!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+    const d=daysBetween(TODAY,v);
+    if(d>=0&&(best===null||d<best.days)) best={days:d,pk:String(r.cells[t.pk]??'')};
+  });
+  return best;
+}
 function homeInsight(){
   const P=byKey['T_발전소'],B=byKey['T_구매계약'],S=byKey['T_판매계약'],M=byKey['T_수급매칭'];
+  const supplyMW=P?sumCol('T_발전소','설비용량(MW)'):0;
+  const bs=B?sumCapSplit('T_구매계약','구매계약용량(MW)',purchaseTerminatedIds()):null;
+  const ss=S?sumCapSplit('T_판매계약','판매계약용량(MW)',saleTerminatedIds()):null;
   const parts=[];
-  if(P) parts.push(`발전소 <b>${nf(P.rows.length,0)}개</b>(<span class="dim">${nf(sumCol('T_발전소','설비용량(MW)'))}MW</span>)`);
-  if(B){
-    const bs=sumCapSplit('T_구매계약','구매계약용량(MW)',purchaseTerminatedIds());
-    parts.push(`구매계약 <b>${nf(bs.activeN,0)}건</b>(<span class="dim">${nf(bs.activeMW)}MW</span>)`);
-  }
-  if(S){
-    const ss=sumCapSplit('T_판매계약','판매계약용량(MW)',saleTerminatedIds());
-    parts.push(`판매계약 <b>${nf(ss.activeN,0)}건</b>(<span class="dim">${nf(ss.activeMW)}MW</span>)`);
-  }
+  if(P) parts.push(`발전소 <b>${nf(P.rows.length,0)}개</b>(<span class="dim">${nf(supplyMW)}MW</span>)`);
+  if(bs) parts.push(`구매계약 <b>${nf(bs.activeN,0)}건</b>(<span class="dim">${nf(bs.activeMW)}MW 유효</span>)`);
+  if(ss) parts.push(`판매계약 <b>${nf(ss.activeN,0)}건</b>(<span class="dim">${nf(ss.activeMW)}MW 유효</span>)`);
   if(!parts.length) return '';
+  /* B2B 실무자가 가장 먼저 궁금해할 "설비 대비 계약이 얼마나 찼는지"를
+     비율 하나로 — 100%에 가까울수록 설비 여유가 없다는 뜻입니다. */
+  let matchPart='';
+  if(bs&&supplyMW>0){
+    const pct=nf(Math.min(999,bs.activeMW/supplyMW*100),0);
+    matchPart=` 설비 대비 구매계약 매칭률<span title="발전소 설비용량 합계 대비 구매계약 유효 용량의 비율. 100%에 가까울수록 설비 여유가 없다는 뜻입니다." style="cursor:help;border-bottom:1px dotted currentColor"> <b>${pct}%</b></span>.`;
+  }
   let statusPart='';
   if(M&&M.rows.length){
     const groups=groupSumJoinFK('T_수급매칭','현황','구매계약ID','T_구매계약','구매계약용량(MW)');
@@ -2024,10 +2186,13 @@ function homeInsight(){
     monthRange(3).forEach(ym=>{if(m[ym]){cnt+=m[ym].cnt;cap+=m[ym].cap;}});
     if(cnt>0) trendPart=` 최근 3개월간 신규 판매계약 <b>${nf(cnt,0)}건</b>(<span class="dim">${nf(cap)}MW</span>) 체결.`;
   }
-  const bExp=B?countExpiring('T_구매계약','공급기한_구매',SOON_DAYS):0;
-  const sExp=S?countExpiring('T_판매계약','공급기한_판매',SOON_DAYS):0;
-  const expPart=(bExp+sExp)>0?` 향후 ${SOON_DAYS}일 내 공급기한 도래 <b>${nf(bExp+sExp,0)}건</b>.`:'';
-  return `<div class="insight"><p class="ieyebrow">한눈에 보기</p><p>${parts.join(' · ')}.${statusPart}${trendPart}${expPart}</p></div>`;
+  /* 잔여 공급기한 — 두 표를 통틀어 가장 임박한(D값이 가장 작은) 한 건만
+     짚어서 "지금 당장 뭘 챙겨야 하는지"를 바로 알 수 있게 합니다. */
+  const nb=B?nearestDeadline('T_구매계약','공급기한_구매'):null;
+  const ns=S?nearestDeadline('T_판매계약','공급기한_판매'):null;
+  const nearest=[nb&&{...nb,label:'구매계약'},ns&&{...ns,label:'판매계약'}].filter(Boolean).sort((a,b)=>a.days-b.days)[0];
+  const deadlinePart=nearest?` 가장 임박한 공급기한은 ${esc(nearest.label)} <b>${esc(nearest.pk)}</b> — <b>D-${nf(nearest.days,0)}</b>.`:'';
+  return `<div class="insight"><p class="ieyebrow">한눈에 보기</p><p>${parts.join(' · ')}.${matchPart}${statusPart}${trendPart}${deadlinePart}</p></div>`;
 }
 
 function tHome(){
@@ -2069,11 +2234,11 @@ function tHome(){
       </div></div>
     ${homeInsight()}
     <div class="kpis">
-    ${kpi('발전소 설비용량 합계',nf(supplyMW)+' MW',P?nf(P.rows.length,0)+'개 발전소':'','accent',"state.tab='T_발전소';render()")}
-    ${kpi('구매계약 총 용량 (유효)',nf(purchMW)+' MW',B?(purchSplit.termN?`${nf(purchSplit.activeN,0)}건 · 종료 ${nf(purchSplit.termN,0)}건 제외`:nf(purchSplit.activeN,0)+'건'):'','',"state.tab='T_구매계약';render()")}
-    ${kpi('판매계약 총 용량 (유효)',nf(saleMW)+' MW',S?(saleSplit.termN?`${nf(saleSplit.activeN,0)}건 · 종료 ${nf(saleSplit.termN,0)}건 제외`:nf(saleSplit.activeN,0)+'건'):'','',"state.tab='T_판매계약';render()")}
-    ${kpi('구매 − 판매 밸런스',(balance>=0?'+':'')+nf(balance)+' MW',balance>=0?'구매 우위(여유)':'판매 우위(부족)',balance<0?'warn':'')}
-    ${kpi('종료/만료 용량',nf(termMW)+' MW',termN?`구매 ${purchSplit.termN}건 · 판매 ${saleSplit.termN}건 (메인 지표 제외됨)`:'해당 없음','')}
+    ${kpi('발전소 설비용량 합계',nf(supplyMW)+' MW',(P?nf(P.rows.length,0)+'개 발전소':'')+deltaBadge(capacityDelta('T_발전소','설비용량(MW)')),'accent',"state.tab='T_발전소';render()")}
+    ${kpi('구매계약 총 용량 (유효)'+infoTip('공급기한과 무관하게, 수급매칭 현황이 전부 "종료"류인 계약만 뺀 값입니다.'),nf(purchMW)+' MW',(B?(purchSplit.termN?`${nf(purchSplit.activeN,0)}건 · 종료 ${nf(purchSplit.termN,0)}건 제외`:nf(purchSplit.activeN,0)+'건'):'')+deltaBadge(capacityDelta('T_구매계약','구매계약용량(MW)')),'',"state.tab='T_구매계약';render()")}
+    ${kpi('판매계약 총 용량 (유효)'+infoTip('수급매칭 현황이 전부 "종료"류인 계약은 제외한 값입니다.'),nf(saleMW)+' MW',(S?(saleSplit.termN?`${nf(saleSplit.activeN,0)}건 · 종료 ${nf(saleSplit.termN,0)}건 제외`:nf(saleSplit.activeN,0)+'건'):'')+deltaBadge(capacityDelta('T_판매계약','판매계약용량(MW)')),'',"state.tab='T_판매계약';render()")}
+    ${kpi('구매 − 판매 밸런스'+infoTip('구매계약 유효 용량에서 판매계약 유효 용량을 뺀 값 — 양수면 구매(공급)가 판매(수요)보다 여유 있다는 뜻입니다.'),(balance>=0?'+':'')+nf(balance)+' MW',balance>=0?'구매 우위(여유)':'판매 우위(부족)',balance<0?'warn':'')}
+    ${kpi('종료/만료 용량'+infoTip('메인 용량 지표에서 제외된 "계약 종료" 건들의 용량을 모은 값입니다 — 없어진 게 아니라 여기로 옮겨 보이는 것입니다.'),nf(termMW)+' MW',termN?`구매 ${purchSplit.termN}건 · 판매 ${saleSplit.termN}건 (메인 지표 제외됨)`:'해당 없음','')}
     </div>
     <div class="kpis">
     ${kpi('검증 오류',nf(DATA.validation.total_errors,0),ok?'전 표 정상':'클릭해서 확인',ok?'':'warn',"state.tab='검증';render()")}
@@ -2083,12 +2248,12 @@ function tHome(){
     ${kpi('미확보 계약',nf(bUn+sUn,0),`구매 ${bUn} · 판매 ${sUn}`,(bUn+sUn)>0?'warn':'')}
     ${kpi(SOON_DAYS+'일 내 공급기한',nf(bExp+sExp,0),`구매 ${bExp} · 판매 ${sExp}`,'')}
     </div>
+    ${statusPanel()}
     <div class="grid2">
       ${panel('발전원별 설비용량 비중','',mixBars)}
       ${actionItemsPanel()}
     </div>
     ${capacityGapPanel()}
-    ${statusPanel()}
     ${trendPanel()}
     ${schemaDiagram()?panel('표 관계 구조','박스를 누르면 해당 표로 이동합니다',schemaDiagram()):''}</section>`;
 }
@@ -2151,7 +2316,7 @@ function tChanges(){
 
 /* ── 전체 변경 이력(여러 생성에 걸쳐 누적, 최대 1,000건) ──────────────────── */
 function changelogFiltered(){
-  const q=(state.clog.q||'').trim().toLowerCase();
+  const q=(state.clog.q||'').trim();
   const kind=state.clog.kind||'';
   const table=state.clog.table||'';
   return CHANGELOG.filter(e=>{
@@ -2160,8 +2325,8 @@ function changelogFiltered(){
     if(q){
       const hay=[e.pk,byKey[e.table]?byKey[e.table].label:e.table,e.actor||'']
         .concat(e.changed_cols||[]).concat(Object.values(e.cells||{}))
-        .join(' ').toLowerCase();
-      if(!hay.includes(q)) return false;
+        .join(' ');
+      if(!matchesSearch(hay,q)) return false;
     }
     return true;
   }).slice().reverse();
@@ -2208,7 +2373,7 @@ function changelogView(){
   const pageRows=rows.slice((page-1)*state.pageSize,page*state.pageSize);
   const list=pageRows.map(changelogRow).join('')||'<div class="nocand">조건에 맞는 이력이 없습니다.</div>';
   return `<div class="toolbar">
-      <input id="clog-q" class="search" placeholder="PK·값으로 이력 검색…" value="${esc(state.clog.q)}" oninput="setClogQ(this.value)">
+      <input id="clog-q" class="search" placeholder="PK·값으로 이력 검색…" value="${esc(state.clog.q)}" oninput="onSearchType(event,setClogQ)">
       <select class="filtersel" onchange="setClogKind(this.value)">${kOpts}</select>
       <select class="filtersel" onchange="setClogTable(this.value)">${tOpts}</select>
       <span class="count">${nf(total,0)} / ${nf(CHANGELOG.length,0)}건</span>
@@ -2246,13 +2411,13 @@ function tVerify(){
 }
 
 /* ── 전역 검색 ──────────────────────────────────────────────────────────── */
-function onGlobalSearch(v){
+function runGlobalSearch(v){
   const box=document.getElementById('globalResults');
-  const q=(v||'').trim().toLowerCase();
+  const q=(v||'').trim();
   if(!q){box.classList.remove('show');box.innerHTML='';return;}
   const res=[];
   DATA.tables.forEach(t=>t.rows.forEach((r,i)=>{
-    if(t.columns.some(c=>String(r.cells[c]??'').toLowerCase().includes(q))){
+    if(matchesSearch(t.columns.map(c=>r.cells[c]??'').join(' '),q)){
       res.push({table:t.key,tlabel:t.label,pk:r.cells[t.pk],idx:i,
         text:t.columns.slice(0,3).map(c=>r.cells[c]).filter(x=>x!==undefined&&x!=='').join(' · ')});}}));
   const shown=res.slice(0,20);
@@ -2262,6 +2427,16 @@ function onGlobalSearch(v){
       +(res.length>20?`<div class="nocand" style="padding:8px 16px">${nf(res.length-20,0)}건 더 있음 — 검색어를 좁혀보세요.</div>`:'')
     : '<div class="nocand" style="padding:10px 16px">일치하는 항목이 없습니다.</div>';
   box.classList.add('show');
+}
+/* 즉시 호출용(포커스 시 이전 검색 결과 다시 보여주기) — 타이핑 중엔
+   onGlobalSearchType(디바운스+조합 안전)을 씁니다. */
+function onGlobalSearch(v){runGlobalSearch(v);}
+let _gsearchTimer=null;
+function onGlobalSearchType(e){
+  if(e.isComposing) return;
+  const v=e.target.value;
+  clearTimeout(_gsearchTimer);
+  _gsearchTimer=setTimeout(()=>runGlobalSearch(v),140);
 }
 function closeGlobalSearch(){
   const i=document.getElementById('globalSearch');if(i) i.value='';
@@ -2642,6 +2817,15 @@ function renderTabs(){
 function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarBackdrop').classList.add('open');}
 function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarBackdrop').classList.remove('open');}
 function toggleSidebar(){document.getElementById('sidebar').classList.contains('open')?closeSidebar():openSidebar();}
+/* 성능 메모(자율 점검): 이 대시보드는 매 렌더마다 문자열로 조립한 HTML을
+   #view.innerHTML에 통째로 한 번만 대입합니다 — 브라우저가 innerHTML을
+   파싱할 때 자체적으로 배치(batch) 최적화를 하므로, createElement로 노드를
+   하나씩 만들어 DocumentFragment에 담아 붙이는 방식보다 실제로 더 느리지
+   않고 코드도 훨씬 단순합니다(리플로우도 어차피 둘 다 "교체 1회"로 동일).
+   그래서 이 파일 전체에서 노드별 DOM API 대신 문자열 템플릿 방식을 그대로
+   유지했습니다. 대신 실측으로 느렸던 지점(타이핑 시 매 키 입력마다 전체
+   재렌더)은 onSearchType()의 디바운스(140ms)로 렌더 횟수 자체를 줄여
+   해결했습니다 — 이게 대량 데이터에서 체감되는 "렉"의 실제 원인이었습니다. */
 function render(){
   renderTabs();
   const view=document.getElementById('view');
@@ -2727,7 +2911,7 @@ _HTML = r"""<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
       <div class="topbar-right">
         <div class="gsearchwrap">
           <input id="globalSearch" class="search" style="width:100%" placeholder="전체 표에서 검색 (ID, 발전소명, 기업명, 담당자 등)…"
-            oninput="onGlobalSearch(this.value)" onfocus="onGlobalSearch(this.value)">
+            oninput="onGlobalSearchType(event)" onfocus="onGlobalSearch(this.value)">
           <div id="globalResults" class="globalresults"></div>
         </div>
         <button id="chgpill" class="pill chg" onclick="state.tab='변경';render()" style="display:none">변경</button>
