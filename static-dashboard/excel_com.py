@@ -64,7 +64,10 @@ def _require_pywin32() -> None:
 
 
 def _is_date_column(name: str) -> bool:
-    return bool(re.search(r"일자|날짜|시작일|종료일|체결일|계약일", name))
+    # "공급기한_구매"/"공급기한_판매"처럼 "기한"으로 끝나는 컬럼도 날짜로
+    # 다뤄야 엑셀에 진짜 날짜 값(datetime)으로 써져서 정렬/기간필터/D-day
+    # 계산이 제대로 됩니다 - 문자열로 남으면 그런 계산이 깨집니다.
+    return bool(re.search(r"일자|날짜|기한|시작일|종료일|체결일|계약일", name))
 
 
 def _is_number_column(name: str) -> bool:

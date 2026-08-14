@@ -103,15 +103,16 @@ def fake_previous(cur: dict) -> dict:
 if __name__ == "__main__":
     changes, marks = compute_changes(tables_data, fake_previous(tables_data))
     generated_at = datetime.datetime.now().isoformat(timespec="seconds")
-    changelog = build_changelog_entries(tables_data, changes, marks, generated_at)
+    changelog = build_changelog_entries(tables_data, changes, marks, generated_at, actor="최기철")
     # 누적 이력 화면 시연용으로, 이번 건 말고도 며칠 전 생성 때 있었던 것처럼
-    # 보이는 가짜 항목 몇 개를 앞에 더 붙입니다.
+    # 보이는 가짜 항목 몇 개를 앞에 더 붙입니다(변경한 사람도 다르게 넣어
+    # "누가 바꿨는지" 화면이 어떻게 보이는지 시연).
     older = (datetime.datetime.now() - datetime.timedelta(days=3)).isoformat(timespec="seconds")
     changelog = [
         {"generated_at": older, "kind": "added", "table": "T_수요기업",
-         "pk": "D002", "cells": {"수요기업ID": "D002", "기업명": "한빛반도체㈜"}},
+         "pk": "D002", "actor": "박창옥", "cells": {"수요기업ID": "D002", "기업명": "한빛반도체㈜"}},
         {"generated_at": older, "kind": "changed", "table": "T_판매계약",
-         "pk": "판매-D002-2026-01", "changed_cols": ["판매단가(원/kWh)"],
+         "pk": "판매-D002-2026-01", "actor": "홍원정", "changed_cols": ["판매단가(원/kWh)"],
          "prev": {"판매단가(원/kWh)": "160"}, "cells": {"판매단가(원/kWh)": "165"}},
     ] + changelog
     payload = build_payload(tables_data, is_demo=True, changes=changes, marks=marks, changelog=changelog)

@@ -180,11 +180,18 @@ def load_changelog(path: str) -> list[dict]:
 
 
 def build_changelog_entries(
-    tables_data: dict[str, list[dict]], changes: dict, marks: dict, generated_at: str
+    tables_data: dict[str, list[dict]], changes: dict, marks: dict, generated_at: str,
+    actor: str | None = None,
 ) -> list[dict]:
     """이번 생성에서 감지된 추가/수정/삭제를, 누적 이력에 그대로 추가할 수 있는
     평평한 항목 리스트로 만듭니다(marks는 "added"/"changed"만, 삭제는
-    changes["removed_rows"]에 전체 스냅샷 값으로 들어있음)."""
+    changes["removed_rows"]에 전체 스냅샷 값으로 들어있음).
+
+    actor: 이 변경을 누가 했는지(보통 실시간 입력 서버를 실행 중인 사용자의
+    Windows 로그인 계정, 또는 사용자가 직접 정한 표시 이름) - 없으면 "알 수
+    없음"으로 남깁니다(정적 생성 스크립트를 실행한 사람을 특정할 수 없는
+    경우 등)."""
+    actor_val = actor or "알 수 없음"
     entries: list[dict] = []
 
     for (table_key, row_idx), mark in marks.items():
@@ -201,6 +208,7 @@ def build_changelog_entries(
                     "kind": "added",
                     "table": table_key,
                     "pk": pk_val,
+                    "actor": actor_val,
                     "cells": {c: _s(row.get(c)) for c in schema.columns},
                 }
             )
@@ -211,6 +219,7 @@ def build_changelog_entries(
                     "kind": "changed",
                     "table": table_key,
                     "pk": pk_val,
+                    "actor": actor_val,
                     "changed_cols": mark["changed_cols"],
                     "prev": mark["prev"],
                     "cells": {c: _s(row.get(c)) for c in mark["changed_cols"]},
@@ -228,6 +237,7 @@ def build_changelog_entries(
                     "kind": "removed",
                     "table": table_key,
                     "pk": _s(cells.get(schema.pk)),
+                    "actor": actor_val,
                     "cells": dict(cells),
                 }
             )

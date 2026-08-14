@@ -25,6 +25,18 @@
     var optionCache = {};
     var recordCache = {};
 
+    // 저장/삭제할 때 "누가 했는지"를 이력에 남기기 위한 표시 이름 - 한 번
+    // 정해두면 이 브라우저에서는 계속 기억합니다. 안 정하면 서버가 자동으로
+    // 이 컴퓨터의 Windows 로그인 계정으로 남깁니다(그래도 무방하지만, 로그인
+    // 계정이 사람 이름이 아닐 수 있어 원하면 여기서 바꿀 수 있게 함).
+    var ACTOR_STORAGE_KEY = "ppa_actor_name";
+    function getActorName() {
+      try { return (localStorage.getItem(ACTOR_STORAGE_KEY) || "").trim(); } catch (e) { return ""; }
+    }
+    function setActorName(v) {
+      try { localStorage.setItem(ACTOR_STORAGE_KEY, (v || "").trim()); } catch (e) { /* 무시 */ }
+    }
+
     // loadedPk: 지금 폼이 "기존 데이터를 불러온" 상태인지(삭제 가능) 아니면
     // "새 입력" 상태인지(삭제 버튼 비활성) 추적합니다.
     var formState = { loadedPk: null };
@@ -151,7 +163,11 @@
       return /비고|메모|설명|내용/.test(name);
     }
     function isDateColumn(name) {
-      return /일자|날짜|시작일|종료일|체결일|계약일/.test(name);
+      // "공급기한_구매"/"공급기한_판매"처럼 "기한"으로 끝나는 컬럼도 날짜
+      // 입력(달력 선택 또는 직접 입력 모두 가능한 <input type=date>)으로
+      // 다뤄야 하는데 예전 패턴엔 "기한"이 빠져 있어 자유 텍스트로 새고
+      // 있었습니다.
+      return /일자|날짜|기한|시작일|종료일|체결일|계약일/.test(name);
     }
     function isNumberColumn(name) {
       return /용량|금액|단가|비율|수량|면적|사용량|발전량|REC|MW|MWh|kW|kWh|개월|년수/.test(name);
@@ -1050,7 +1066,7 @@
 
       try {
         var data = await withBusy(saveBtn, "일괄 저장 중...", function () {
-          return apiPost("/api/batch", { operations: operations });
+          return apiPost("/api/batch", { operations: operations, actor: getActorName() });
         });
         showToast(data.message || "일괄 저장 완료", "success");
         groupDirty = false;
@@ -1095,7 +1111,7 @@
 
       try {
         var data = await withBusy(deleteBtn, "삭제 중...", function () {
-          return apiPost("/api/batch", { operations: operations });
+          return apiPost("/api/batch", { operations: operations, actor: getActorName() });
         });
         showToast(data.message || "그룹 삭제 완료", "success");
         groupDirty = false;
@@ -1225,7 +1241,7 @@
 
       try {
         var data = await withBusy(saveBtn, "엑셀에 저장 중...", function () {
-          return apiPost("/api/save", { table: tableName, record: record });
+          return apiPost("/api/save", { table: tableName, record: record, actor: getActorName() });
         });
         showToast(data.message || "저장 완료", "success");
 
@@ -1318,7 +1334,7 @@
 
       try {
         var data = await withBusy(confirmDeleteBtn, "삭제 중...", function () {
-          return apiPost("/api/delete", { table: tableName, pk: pkValue });
+          return apiPost("/api/delete", { table: tableName, pk: pkValue, actor: getActorName() });
         });
         showToast(data.message || "삭제 완료", "success");
         closeDeleteConfirm();
@@ -1347,8 +1363,11 @@
         ".ppaf-backdrop.show,.ppaf-confirm-backdrop.show{display:block}" +
         ".ppaf-modal{position:fixed;right:24px;bottom:80px;width:min(1100px,calc(100vw - 32px));max-height:84vh;overflow:auto;background:var(--ppaf-bg);color:var(--ppaf-ink);border:1px solid var(--ppaf-line);border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,.28);z-index:2147482999;display:none;opacity:0;transform:translateY(8px);transition:opacity .18s ease,transform .18s ease}" +
         ".ppaf-modal.show{display:block;opacity:1;transform:translateY(0)}" +
-        ".ppaf-head{padding:18px 20px;border-bottom:1px solid var(--ppaf-line);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--ppaf-bg);border-radius:18px 18px 0 0}" +
-        ".ppaf-title{font-size:16px;font-weight:800}" +
+        ".ppaf-head{padding:18px 20px;border-bottom:1px solid var(--ppaf-line);display:flex;gap:12px;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--ppaf-bg);border-radius:18px 18px 0 0;flex-wrap:wrap}" +
+        ".ppaf-actor-wrap{display:flex;align-items:center;gap:5px;flex:0 1 200px}" +
+        ".ppaf-actor-label{font-size:13px}" +
+        ".ppaf-actor-input{padding:6px 9px;font-size:12.5px;min-width:0}" +
+        ".ppaf-title{flex:1 1 auto;font-size:16px;font-weight:800}" +
         ".ppaf-body{padding:18px 20px 22px}" +
         ".ppaf-help{font-size:12px;color:var(--ppaf-sub);margin:10px 0 16px;line-height:1.5}" +
         ".ppaf-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}" +
@@ -1459,7 +1478,21 @@
     var modeBtnB = el("button", { class: "ppaf-modebtn", type: "button" }, [GROUP_DEFS.groupB.label]);
     var modeSwitchWrap = el("div", { class: "ppaf-modeswitch" }, [modeBtnSingle, modeBtnA, modeBtnB]);
 
-    modal.appendChild(el("div", { class: "ppaf-head" }, [el("div", { class: "ppaf-title" }, ["간편 입력/저장 (엑셀에 바로 반영)"]), closeBtn]));
+    var actorInput = el("input", {
+      class: "ppaf-input ppaf-actor-input",
+      type: "text",
+      placeholder: "표시 이름(선택)",
+      title: "저장/삭제 이력에 남길 내 이름 - 비워두면 이 컴퓨터의 Windows 로그인 계정이 자동으로 쓰입니다."
+    });
+    actorInput.value = getActorName();
+    actorInput.addEventListener("change", function () { setActorName(actorInput.value); });
+    actorInput.addEventListener("blur", function () { setActorName(actorInput.value); });
+
+    modal.appendChild(el("div", { class: "ppaf-head" }, [
+      el("div", { class: "ppaf-title" }, ["간편 입력/저장 (엑셀에 바로 반영)"]),
+      el("div", { class: "ppaf-actor-wrap" }, [el("span", { class: "ppaf-actor-label" }, ["👤"]), actorInput]),
+      closeBtn
+    ]));
     bodyWrap.appendChild(modeSwitchWrap);
     bodyWrap.appendChild(singleWrap);
     bodyWrap.appendChild(groupWrap);

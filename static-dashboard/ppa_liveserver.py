@@ -51,6 +51,16 @@ def find_first_xlsm(base_dir: Path) -> Path:
     return files[0]
 
 
+def current_os_actor() -> str:
+    """이 서버 프로세스를 실행 중인 사람의 Windows 로그인 계정 - 로그인 화면이
+    따로 없는 이 시스템에서 "누가 이 변경을 했는지"를 자동으로 남기는 기본값
+    입니다(실시간 입력 서버는 각자 자기 컴퓨터에서 실행하는 구조라, 이
+    프로세스를 실행 중인 사람 = 지금 브라우저에서 저장하는 사람으로 봐도
+    무방합니다). 브라우저 쪽에서 표시 이름을 따로 지정하면 그 값이 우선
+    합니다(/api/save 등의 actor 파라미터 참고)."""
+    return os.environ.get("USERNAME") or os.environ.get("USER") or "알 수 없음"
+
+
 # 서버 시작 직후 첫 rebuild가 끝나기 전까지 GET / 요청에 보여주는 안내 화면.
 # /api/ready를 짧은 간격으로 폴링하다가 준비되면 스스로 새로고침합니다 -
 # 그래서 main()이 rebuild를 기다리지 않고 서버/브라우저를 바로 띄워도 사용자는
@@ -115,7 +125,7 @@ class App:
             for t in TABLES
         ]
 
-    def rebuild(self) -> dict:
+    def rebuild(self, actor: str | None = None) -> dict:
         """엑셀에서 6개 표를 다시 읽어 PPA현황.html 을 갱신합니다.
 
         [변경] 탭에 보이는 "기준점 대비 누적 변경"은 리셋 버튼(reset_baseline)을
@@ -123,6 +133,10 @@ class App:
         때마다 계속 쌓여서 보입니다. 전체 변경 이력(changelog)에는 그 커진
         누적 diff를 그대로 매번 다시 넣지 않도록, 이번 한 번의 저장에서 실제로
         바뀐 것만 별도(lastbuild) 스냅샷으로 계산해 넣습니다.
+
+        actor: 이번 변경을 누가 했는지(save_and_rebuild 등에서 넘어옴) -
+        없으면(예: 서버 시작 시 최초 rebuild) 이 서버를 실행 중인 사람의
+        Windows 로그인 계정을 기본값으로 씁니다.
         """
         from build_dashboard import build_payload, default_snapshot_path
         from ppa_changes import (
@@ -152,7 +166,10 @@ class App:
             changelog = load_changelog(changelog_path)
             generated_at = datetime.datetime.now().isoformat(timespec="seconds")
             if build_changes.get("has_prev"):
-                new_entries = build_changelog_entries(tables_data, build_changes, build_marks, generated_at)
+                new_entries = build_changelog_entries(
+                    tables_data, build_changes, build_marks, generated_at,
+                    actor=actor or current_os_actor(),
+                )
                 if new_entries:
                     changelog = append_changelog(changelog_path, new_entries)
 
@@ -198,25 +215,25 @@ class App:
             return html[:idx] + tag + "\n" + html[idx:]
         return html + "\n" + tag
 
-    def save_and_rebuild(self, table_key: str, record: dict) -> dict:
+    def save_and_rebuild(self, table_key: str, record: dict, actor: str | None = None) -> dict:
         result = self.bridge.save_record(table_key, record)
-        payload = self.rebuild()
+        payload = self.rebuild(actor=actor)
         return {
             "save": result,
             "validation_errors": payload["validation"]["total_errors"],
         }
 
-    def delete_and_rebuild(self, table_key: str, pk_value: str) -> dict:
+    def delete_and_rebuild(self, table_key: str, pk_value: str, actor: str | None = None) -> dict:
         result = self.bridge.delete_record(table_key, pk_value)
-        payload = self.rebuild()
+        payload = self.rebuild(actor=actor)
         return {
             "delete": result,
             "validation_errors": payload["validation"]["total_errors"],
         }
 
-    def batch_and_rebuild(self, operations: list[dict]) -> dict:
+    def batch_and_rebuild(self, operations: list[dict], actor: str | None = None) -> dict:
         result = self.bridge.batch_apply(operations)
-        payload = self.rebuild()
+        payload = self.rebuild(actor=actor)
         return {
             "batch": result,
             "validation_errors": payload["validation"]["total_errors"],
@@ -336,11 +353,14 @@ def make_handler(app: App):
             if path == "/api/save":
                 table = str(payload.get("table") or "").strip()
                 record = payload.get("record") or {}
+                actor = (str(payload.get("actor") or "").strip() or None)
+                if actor:
+                    actor = actor[:60]
                 if table not in TABLE_BY_KEY:
                     self._send_json({"ok": False, "error": "지원하지 않는 표입니다."})
                     return
                 try:
-                    result = app.save_and_rebuild(table, record)
+                    result = app.save_and_rebuild(table, record, actor=actor)
                     self._send_json({"ok": True, **result, "message": "엑셀에 저장하고 대시보드를 갱신했습니다."})
                 except ExcelComError as e:
                     self._send_json({"ok": False, "error": str(e)})
@@ -351,6 +371,9 @@ def make_handler(app: App):
             if path == "/api/delete":
                 table = str(payload.get("table") or "").strip()
                 pk = str(payload.get("pk") or "").strip()
+                actor = (str(payload.get("actor") or "").strip() or None)
+                if actor:
+                    actor = actor[:60]
                 if table not in TABLE_BY_KEY:
                     self._send_json({"ok": False, "error": "지원하지 않는 표입니다."})
                     return
@@ -358,7 +381,7 @@ def make_handler(app: App):
                     self._send_json({"ok": False, "error": "삭제할 PK를 지정해주세요."})
                     return
                 try:
-                    result = app.delete_and_rebuild(table, pk)
+                    result = app.delete_and_rebuild(table, pk, actor=actor)
                     self._send_json({"ok": True, **result, "message": "엑셀에서 삭제하고 대시보드를 갱신했습니다."})
                 except ExcelComError as e:
                     self._send_json({"ok": False, "error": str(e)})
@@ -368,6 +391,9 @@ def make_handler(app: App):
 
             if path == "/api/batch":
                 operations = payload.get("operations") or []
+                actor = (str(payload.get("actor") or "").strip() or None)
+                if actor:
+                    actor = actor[:60]
                 if not isinstance(operations, list) or not operations:
                     self._send_json({"ok": False, "error": "적용할 작업이 없습니다."})
                     return
@@ -376,7 +402,7 @@ def make_handler(app: App):
                     self._send_json({"ok": False, "error": "지원하지 않는 표가 포함돼 있습니다."})
                     return
                 try:
-                    result = app.batch_and_rebuild(operations)
+                    result = app.batch_and_rebuild(operations, actor=actor)
                     self._send_json({"ok": True, **result, "message": "일괄 작업을 엑셀에 반영하고 대시보드를 갱신했습니다."})
                 except ExcelComError as e:
                     self._send_json({"ok": False, "error": str(e)})
@@ -493,8 +519,13 @@ def main():
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
     server_thread.start()
 
+    # ThreadingHTTPServer의 생성자가 이미 위에서 소켓을 bind+listen까지 끝내
+    # 놓았으므로(스레드를 막 시작한 이 시점에 accept 루프가 아직 안 돌고
+    # 있어도, OS의 listen 백로그가 그 사이 들어오는 연결을 받아 큐에 쌓아둠)
+    # 브라우저를 열기 전에 인위적으로 기다릴 이유가 없습니다 - 예전에 있던
+    # 지연(0.3~0.6초)을 없애 그만큼 화면이 더 빨리 뜹니다.
     if not args.no_browser:
-        threading.Timer(0.3, lambda: webbrowser.open(url)).start()
+        webbrowser.open(url)
 
     def _initial_rebuild():
         try:

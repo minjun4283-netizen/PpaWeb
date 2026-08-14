@@ -205,7 +205,8 @@ def main():
 
     generated_at = datetime.datetime.now().isoformat(timespec="seconds")
     if build_changes.get("has_prev") and not args.no_snapshot:
-        new_entries = build_changelog_entries(tables_data, build_changes, build_marks, generated_at)
+        actor = os.environ.get("USERNAME") or os.environ.get("USER") or "알 수 없음"
+        new_entries = build_changelog_entries(tables_data, build_changes, build_marks, generated_at, actor=actor)
         if new_entries:
             changelog = append_changelog(changelog_path, new_entries)
 

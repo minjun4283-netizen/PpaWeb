@@ -1457,6 +1457,10 @@ function capacityGapBlock(title,parentTk,parentCapCol,parentNameCol,childTk,fkCo
   const headLine=gapAbs>0.05
     ?`총 ${nf(g.totalInstalled)}MW 중 ${esc(childLabel)} ${nf(g.totalContracted)}MW — 차이 ${nf(gapAbs)}MW ${g.totalGap>0?'미계약':'초과'}`
     :`총 ${nf(g.totalInstalled)}MW — ${esc(childLabel)} 용량과 정확히 일치`;
+  const pct=g.totalInstalled>0?Math.min(100,g.totalContracted/g.totalInstalled*100):0;
+  const overFlag=g.totalGap<-0.05;
+  const barHtml=`<div class="mixbar" style="margin:6px 0 8px" title="${esc(childLabel)} ${nf(g.totalContracted)}MW / 설비 ${nf(g.totalInstalled)}MW">
+    <div class="mixfill" style="width:${pct.toFixed(1)}%${overFlag?';background:var(--fail)':''}"></div></div>`;
   const parts=[];
   if(g.zero.length) parts.push(`${esc(childLabel)}이 전혀 없는 항목 <b>${nf(g.zero.length,0)}개</b>(<span class="dim">${nf(g.zero.reduce((s,x)=>s+x.installed,0))}MW</span>)`);
   if(g.under.length) parts.push(`부분 계약분 미달 <b>${nf(g.under.length,0)}개</b>(<span class="dim">${nf(g.under.reduce((s,x)=>s+x.gap,0))}MW</span>)`);
@@ -1473,7 +1477,7 @@ function capacityGapBlock(title,parentTk,parentCapCol,parentNameCol,childTk,fkCo
     }).join('');
   return `<div style="margin-bottom:14px"><div style="font-weight:700;font-size:12.5px;margin-bottom:4px;color:var(--sub)">${esc(title)}</div>
     <div style="font-size:13.5px;font-weight:600">${headLine}</div>
-    ${reasonText}${list||'<div class="nocand">모든 항목이 정확히 일치합니다.</div>'}</div>`;
+    ${barHtml}${reasonText}${list||'<div class="nocand">모든 항목이 정확히 일치합니다.</div>'}</div>`;
 }
 function capacityGapPanel(){
   const b1=capacityGapBlock('발전소 → 구매계약 (공급 측)','T_발전소','설비용량(MW)','발전소명','T_구매계약','발전소ID','구매계약용량(MW)','구매계약');
@@ -1516,10 +1520,20 @@ function actionItemsPanel(){
     const badge=!has?'ok':(r.sev>=3?'no':'warn');
     return `<div class="unsecrow" onclick="${r.action}"><span>${esc(r.label)}</span><span class="badge ${badge}">${nf(r.n,0)}건</span></div>`;
   }).join('');
-  const totalIssues=rows.reduce((s,r)=>s+(r.n>0?1:0),0);
+  const urgentN=rows.filter(r=>r.sev>=4&&r.n>0).length;
+  const warnN=rows.filter(r=>r.sev===3&&r.n>0).length;
+  const infoN=rows.filter(r=>r.sev<=2&&r.n>0).length;
+  const totalIssues=urgentN+warnN+infoN;
+  const summaryHtml=totalIssues
+    ?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 10px">
+        ${urgentN?`<span class="badge no">긴급 ${nf(urgentN,0)}</span>`:''}
+        ${warnN?`<span class="badge warn">주의 ${nf(warnN,0)}</span>`:''}
+        ${infoN?`<span class="badge ok" style="color:var(--sub);background:var(--paper)">참고 ${nf(infoN,0)}</span>`:''}
+      </div>`
+    :'';
   return panel('우선순위 조치 필요 항목',
     totalIssues?`${totalIssues}개 항목에서 확인이 필요합니다(심각도순) · 클릭하면 해당 조건으로 이동`:'지금 확인이 필요한 항목이 없습니다',
-    body);
+    summaryHtml+body);
 }
 
 const STATUS_COLOR={ok:'var(--pass)',warn:'var(--amber)',mute:'var(--sub)'};
@@ -1936,7 +1950,7 @@ function changelogFiltered(){
     if(kind&&e.kind!==kind) return false;
     if(table&&e.table!==table) return false;
     if(q){
-      const hay=[e.pk,byKey[e.table]?byKey[e.table].label:e.table]
+      const hay=[e.pk,byKey[e.table]?byKey[e.table].label:e.table,e.actor||'']
         .concat(e.changed_cols||[]).concat(Object.values(e.cells||{}))
         .join(' ').toLowerCase();
       if(!hay.includes(q)) return false;
@@ -1963,8 +1977,9 @@ function changelogRow(e){
     detail=cols.map(c=>(e.cells||{})[c]).filter(Boolean).join(' · ');
   }
   const clickable=exists?` onclick="jumpTo('${jsq(e.table)}','${jsq(e.pk)}')"`:' style="cursor:default"';
+  const actorTag=e.actor?`<span class="dkey" style="margin-left:8px">👤 ${esc(e.actor)}</span>`:'';
   return `<div class="chk ${cls}"${clickable}>
-    <span>${esc(label)} · ${esc(e.pk||'(PK 공란)')}<span class="dkey" style="margin-left:8px">${esc((e.generated_at||'').replace('T',' ').slice(0,16))}</span></span>
+    <span>${esc(label)} · ${esc(e.pk||'(PK 공란)')}<span class="dkey" style="margin-left:8px">${esc((e.generated_at||'').replace('T',' ').slice(0,16))}</span>${actorTag}</span>
     <span class="chgval">${detail}</span>
     <span></span>${kindBadge}</div>`;
 }
