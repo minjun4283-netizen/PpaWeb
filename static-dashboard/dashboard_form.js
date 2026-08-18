@@ -149,10 +149,16 @@
     // 기본값('홈')으로 초기화돼 방금까지 보던 화면과 무관하게 항상 홈으로
     // 튕깁니다. reload 직전에 지금 탭을 세션스토리지에 남겨두면, 대시보드의
     // restoreTabFromSession()이 다시 로드된 뒤 그 탭으로 복원합니다.
+    // 우리가 스스로 location.reload()를 부를 때(저장/삭제 뒤 최신 데이터
+    // 반영)와, 사용자가 진짜로 탭/창을 닫을 때를 구분하기 위한 표시. 아래
+    // pagehide 리스너가 이 값이 남아있으면 "우리가 의도한 새로고침"으로
+    // 보고 서버 종료 신호를 보내지 않습니다 - 이게 없으면 저장할 때마다
+    // (reload도 pagehide를 발생시키므로) 서버가 꺼져버립니다.
     function rememberDashboardTab() {
       try {
         var st = window.PPA_DASHBOARD_STATE;
         if (st && st.tab) sessionStorage.setItem("ppa_return_tab", st.tab);
+        sessionStorage.setItem("ppa_intentional_reload", "1");
       } catch (e) { /* 세션스토리지 사용 불가 환경 - 조용히 무시(그냥 홈으로 감) */ }
     }
 
@@ -1642,6 +1648,25 @@
         return resetChangeBaseline();
       }
     };
+
+    // 대시보드 탭/창을 진짜로 닫으면 실시간 입력 서버도 같이 종료합니다 -
+    // 매번 stop_live_server.bat 을 따로 실행해야 하는 불편함을 없애기
+    // 위함입니다. pagehide는 우리가 스스로 부르는 location.reload()에서도
+    // 똑같이 발생하므로, rememberDashboardTab()이 남겨둔 표시로 "저장 후
+    // 새로고침"과 "진짜 닫기"를 구분합니다(표시가 있으면 지우고 아무것도
+    // 안 보냄). event.persisted(bfcache로 페이지가 보존되는 경우, 진짜 닫힘이
+    // 아님)일 때도 보내지 않습니다. sendBeacon은 페이지가 사라지는 순간에도
+    // 브라우저가 요청 전송을 보장해주는 유일한 방법이라 이 용도에 씁니다.
+    window.addEventListener("pagehide", function (event) {
+      if (event.persisted) return;
+      try {
+        if (sessionStorage.getItem("ppa_intentional_reload") === "1") {
+          sessionStorage.removeItem("ppa_intentional_reload");
+          return;
+        }
+      } catch (e) { /* 세션스토리지 사용 불가 환경 - 판단 불가하니 그냥 보냄 */ }
+      try { navigator.sendBeacon("/api/shutdown"); } catch (e) { /* 무시 */ }
+    });
 
     console.log("[ppa] dashboard_form.js loaded");
   } catch (e) {

@@ -158,6 +158,12 @@ class ExcelBridge:
     def batch_apply(self, operations: list[dict]) -> dict:
         return self._call(self._batch_apply, operations)
 
+    def workbook_reachable(self) -> bool:
+        """사용자가 자기 엑셀에서 이 통합문서를 아직 열어두고 있는지 - 서버
+        자동 종료 워치독(ppa_liveserver.py)이 주기적으로 불러 "엑셀을
+        닫으면 서버도 같이 꺼지는" 동작을 구현하는 데 씁니다."""
+        return self._call(self._workbook_reachable)
+
     def shutdown(self) -> None:
         self._jobs.put(None)
 
@@ -182,19 +188,33 @@ class ExcelBridge:
                     job.result_q.put((True, result))
                 except Exception as exc:  # noqa: BLE001 - 워커는 죽지 않고 호출자에게 되돌려줌
                     job.result_q.put((False, exc))
-                finally:
-                    # 우리가 이번 작업 때문에 숨김 엑셀을 새로 띄웠다면, 작업이 끝나는
-                    # 즉시 닫습니다. 서버가 떠 있는 동안 계속 붙잡고 있으면(이전
-                    # 방식), 그 파일을 아무도 안 쓰고 있어도 "다른 프로그램이 사용
-                    # 중"이라며 읽기 전용으로 열리는 원인이 됩니다 — 특히 서버가
-                    # 정상 종료되지 않고 콘솔 창만 닫히면 그 숨김 인스턴스가 백그
-                    # 라운드에 영영 남아있을 수 있었습니다. 파일이 이미 사용자의
-                    # 엑셀에 열려 있는 평소 상황(가장 흔한 경우)에는 우리가 새로
-                    # 띄운 게 없으므로 이 정리는 아무 일도 하지 않습니다.
-                    self._close_if_we_launched()
+                # 예전에는 여기서 매 작업이 끝날 때마다 우리가 새로 띄운 숨김
+                # 엑셀을 즉시 닫았습니다("아무도 안 쓰는데 읽기 전용" 방지 목적).
+                # 문제는 엑셀이 사용자 화면에 안 열려 있는 흔한 상황(서버를 먼저
+                # 켜고 나중에 엑셀을 여는 경우 등)에서는 조회 한 번, 저장 한 번마다
+                # 매번 엑셀 프로세스를 새로 띄우고 통합문서를 다시 여는 셈이라
+                # — COM으로 엑셀 프로세스를 새로 띄우는 것 자체가 수 초씩 걸릴 수
+                # 있어 — "저장할 때마다 몇 초씩 멈칫"하는 게 체감 속도의 가장 큰
+                # 원인이었습니다. 이제는 세션(서버가 떠 있는 동안) 내내 붙잡아두고
+                # 서버가 완전히 종료될 때(아래 바깥쪽 finally, 콘솔 닫힘/Ctrl+C/
+                # 원격 종료 요청 전부 이 경로를 탐)만 한 번 정리합니다 — 두 번째
+                # 요청부터는 이미 열려 있는 인스턴스를 그대로 재사용해 훨씬
+                # 빨라집니다.
         finally:
             self._close_if_we_launched()
             pythoncom.CoUninitialize()
+
+    def _workbook_reachable(self) -> bool:
+        # 우리가 스스로 띄운 숨김 인스턴스는 서버가 세션 내내 직접 붙잡고
+        # 있으므로(위 _run 참고) 그 생사는 이 워치독이 신경 쓸 대상이 아닙니다
+        # - "사용자가 자기 엑셀에서 이 통합문서를 닫았는지"만 감시합니다.
+        if self._we_launched_app:
+            return True
+        try:
+            win32com.client.GetObject(self.xlsm_path)
+            return True
+        except Exception:
+            return False
 
     # ---- 워크북 확보: 이미 열려 있으면 그 세션, 아니면 숨김 인스턴스로 새로 염 ----
     #

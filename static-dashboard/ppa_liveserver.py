@@ -101,6 +101,17 @@ class App:
         self.bridge = ExcelBridge(self.xlsm_path)
         self._rebuild_lock = threading.Lock()
         self._last_payload: dict | None = None
+        # 엑셀을 닫거나(watchdog) 대시보드 탭을 닫으면(/api/shutdown, 브라우저
+        # sendBeacon) 이 이벤트를 세워서 main()의 대기 루프가 정상 종료
+        # 절차(엑셀 COM 정리 등)를 그대로 타며 빠져나가게 합니다 - Ctrl+C와
+        # 완전히 같은 경로라서 "Stop live server.bat을 매번 실행해야 하는"
+        # 불편함 없이도 항상 같은 방식으로 깔끔하게 정리됩니다.
+        self.shutdown_event = threading.Event()
+
+    def request_shutdown(self, reason: str) -> None:
+        if not self.shutdown_event.is_set():
+            print(f"[종료 요청] {reason}")
+        self.shutdown_event.set()
 
     def is_ready(self) -> bool:
         """이 프로세스가 뜬 뒤 최소 한 번은 엑셀에서 읽어 대시보드를 만들었는지.
@@ -430,6 +441,15 @@ def make_handler(app: App):
                     self._send_json({"ok": False, "error": str(e)})
                 return
 
+            if path == "/api/shutdown":
+                # 대시보드 탭을 닫을 때 브라우저가 navigator.sendBeacon으로
+                # 보내는 요청 - 응답 내용을 기다리지 않는 fire-and-forget이라
+                # 최대한 빠르고 확실하게 200을 돌려준 뒤 종료 신호만 세웁니다
+                # (실제 정리는 main()의 대기 루프가 넘겨받아 처리).
+                app.request_shutdown("대시보드 탭이 닫혀 서버를 종료합니다.")
+                self._send_json({"ok": True, "message": "서버 종료를 시작합니다."})
+                return
+
             self._send_json({"ok": False, "error": "Not Found"}, 404)
 
         def log_message(self, fmt, *args):
@@ -459,6 +479,7 @@ def _install_console_close_handler(app: App) -> None:
                 win32con.CTRL_SHUTDOWN_EVENT,
             ):
                 print("[종료] 콘솔이 닫혀 엑셀 연결을 정리합니다...")
+                app.request_shutdown("콘솔이 닫혔습니다.")
                 app.bridge.shutdown()
                 app.bridge._thread.join(timeout=3)
                 return True
@@ -467,6 +488,37 @@ def _install_console_close_handler(app: App) -> None:
         win32api.SetConsoleCtrlHandler(handler, True)
     except Exception:
         pass
+
+
+def _watch_excel_closed(app: App) -> None:
+    """사용자가 자기 엑셀에서 이 통합문서를 닫으면 서버도 함께 종료합니다 -
+    매번 stop_live_server.bat 을 따로 실행해야 하는 불편함을 없애기 위함
+    입니다. (서버가 스스로 띄운 숨김 인스턴스는 대상이 아닙니다 - 그건 서버가
+    직접 세션 내내 붙잡고 있다가 종료 시 정리합니다. excel_com.py의
+    workbook_reachable() 참고.)
+
+    첫 rebuild가 끝나기 전에는 판단을 보류하고, 한 번 "안 보인다"고 나와도
+    바로 종료하지 않습니다 - 모달 대화상자가 떠 있는 등 엑셀 COM이 일시적으로
+    응답하지 않는 상황과, 진짜로 파일을 닫은 상황을 구분하기 위해 짧은
+    간격을 두고 한 번 더 확인한 뒤에만 종료합니다.
+    """
+    while not app.shutdown_event.wait(timeout=8):
+        if not app.is_ready():
+            continue
+        try:
+            if app.bridge.workbook_reachable():
+                continue
+        except Exception:
+            continue
+        if app.shutdown_event.wait(timeout=3):
+            return
+        try:
+            if app.bridge.workbook_reachable():
+                continue
+        except Exception:
+            continue
+        app.request_shutdown("엑셀에서 통합문서를 닫아 서버를 종료합니다.")
+        return
 
 
 def main():
@@ -507,7 +559,8 @@ def main():
     server = ThreadingHTTPServer((args.host, args.port), make_handler(app))
     url = f"http://{args.host}:{args.port}"
     print(f"[OK] 서버 시작: {url}")
-    print("[안내] 이 창을 닫으면 서버가 종료됩니다. 끝내려면 Ctrl+C 를 누르세요.")
+    print("[안내] 엑셀에서 파일을 닫거나 대시보드 탭을 닫으면 서버도 자동으로 함께 종료됩니다.")
+    print("[안내] 이 창을 닫아도 종료됩니다. 직접 끝내려면 Ctrl+C 를 누르세요.")
 
     # 서버 바인딩/브라우저 열기를 초기 rebuild(엑셀 COM 연결 + 6개 표 읽기 +
     # HTML 렌더링, 엑셀이 안 열려 있으면 몇 초 걸릴 수 있음) 뒤로 미루지 않고
@@ -535,10 +588,17 @@ def main():
             print(f"[경고] 초기 대시보드 생성 실패 (서버는 계속 실행됩니다): {e}")
 
     threading.Thread(target=_initial_rebuild, daemon=True).start()
+    threading.Thread(target=_watch_excel_closed, args=(app,), daemon=True).start()
 
+    # shutdown_event는 /api/shutdown(대시보드 탭 닫힘 - sendBeacon), 워치독
+    # (엑셀에서 통합문서 닫힘), Ctrl+C 셋 다 같은 방식으로 세웁니다 - 어느
+    # 경로로 오든 정리 절차(엑셀 COM 연결 닫기 등)가 완전히 똑같이 한 번만
+    # 실행되도록 하기 위함입니다. 1초 간격으로 깨어나 확인하므로 Ctrl+C도
+    # 예전처럼 즉시 반응합니다.
     try:
-        while True:
-            time.sleep(1)
+        while not app.shutdown_event.is_set():
+            app.shutdown_event.wait(timeout=1)
+        print("\n[종료] 서버를 멈춥니다.")
     except KeyboardInterrupt:
         print("\n[종료] 서버를 멈춥니다.")
     finally:
