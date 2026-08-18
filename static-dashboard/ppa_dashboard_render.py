@@ -691,18 +691,26 @@ function matchesSearch(hayText,q){
   const hay=String(hayText).toLowerCase();
   return terms.every(t=>hay.includes(t.toLowerCase()));
 }
-let _searchTimer=null;
 /* 검색창 input 핸들러 — 조합 중(한글 등 IME)에는 절대 렌더링하지 않습니다.
    렌더링은 #view.innerHTML을 통째로 새로 그리는데, 이게 조합 중에 일어나면
    입력창 DOM이 재생성되며 브라우저의 IME 조합 세션이 끊겨 한글이 자모로
    쪼개지거나 마지막 글자가 씹히는 등으로 깨져 보입니다. 타이핑이 잠시
    멈췄을 때만(디바운스) 실제로 상태를 반영해, 대량 데이터에서 매 키 입력마다
-   표 전체를 다시 그리는 렉도 함께 줄입니다. */
+   표 전체를 다시 그리는 렉도 함께 줄입니다.
+
+   타이머는 반드시 "입력창 하나마다 하나씩"(e.target에 매달아 둠) 둬야
+   합니다 — 예전에는 타이머 변수 하나를 모든 검색창이 같이 썼는데, 그러면
+   예를 들어 표 검색창에 타이핑한 직후(140ms 안에) 같은 화면의 "컬럼별
+   찾기" 검색창에 이어서 타이핑하면 표 검색창 쪽 타이머가 취소돼버려서
+   방금 입력한 검색어가 조용히 사라지는 버그가 있었습니다(전역 검색·표
+   검색·컬럼별 찾기·탐색 결과 검색이 전부 한 화면에 같이 있을 수 있는
+   구조라 실제로 자주 걸림). */
 function onSearchType(e,setter){
   if(e.isComposing) return;
-  const v=e.target.value;
-  clearTimeout(_searchTimer);
-  _searchTimer=setTimeout(()=>setter(v),140);
+  const el=e.target;
+  const v=el.value;
+  clearTimeout(el._searchTimer);
+  el._searchTimer=setTimeout(()=>setter(v),140);
 }
 
 /* 필터·검색·정렬을 모두 적용한 행 목록 (페이징 전) — 화면과 내려받기가 공유 */
@@ -2429,15 +2437,8 @@ function runGlobalSearch(v){
   box.classList.add('show');
 }
 /* 즉시 호출용(포커스 시 이전 검색 결과 다시 보여주기) — 타이핑 중엔
-   onGlobalSearchType(디바운스+조합 안전)을 씁니다. */
+   onSearchType(공용 디바운스+IME 안전 핸들러, 위 함수 정의 참고)을 씁니다. */
 function onGlobalSearch(v){runGlobalSearch(v);}
-let _gsearchTimer=null;
-function onGlobalSearchType(e){
-  if(e.isComposing) return;
-  const v=e.target.value;
-  clearTimeout(_gsearchTimer);
-  _gsearchTimer=setTimeout(()=>runGlobalSearch(v),140);
-}
 function closeGlobalSearch(){
   const i=document.getElementById('globalSearch');if(i) i.value='';
   const b=document.getElementById('globalResults');if(b){b.classList.remove('show');b.innerHTML='';}
@@ -2911,7 +2912,7 @@ _HTML = r"""<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
       <div class="topbar-right">
         <div class="gsearchwrap">
           <input id="globalSearch" class="search" style="width:100%" placeholder="전체 표에서 검색 (ID, 발전소명, 기업명, 담당자 등)…"
-            oninput="onGlobalSearchType(event)" onfocus="onGlobalSearch(this.value)">
+            oninput="onSearchType(event,runGlobalSearch)" onfocus="onGlobalSearch(this.value)">
           <div id="globalResults" class="globalresults"></div>
         </div>
         <button id="chgpill" class="pill chg" onclick="state.tab='변경';render()" style="display:none">변경</button>
