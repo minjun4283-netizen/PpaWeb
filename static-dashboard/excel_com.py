@@ -210,11 +210,30 @@ class ExcelBridge:
         # - "사용자가 자기 엑셀에서 이 통합문서를 닫았는지"만 감시합니다.
         if self._we_launched_app:
             return True
+        # 아래 _ensure_workbook()과 정확히 같은 2단계 확인을 거칩니다 - 처음엔
+        # 경로 모니커 확인 하나만 썼더니, OneDrive/SharePoint 자동 저장으로
+        # 열린 통합문서(엑셀이 로컬 경로가 아니라 클라우드 URL 신원으로
+        # 등록)에서 파일이 멀쩡히 열려 있는데도 "닫혔다"고 오판해 사용하는
+        # 도중에 서버가 꺼져버리는 문제가 있었습니다(수정 버튼을 눌렀을 때
+        # "Failed to fetch"로 나타남) - _ensure_workbook이 이미 이 문제를
+        # 겪고 고쳐둔 방식을 그대로 재사용합니다.
         try:
             win32com.client.GetObject(self.xlsm_path)
             return True
         except Exception:
-            return False
+            pass
+        try:
+            running = win32com.client.GetObject(Class="Excel.Application")
+            target_name = os.path.basename(self.xlsm_path).lower()
+            for wb in running.Workbooks:
+                try:
+                    if os.path.basename(wb.Name).lower() == target_name:
+                        return True
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return False
 
     # ---- 워크북 확보: 이미 열려 있으면 그 세션, 아니면 숨김 인스턴스로 새로 염 ----
     #

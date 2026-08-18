@@ -498,24 +498,25 @@ def _watch_excel_closed(app: App) -> None:
     workbook_reachable() 참고.)
 
     첫 rebuild가 끝나기 전에는 판단을 보류하고, 한 번 "안 보인다"고 나와도
-    바로 종료하지 않습니다 - 모달 대화상자가 떠 있는 등 엑셀 COM이 일시적으로
-    응답하지 않는 상황과, 진짜로 파일을 닫은 상황을 구분하기 위해 짧은
-    간격을 두고 한 번 더 확인한 뒤에만 종료합니다.
+    바로 종료하지 않습니다 - 매크로 보안 경고 같은 모달 대화상자가 떠 있는
+    등 엑셀 COM이 일시적으로 응답하지 않는 상황과, 진짜로 파일을 닫은 상황을
+    구분하기 위해 연속 3번(약 16초에 걸쳐) "안 보임"이 나와야만 종료합니다.
     """
+    miss_streak = 0
     while not app.shutdown_event.wait(timeout=8):
         if not app.is_ready():
+            miss_streak = 0
             continue
         try:
-            if app.bridge.workbook_reachable():
-                continue
+            reachable = app.bridge.workbook_reachable()
         except Exception:
+            miss_streak = 0
             continue
-        if app.shutdown_event.wait(timeout=3):
-            return
-        try:
-            if app.bridge.workbook_reachable():
-                continue
-        except Exception:
+        if reachable:
+            miss_streak = 0
+            continue
+        miss_streak += 1
+        if miss_streak < 3:
             continue
         app.request_shutdown("엑셀에서 통합문서를 닫아 서버를 종료합니다.")
         return
