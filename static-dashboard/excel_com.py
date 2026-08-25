@@ -164,6 +164,16 @@ class ExcelBridge:
         닫으면 서버도 같이 꺼지는" 동작을 구현하는 데 씁니다."""
         return self._call(self._workbook_reachable)
 
+    def refresh_from_disk(self) -> dict:
+        """지금 붙잡고 있는 워크북을 닫았다가 다시 엽니다 - "대시보드 새로고침"
+        버튼에서 씁니다. read_all_tables()는 매번 이미 열려 있는 같은 워크북
+        객체를 그대로 돌려받으므로(세션 내내 Excel이 메모리에 들고 있는 상태),
+        다른 컴퓨터에서 저장한 변경사항이 여기 자동으로 반영되지 않습니다
+        (Excel 자체의 공동편집 기능이 그 순간 정상 작동하지 않는 한 - 매크로
+        포함 파일은 이마저도 불안정합니다). 닫았다 다시 열면 그 시점 디스크
+        (OneDrive 동기화분)의 최신 내용을 확실히 새로 읽어옵니다."""
+        return self._call(self._refresh_from_disk)
+
     def shutdown(self) -> None:
         self._jobs.put(None)
 
@@ -355,6 +365,44 @@ class ExcelBridge:
             lines.append("   끝나지 않았을 수 있습니다.")
 
         return "\n".join(lines)
+
+    def _refresh_from_disk(self) -> dict:
+        try:
+            wb = self._ensure_workbook()
+        except ExcelComError:
+            # 애초에 열려 있지 않으면 다음 읽기가 어차피 새로 여니, 새로고침할
+            # 대상이 없는 것과 같습니다 - 조용히 넘어갑니다.
+            return {"reopened": False}
+
+        try:
+            saved = bool(wb.Saved)
+        except Exception:
+            saved = True
+
+        if not saved:
+            raise ExcelComError(
+                "지금 엑셀에 저장되지 않은 변경사항이 있어 새로고침(다시 열기)을 "
+                "진행할 수 없습니다 - 데이터가 사라지지 않도록 먼저 엑셀에서 저장"
+                "(Ctrl+S)한 뒤 다시 시도해주세요."
+            )
+
+        app = wb.Application
+        try:
+            wb.Close(SaveChanges=False)
+        except Exception as exc:
+            raise ExcelComError(
+                "기존 워크북을 닫는 중 오류가 났습니다 - 셀을 편집하던 중이면 "
+                f"Enter나 Esc로 편집을 끝낸 뒤 다시 시도해주세요.\n\n원본 오류: {exc}"
+            ) from exc
+
+        try:
+            app.Workbooks.Open(self.xlsm_path)
+        except Exception as exc:
+            raise ExcelComError(f"{self._diagnose_open_failure()}\n\n원본 오류: {exc}") from exc
+
+        if self._we_launched_app:
+            self._app = app
+        return {"reopened": True}
 
     def _close_if_we_launched(self) -> None:
         if self._app is not None and self._we_launched_app:

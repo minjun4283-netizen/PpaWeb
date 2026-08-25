@@ -136,7 +136,7 @@ class App:
             for t in TABLES
         ]
 
-    def rebuild(self, actor: str | None = None) -> dict:
+    def rebuild(self, actor: str | None = None, force_refresh: bool = False) -> dict:
         """엑셀에서 6개 표를 다시 읽어 PPA현황.html 을 갱신합니다.
 
         [변경] 탭에 보이는 "기준점 대비 누적 변경"은 리셋 버튼(reset_baseline)을
@@ -148,6 +148,14 @@ class App:
         actor: 이번 변경을 누가 했는지(save_and_rebuild 등에서 넘어옴) -
         없으면(예: 서버 시작 시 최초 rebuild) 이 서버를 실행 중인 사람의
         Windows 로그인 계정을 기본값으로 씁니다.
+
+        force_refresh: True면 읽기 전에 워크북을 닫았다 다시 엽니다 - 사용자가
+        "대시보드 새로고침" 버튼을 눌렀을 때만 켭니다. 저장 직후의 rebuild처럼
+        우리가 방금 그 세션에 직접 쓴 경우는 이미 최신 상태라 매번 다시 열
+        필요가 없습니다(느려지기만 함) - 정말 필요한 경우는 "다른 컴퓨터에서
+        저장한 변경사항이 지금 이 세션의 메모리에는 자동으로 안 들어와 있을 수
+        있는" 상황(부서 공유 파일을 여러 명이 각자 서버로 붙잡고 있을 때)뿐이라,
+        그 상황을 사람이 직접 요청했을 때만 이 비용을 씁니다.
         """
         from build_dashboard import build_payload, default_snapshot_path
         from ppa_changes import (
@@ -163,6 +171,8 @@ class App:
         from ppa_dashboard_render import render_dashboard
 
         with self._rebuild_lock:
+            if force_refresh:
+                self.bridge.refresh_from_disk()
             tables_data = self.bridge.read_all_tables()
 
             baseline_path = default_snapshot_path(self.html_path)
@@ -423,8 +433,8 @@ def make_handler(app: App):
 
             if path == "/api/rebuild":
                 try:
-                    payload = app.rebuild()
-                    self._send_json({"ok": True, "message": "대시보드를 갱신했습니다.", "generated_at": payload["generated_at"]})
+                    payload = app.rebuild(force_refresh=True)
+                    self._send_json({"ok": True, "message": "엑셀을 다시 열어 최신 내용으로 대시보드를 갱신했습니다.", "generated_at": payload["generated_at"]})
                 except Exception as e:
                     self._send_json({"ok": False, "error": str(e)})
                 return
