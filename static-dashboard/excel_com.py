@@ -74,6 +74,16 @@ def _is_number_column(name: str) -> bool:
     return bool(re.search(r"용량|금액|단가|비율|수량|면적|사용량|발전량|REC|MW|MWh|kW|kWh|개월|년수", name))
 
 
+# 엑셀 날짜 일련번호의 기준일(1900년 날짜 체계, 1900을 윤년으로 잘못 셌던
+# 옛 Lotus 1-2-3 버그를 엑셀이 그대로 물려받은 결과 - 1899-12-30을 0일로
+# 두면 실제 사용 범위(1901년 이후)의 날짜는 전부 정확히 맞아떨어집니다.
+_EXCEL_DATE_EPOCH = datetime.date(1899, 12, 30)
+
+
+def _date_to_excel_serial(d: datetime.date) -> int:
+    return (d - _EXCEL_DATE_EPOCH).days
+
+
 def _coerce_for_excel(col_name: str, raw_value):
     value = "" if raw_value is None else str(raw_value).strip()
     if value == "":
@@ -85,7 +95,16 @@ def _coerce_for_excel(col_name: str, raw_value):
     if _is_date_column(col_name):
         for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d"):
             try:
-                return datetime.datetime.strptime(value, fmt)
+                # 주의: 여기서 datetime.datetime을 그대로 돌려주면 안 됩니다.
+                # pywin32가 naive datetime을 COM VARIANT(DATE)로 바꿀 때 UTC
+                # 기준으로 변환하는 경로를 타서, 한국(UTC+9)에서는 자정 값이
+                # 전날 오후로 밀려 엑셀에 하루 전 날짜로 저장되는 문제가
+                # 있었습니다(예: 2026-09-01 입력 → 2026-08-31 저장). 시간대
+                # 변환이 아예 끼어들 수 없도록, 엑셀 날짜 일련번호(정수)를
+                # 직접 계산해 순수 숫자로 씁니다 - _write_row가 이 숫자를 쓴
+                # 뒤 셀 서식을 날짜로 지정합니다.
+                parsed = datetime.datetime.strptime(value, fmt).date()
+                return _date_to_excel_serial(parsed)
             except ValueError:
                 continue
         return value
@@ -614,7 +633,16 @@ class ExcelBridge:
         for col, abs_col in col_at.items():
             if col not in record:
                 continue
-            ws.Cells(target_row, abs_col).Value = _coerce_for_excel(col, record.get(col, ""))
+            coerced = _coerce_for_excel(col, record.get(col, ""))
+            cell = ws.Cells(target_row, abs_col)
+            cell.Value = coerced
+            # 일련번호(정수)로 썼으니, 셀에 이미 날짜 서식이 없었던 경우에도
+            # 숫자가 아니라 날짜로 보이도록 명시적으로 지정합니다(기존에
+            # 데이터가 있던 열이면 보통 이미 날짜 서식이라 그대로여도 무방하나,
+            # 새로 추가되는 행/시트라면 이 지정이 없으면 46266 같은 숫자로
+            # 보일 수 있습니다).
+            if _is_date_column(col) and isinstance(coerced, int):
+                cell.NumberFormat = "yyyy-mm-dd"
 
         return {"action": action, "table": table_key, "pk_value": pk_value, "row": target_row}
 
