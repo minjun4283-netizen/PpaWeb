@@ -171,8 +171,9 @@ class App:
         from ppa_dashboard_render import render_dashboard
 
         with self._rebuild_lock:
+            refresh_note = None
             if force_refresh:
-                self.bridge.refresh_from_disk()
+                refresh_note = self.bridge.refresh_from_disk().get("note")
             tables_data = self.bridge.read_all_tables()
 
             baseline_path = default_snapshot_path(self.html_path)
@@ -196,6 +197,7 @@ class App:
 
             payload = build_payload(tables_data, is_demo=False, changes=changes, marks=marks, changelog=changelog)
             payload["generated_at"] = generated_at
+            payload["refresh_note"] = refresh_note
 
             with open(self.html_path, "w", encoding="utf-8") as f:
                 f.write(render_dashboard(payload))
@@ -434,7 +436,9 @@ def make_handler(app: App):
             if path == "/api/rebuild":
                 try:
                     payload = app.rebuild(force_refresh=True)
-                    self._send_json({"ok": True, "message": "엑셀을 다시 열어 최신 내용으로 대시보드를 갱신했습니다.", "generated_at": payload["generated_at"]})
+                    note = payload.get("refresh_note")
+                    message = note or "엑셀을 다시 열어 최신 내용으로 대시보드를 갱신했습니다."
+                    self._send_json({"ok": True, "message": message, "generated_at": payload["generated_at"]})
                 except Exception as e:
                     self._send_json({"ok": False, "error": str(e)})
                 return

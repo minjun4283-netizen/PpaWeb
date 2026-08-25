@@ -367,12 +367,38 @@ class ExcelBridge:
         return "\n".join(lines)
 
     def _refresh_from_disk(self) -> dict:
+        """[중요한 안전 제약] 사용자 자신의 화면에 열려 있는 Excel 세션은 여기서
+        **절대 강제로 닫지 않습니다.** 원래는 어느 쪽이든(사용자 세션이든 우리가
+        띄운 숨김 인스턴스든) 닫았다 다시 여는 방식으로 만들었었는데, 실제
+        환경(부서 공유 OneDrive 파일을 여러 명이 각자 서버로 붙잡고 있는 상황)
+        에서 서버가 멈추는 문제가 났습니다: Workbooks.Open()/Close() 같은 COM
+        호출은 Excel이 어떤 대화상자(다른 버전 병합 안내, 읽기 전용 권장 등)를
+        띄우면 사람이 그 창을 닫을 때까지 그대로 멈춰버리는데, 이 서버는 모든
+        COM 호출을 스레드 하나에서 순서대로 처리하므로(ExcelBridge._run 참고)
+        그 호출 하나가 멈추면 서버 전체가 응답을 멈춥니다("서버 연결 오류").
+        사용자가 직접 보고 있는 세션은 하필 그런 대화상자가 뜨기 가장 쉬운
+        바로 그 상황(다른 사람과 동시 편집)에서 새로고침되므로, 이 위험을
+        아예 감수하지 않고 그 자리에서 이미 읽을 수 있는 값만 돌려줍니다.
+
+        서버가 스스로 띄운 숨김 인스턴스(_we_launched_app)는 화면에 아무도
+        안 보고 있고 우리만 붙잡고 있는 세션이라 위 위험이 훨씬 낮으므로,
+        그 경우에만 실제로 닫았다 다시 엽니다."""
         try:
             wb = self._ensure_workbook()
         except ExcelComError:
             # 애초에 열려 있지 않으면 다음 읽기가 어차피 새로 여니, 새로고침할
             # 대상이 없는 것과 같습니다 - 조용히 넘어갑니다.
             return {"reopened": False}
+
+        if not self._we_launched_app:
+            return {
+                "reopened": False,
+                "note": (
+                    "지금 사용자 화면에 열려 있는 엑셀 세션에서 읽었습니다. 다른 "
+                    "컴퓨터에서 저장한 내용까지 확실히 보려면 엑셀 파일을 직접 "
+                    "닫았다가 다시 열어주세요."
+                ),
+            }
 
         try:
             saved = bool(wb.Saved)
@@ -381,18 +407,21 @@ class ExcelBridge:
 
         if not saved:
             raise ExcelComError(
-                "지금 엑셀에 저장되지 않은 변경사항이 있어 새로고침(다시 열기)을 "
-                "진행할 수 없습니다 - 데이터가 사라지지 않도록 먼저 엑셀에서 저장"
-                "(Ctrl+S)한 뒤 다시 시도해주세요."
+                "지금 저장되지 않은 변경사항이 있어 새로고침(다시 열기)을 "
+                "진행할 수 없습니다. 잠시 후 다시 시도해주세요."
             )
 
         app = wb.Application
         try:
+            app.DisplayAlerts = False
+        except Exception:
+            pass
+
+        try:
             wb.Close(SaveChanges=False)
         except Exception as exc:
             raise ExcelComError(
-                "기존 워크북을 닫는 중 오류가 났습니다 - 셀을 편집하던 중이면 "
-                f"Enter나 Esc로 편집을 끝낸 뒤 다시 시도해주세요.\n\n원본 오류: {exc}"
+                f"기존 워크북을 닫는 중 오류가 났습니다: {exc}"
             ) from exc
 
         try:
@@ -400,8 +429,7 @@ class ExcelBridge:
         except Exception as exc:
             raise ExcelComError(f"{self._diagnose_open_failure()}\n\n원본 오류: {exc}") from exc
 
-        if self._we_launched_app:
-            self._app = app
+        self._app = app
         return {"reopened": True}
 
     def _close_if_we_launched(self) -> None:

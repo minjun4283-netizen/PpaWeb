@@ -1691,7 +1691,7 @@
     var clearBtn = el("button", { class: "ppaf-btn", type: "button" }, ["초기화"]);
     var rebuildBtn = el("button", {
       class: "ppaf-btn", type: "button",
-      title: "엑셀을 닫았다 다시 열어 최신 내용을 확실히 가져옵니다 - 다른 사람이 방금 저장한 내용이 안 보일 때 눌러주세요."
+      title: "다른 사람이 방금 저장한 내용이 안 보일 때 눌러주세요 - 그래도 안 보이면 엑셀 파일을 직접 닫았다 다시 열어야 확실합니다."
     }, ["대시보드 새로고침"]);
     var resetBaselineBtn = el("button", { class: "ppaf-btn", type: "button", title: "[변경] 탭의 비교 기준점을 지금 시점으로 리셋합니다" }, ["변경 비교 기준 리셋"]);
     var deleteBtn = el("button", { class: "ppaf-btn danger", type: "button", disabled: "disabled" }, ["삭제"]);
