@@ -307,13 +307,30 @@ td.cellmiss{color:var(--mute);text-align:center}
 tbody tr.rowmiss td{background:var(--amber-w)}
 .tbl-wrap.stickyfirst tbody tr.rowmiss td:first-child{background:var(--amber-w)}
 
-/* 홈 위젯 */
+/* 홈 위젯 — "한눈에 보기" 카드형 레이아웃(핵심 지표 칩 + 현황 아이콘
+   스트립 + 확인 필요 알림 줄), 문장을 읽지 않고 훑어만 봐도 파악되도록 */
 .insight{background:linear-gradient(135deg,var(--teal-d),var(--teal));border-radius:14px;padding:20px 24px;margin-bottom:16px;color:#fff}
-.insight .ieyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:#CDE8E6;margin:0 0 8px}
-.insight p{margin:0;font-size:16.5px;line-height:1.62;font-weight:600;letter-spacing:-.01em}
-.insight p b{font-weight:800}
-.insight p .dim{color:#CDE8E6;font-weight:600}
-@media(max-width:640px){.insight p{font-size:14.5px}}
+.insight .ieyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:#CDE8E6;margin:0 0 12px}
+.insight .dim{color:#CDE8E6;font-weight:600}
+.insight .ichiprow{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+.insight .ichip{display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.14);border-radius:12px;padding:9px 14px}
+.insight .ichipicon{font-size:21px;line-height:1}
+.insight .ichiptext{display:flex;flex-direction:column;line-height:1.3}
+.insight .ichiptext b{font-size:17.5px;font-weight:800;letter-spacing:-.01em;order:1}
+.insight .ichiptext .dim{font-size:11.5px;order:2}
+.insight .ichiplabel{font-size:10px;color:#CDE8E6;text-transform:uppercase;letter-spacing:.05em;font-weight:700;order:0}
+.insight .istatusrow{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.insight .ischip{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.16);border-radius:20px;padding:5px 11px;font-size:13.5px;font-weight:700}
+.insight .ischip.zero{opacity:.4}
+.insight .ialert{font-size:14.5px;font-weight:700;background:rgba(255,255,255,.16);border-radius:10px;padding:10px 15px;letter-spacing:-.01em}
+.insight .ialert.urgent{background:#fff;color:var(--fail)}
+.insight .ialert.ok{font-weight:600}
+@media(max-width:640px){
+  .insight .ichip{padding:7px 11px;gap:7px}
+  .insight .ichipicon{font-size:17px}
+  .insight .ichiptext b{font-size:15px}
+  .insight .ialert{font-size:13px}
+}
 
 .unsecrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 5px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}
 .unsecrow:last-child{border-bottom:none}.unsecrow:hover{background:var(--paper)}
@@ -449,8 +466,10 @@ footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-si
   .pager,.btn,.drop,.iconbtn,.pill,#globalResults,#toast,.backdrop,footer,.segtoggle,.trendrange,
   .excol-draglist,.excol-hint,.infotip,.excol-remove{display:none!important}
   .insight{background:#fff!important;color:#000!important;border:1px solid #999}
-  .insight .ieyebrow,.insight p .dim{color:#333!important}
+  .insight .ieyebrow,.insight .dim,.insight .ichiplabel{color:#333!important}
   .insight span[title]{border-bottom:none!important}
+  .insight .ichip,.insight .ischip,.insight .ialert{background:#f3f3f3!important;color:#000!important}
+  .insight .ialert.urgent{border:1.5px solid #b91c1c;font-weight:800}
   .trendlabel{color:#000}
   body{background:#fff;color:#000;padding:0}
   .shell{display:block}
@@ -553,12 +572,35 @@ function deadlineFlag(col,val){
   if(d<=SOON_DAYS) return {cls:'soon',text:'D-'+d};
   return null;
 }
-function statusClass(val){
-  const v=String(val);
-  if(/공급\s*중|완료|정상/.test(v)) return 'ok';
-  if(/예정|준비|협의|검토|추진/.test(v)) return 'warn';
-  if(/종료|해지|중단|취소|보류/.test(v)) return 'mute';
-  return null;
+/* 수급매칭 "현황" 8개 값 각각의 아이콘·심각도색 - 자유 텍스트 정규식 추측
+   대신 실제 8개 값을 그대로 매핑합니다(정확한 문구는 dashboard_form.js의
+   ENUM_COLUMNS["현황"]과 반드시 같은 목록으로 유지 - 입력 폼 드롭다운과
+   화면 표시가 어긋나지 않도록). terminal:true는 "이 상태면 계약이 완전히
+   끝난 것"이라는 뜻으로 용량 집계(sumCapSplit 등)에서 제외할 근거로만
+   씁니다 - 배지 색상(cls)과는 별개 개념입니다(예: "착공 전"은 회색이지만
+   종료된 건 아님 - 색만 보고 종료 여부를 판단하면 안 됨). */
+const STATUS_META={
+  '공급 중':{icon:'⚡',cls:'ok',terminal:false},
+  '신고 중':{icon:'📝',cls:'info',terminal:false},
+  '상업운전 개시':{icon:'🔌',cls:'ok',terminal:false},
+  '공사 중':{icon:'🚧',cls:'warn',terminal:false},
+  '착공 전':{icon:'📋',cls:'mute',terminal:false},
+  '이슈 발생':{icon:'⚠️',cls:'no',terminal:false},
+  '미확보':{icon:'❓',cls:'no',terminal:false},
+  '공급종료':{icon:'🏁',cls:'mute',terminal:true},
+};
+function statusMeta(val){return STATUS_META[parseStatus(val).label]||null;}
+function statusClass(val){const m=statusMeta(val);return m?m.cls:null;}
+function isTerminalStatus(val){const m=statusMeta(val);return !!(m&&m.terminal);}
+/* 8개 현황 각각의 현재 건수 - 홈 탭 "한눈에 보기"의 현황 아이콘 줄에 씀 */
+function statusCountsAll(){
+  const M=byKey['T_수급매칭'];
+  const counts={};Object.keys(STATUS_META).forEach(k=>counts[k]=0);
+  if(M) M.rows.forEach(r=>{
+    const label=parseStatus(r.cells['현황']).label;
+    if(counts[label]!==undefined) counts[label]++;
+  });
+  return counts;
 }
 /* ID만 봐서는 뭔지 알기 어려운 표는 FK로 참조될 때 이름을 같이 보여줍니다. */
 const NAME_COLS={"T_발전소":["발전소명","발전법인명"],"T_수요기업":["기업명"],"T_전기사용지":["전기사용지명"]};
@@ -582,7 +624,7 @@ function cellHtml(t,col,rawVal){
   }
   const flag=deadlineFlag(col,val);
   if(flag) return esc(val)+`<span class="datewarn ${flag.cls}">${esc(flag.text)}</span>`;
-  if(col==='현황'){const sc=statusClass(val);if(sc) return `<span class="badge ${sc}">${esc(val)}</span>`;}
+  if(col==='현황'){const m=statusMeta(val);if(m) return `<span class="badge ${m.cls}">${m.icon} ${esc(val)}</span>`;}
   return esc(fmtVal(col,val));
 }
 
@@ -1603,9 +1645,11 @@ function parseStatus(raw){
 }
 /* 구매계약/판매계약 표 자체엔 "종료" 상태 컬럼이 없어서, 그 계약에 걸린
    수급매칭 현황을 근거로 판단합니다: 매칭이 하나 이상 있고 그 전부가
-   종료류(statusClass==='mute': 종료/해지/중단/취소/보류)일 때만 "완전히
-   종료"로 봅니다. 매칭이 하나도 없으면 판단할 근거가 없으니 활성으로
-   취급합니다(계약이 아직 매칭 전 단계일 수도 있으므로). */
+   "8. 공급종료"(isTerminalStatus)일 때만 "완전히 종료"로 봅니다. 매칭이
+   하나도 없으면 판단할 근거가 없으니 활성으로 취급합니다(계약이 아직
+   매칭 전 단계일 수도 있으므로). 색상 분류(statusClass)와는 별개로
+   terminal 여부만 따로 봅니다 - "착공 전" 등 다른 회색(mute) 상태를
+   종료로 착각하지 않도록. */
 function purchaseTerminatedIds(){
   const M=byKey['T_수급매칭'];const out=new Set();
   if(!M) return out;
@@ -1614,7 +1658,7 @@ function purchaseTerminatedIds(){
     const pk=String(r.cells['구매계약ID']||'');if(!pk) return;
     if(!agg[pk]) agg[pk]={total:0,term:0};
     agg[pk].total++;
-    if(statusClass(r.cells['현황'])==='mute') agg[pk].term++;
+    if(isTerminalStatus(r.cells['현황'])) agg[pk].term++;
   });
   Object.entries(agg).forEach(([pk,v])=>{if(v.total>0&&v.term===v.total) out.add(pk);});
   return out;
@@ -1629,7 +1673,7 @@ function saleTerminatedIds(){
     const saleId=elecToSale[String(r.cells['전기사용지ID']||'')];if(!saleId) return;
     if(!agg[saleId]) agg[saleId]={total:0,term:0};
     agg[saleId].total++;
-    if(statusClass(r.cells['현황'])==='mute') agg[saleId].term++;
+    if(isTerminalStatus(r.cells['현황'])) agg[saleId].term++;
   });
   Object.entries(agg).forEach(([id,v])=>{if(v.total>0&&v.term===v.total) out.add(id);});
   return out;
@@ -1831,7 +1875,7 @@ function actionItemsPanel(){
     +actionCategory('데이터 정합성 이상치',catC));
 }
 
-const STATUS_COLOR={ok:'var(--pass)',warn:'var(--amber)',mute:'var(--sub)'};
+const STATUS_COLOR={ok:'var(--pass)',warn:'var(--amber)',mute:'var(--sub)',no:'var(--fail)',info:'var(--info)'};
 function statusColor(v){return STATUS_COLOR[statusClass(v)]||'var(--info)';}
 
 /* 년월(YYYY-MM) 단위 집계 — 날짜 컬럼 하나를 기준으로 건수·용량 */
@@ -2161,46 +2205,67 @@ function nearestDeadline(tk,col){
   });
   return best;
 }
+/* 한 문단짜리 문장을 쭉 읽어야 했던 예전 방식 대신, 숫자·아이콘 중심으로
+   3초 안에 훑을 수 있는 3단 구성으로 바꿨습니다:
+     1) 핵심 지표 칩 — 발전소/구매/판매/매칭률/최근 추이를 아이콘+숫자로
+     2) 현황 아이콘 스트립 — 수급매칭 8개 현황 각각의 현재 건수(0건은 흐리게)
+     3) 지금 확인할 것 — 이슈 발생·미확보 건수와 가장 임박한 공급기한을
+        한 줄로 모아, 문제가 있으면 눈에 띄게(흰 배경+빨간 글씨) 강조 */
 function homeInsight(){
   const P=byKey['T_발전소'],B=byKey['T_구매계약'],S=byKey['T_판매계약'],M=byKey['T_수급매칭'];
   const supplyMW=P?sumCol('T_발전소','설비용량(MW)'):0;
   const bs=B?sumCapSplit('T_구매계약','구매계약용량(MW)',purchaseTerminatedIds()):null;
   const ss=S?sumCapSplit('T_판매계약','판매계약용량(MW)',saleTerminatedIds()):null;
-  const parts=[];
-  if(P) parts.push(`발전소 <b>${nf(P.rows.length,0)}개</b>(<span class="dim">${nf(supplyMW)}MW</span>)`);
-  if(bs) parts.push(`구매계약 <b>${nf(bs.activeN,0)}건</b>(<span class="dim">${nf(bs.activeMW)}MW 유효</span>)`);
-  if(ss) parts.push(`판매계약 <b>${nf(ss.activeN,0)}건</b>(<span class="dim">${nf(ss.activeMW)}MW 유효</span>)`);
-  if(!parts.length) return '';
-  /* B2B 실무자가 가장 먼저 궁금해할 "설비 대비 계약이 얼마나 찼는지"를
-     비율 하나로 — 100%에 가까울수록 설비 여유가 없다는 뜻입니다. */
-  let matchPart='';
+  if(!P&&!bs&&!ss) return '';
+
+  const chips=[];
+  if(P) chips.push({icon:'🏭',label:'발전소',value:nf(P.rows.length,0)+'개',sub:nf(supplyMW)+'MW'});
+  if(bs) chips.push({icon:'🧾',label:'구매계약',value:nf(bs.activeN,0)+'건',sub:nf(bs.activeMW)+'MW 유효'});
+  if(ss) chips.push({icon:'🧾',label:'판매계약',value:nf(ss.activeN,0)+'건',sub:nf(ss.activeMW)+'MW 유효'});
   if(bs&&supplyMW>0){
     const pct=nf(Math.min(999,bs.activeMW/supplyMW*100),0);
-    matchPart=` 설비 대비 구매계약 매칭률<span title="발전소 설비용량 합계 대비 구매계약 유효 용량의 비율. 100%에 가까울수록 설비 여유가 없다는 뜻입니다." style="cursor:help;border-bottom:1px dotted currentColor"> <b>${pct}%</b></span>.`;
+    chips.push({icon:'📊',label:'설비 대비 매칭률',value:pct+'%',sub:'',
+      title:'발전소 설비용량 합계 대비 구매계약 유효 용량의 비율 - 100%에 가까울수록 설비 여유가 없다는 뜻입니다.'});
   }
-  let statusPart='';
-  if(M&&M.rows.length){
-    const groups=groupSumJoinFK('T_수급매칭','현황','구매계약ID','T_구매계약','구매계약용량(MW)');
-    const top=groups[0];
-    if(top){
-      const pct=nf(top.cnt/M.rows.length*100,0);
-      statusPart=` 수급매칭 <b>${nf(M.rows.length,0)}건</b> 중 <b>${esc(parseStatus(top.g).label)}</b>이 ${pct}%(<span class="dim">${nf(top.cap)}MW</span>)로 가장 많습니다.`;
-    }
-  }
-  let trendPart='';
   if(S){
     const m=groupByMonth('T_판매계약','계약일','판매계약용량(MW)');
     let cnt=0,cap=0;
     monthRange(3).forEach(ym=>{if(m[ym]){cnt+=m[ym].cnt;cap+=m[ym].cap;}});
-    if(cnt>0) trendPart=` 최근 3개월간 신규 판매계약 <b>${nf(cnt,0)}건</b>(<span class="dim">${nf(cap)}MW</span>) 체결.`;
+    if(cnt>0) chips.push({icon:'📈',label:'최근 3개월 신규 판매',value:nf(cnt,0)+'건',sub:nf(cap)+'MW'});
   }
+  const chipHtml=chips.map(c=>`<span class="ichip"${c.title?` title="${esc(c.title)}"`:''}>
+      <span class="ichipicon">${c.icon}</span>
+      <span class="ichiptext"><b>${esc(c.value)}</b>${c.sub?`<span class="dim">${esc(c.sub)}</span>`:''}<span class="ichiplabel">${esc(c.label)}</span></span>
+    </span>`).join('');
+
+  const counts=M?statusCountsAll():{};
+  const statusStripHtml=(M&&M.rows.length)?`<div class="istatusrow">${
+    Object.entries(STATUS_META).map(([label,meta])=>{
+      const n=counts[label]||0;
+      return `<span class="ischip${n?'':' zero'}" title="${esc(label)}: ${nf(n,0)}건 / 전체 ${nf(M.rows.length,0)}건">${meta.icon} <b>${nf(n,0)}</b></span>`;
+    }).join('')
+  }</div>`:'';
+
   /* 잔여 공급기한 — 두 표를 통틀어 가장 임박한(D값이 가장 작은) 한 건만
      짚어서 "지금 당장 뭘 챙겨야 하는지"를 바로 알 수 있게 합니다. */
   const nb=B?nearestDeadline('T_구매계약','공급기한_구매'):null;
   const ns=S?nearestDeadline('T_판매계약','공급기한_판매'):null;
   const nearest=[nb&&{...nb,label:'구매계약'},ns&&{...ns,label:'판매계약'}].filter(Boolean).sort((a,b)=>a.days-b.days)[0];
-  const deadlinePart=nearest?` 가장 임박한 공급기한은 ${esc(nearest.label)} <b>${esc(nearest.pk)}</b> — <b>D-${nf(nearest.days,0)}</b>.`:'';
-  return `<div class="insight"><p class="ieyebrow">한눈에 보기</p><p>${parts.join(' · ')}.${matchPart}${statusPart}${trendPart}${deadlinePart}</p></div>`;
+  const issueN=counts['이슈 발생']||0;
+  const unsecuredN=counts['미확보']||0;
+  const alertParts=[];
+  if(issueN>0) alertParts.push(`⚠️ 이슈 발생 <b>${nf(issueN,0)}건</b>`);
+  if(unsecuredN>0) alertParts.push(`❓ 미확보 <b>${nf(unsecuredN,0)}건</b>`);
+  if(nearest) alertParts.push(`⏰ 가장 임박한 공급기한 ${esc(nearest.label)} <b>${esc(nearest.pk)}</b> D-<b>${nf(nearest.days,0)}</b>`);
+  const hasUrgent=issueN>0||unsecuredN>0;
+  const alertHtml=alertParts.length
+    ?`<div class="ialert${hasUrgent?' urgent':''}">${alertParts.join(' · ')}</div>`
+    :`<div class="ialert ok">✅ 지금 확인이 필요한 이슈가 없습니다.</div>`;
+
+  return `<div class="insight"><p class="ieyebrow">한눈에 보기</p>
+    <div class="ichiprow">${chipHtml}</div>
+    ${statusStripHtml}
+    ${alertHtml}</div>`;
 }
 
 function tHome(){
