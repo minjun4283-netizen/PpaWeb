@@ -735,12 +735,212 @@
       toolbar.appendChild(loadedIndicator);
       toolbar.appendChild(pickerLabel);
       toolbar.appendChild(picker);
-      fields.appendChild(toolbar);
+
+      if (tableName === "T_수급매칭") {
+        var matchWidget = buildSupplyMatchWidget();
+        toolbar.appendChild(matchWidget.trigger);
+        fields.appendChild(toolbar);
+        fields.appendChild(matchWidget.panel);
+      } else {
+        fields.appendChild(toolbar);
+      }
 
       if (autofocusPicker) {
         var q = picker.querySelector(".ppaf-picker-q");
         if (q) setTimeout(function () { q.focus(); }, 30);
       }
+    }
+
+    // -----------------------------------------------------------------------
+    // 수급매칭ID처럼 "접두어 + 숫자" 규칙을 쓰는 PK의 다음 값을 실제 데이터에서
+    // 그대로 추정합니다 - 데모에서 정한 규칙이 아니라 지금 엑셀에 들어있는
+    // 값들의 접두어/자리수를 그때그때 관찰해서 만들므로, 실제 업무 명명 규칙이
+    // 무엇이든(예: "매칭-001", "SM-2024-01" 등) 그대로 따라갑니다. 숫자로
+    // 끝나는 값이 하나도 없으면 빈 문자열을 돌려줘 사용자가 직접 입력하게
+    // 둡니다(잘못 추측해 강제로 채우지 않음).
+    function suggestNextId(existingIds) {
+      var groups = {};
+      (existingIds || []).forEach(function (id) {
+        var m = /^(.*?)(\d+)$/.exec(String(id || ""));
+        if (!m) return;
+        var prefix = m[1], width = m[2].length, num = parseInt(m[2], 10);
+        var g = groups[prefix];
+        if (!g) g = groups[prefix] = { count: 0, max: -1, width: width };
+        g.count++;
+        if (num > g.max) g.max = num;
+        g.width = Math.max(g.width, width);
+      });
+      var bestPrefix = null, bestCount = -1;
+      Object.keys(groups).forEach(function (p) {
+        if (groups[p].count > bestCount) { bestCount = groups[p].count; bestPrefix = p; }
+      });
+      if (bestPrefix === null) return "";
+      var g = groups[bestPrefix];
+      var numStr = String(g.max + 1);
+      while (numStr.length < g.width) numStr = "0" + numStr;
+      return bestPrefix + numStr;
+    }
+
+    // -----------------------------------------------------------------------
+    // 수급매칭 전용 "카드로 쉽게 매칭하기" - 구매계약 카드 하나 + 전기사용지
+    // 카드 하나를 클릭으로 골라 연결하면, 아래 일반 입력 폼의 전기사용지ID/
+    // 구매계약ID 칸을 그대로 채워줍니다(수급매칭ID도 비어있으면 자동 제안).
+    // 저장/검증은 기존 saveCurrentTable() 흐름을 그대로 씁니다 - 새 API 없음.
+    // -----------------------------------------------------------------------
+    function buildSupplyMatchWidget() {
+      var trigger = el("button", { class: "ppaf-btn ppaf-matchtrigger", type: "button" }, ["🔗 카드로 쉽게 매칭하기"]);
+      var panel = el("div", { class: "ppaf-matchwrap", style: "display:none" });
+      var loaded = false;
+      var sel = { 구매: null, 전기: null };
+      var existingPairs = {}; // "전기사용지ID||구매계약ID" -> true
+      var joinPlantName = {}; // 발전소ID -> 발전소명
+
+      function pairKey(feId, pcId) { return String(feId) + "||" + String(pcId); }
+
+      function recomputeExistingPairs() {
+        existingPairs = {};
+        (recordCache["T_수급매칭"] || []).forEach(function (r) {
+          existingPairs[pairKey(r["전기사용지ID"], r["구매계약ID"])] = true;
+        });
+      }
+
+      function matchCountFor(col, idVal) {
+        return (recordCache["T_수급매칭"] || []).filter(function (r) { return String(r[col] || "") === String(idVal); }).length;
+      }
+
+      var pcSearch = el("input", { class: "ppaf-input ppaf-matchsearch", type: "text", placeholder: "구매계약 검색 (ID·발전소명 등)" });
+      var feSearch = el("input", { class: "ppaf-input ppaf-matchsearch", type: "text", placeholder: "전기사용지 검색 (ID·이름 등)" });
+      var pcList = el("div", { class: "ppaf-matchlist" });
+      var feList = el("div", { class: "ppaf-matchlist" });
+      var previewText = el("div", { class: "ppaf-matchpreview" }, ["구매계약과 전기사용지를 각각 하나씩 선택하세요."]);
+      var connectBtn = el("button", { class: "ppaf-btn primary", type: "button", disabled: "disabled" }, ["연결하기"]);
+      var closeBtn2 = el("button", { class: "ppaf-btn", type: "button" }, ["닫기"]);
+
+      function cardRow(kind, row, schema) {
+        var idVal = row[schema.pk];
+        var isSel = sel[kind] && sel[kind][schema.pk] === idVal;
+        var card = el("div", { class: "ppaf-matchcard" + (isSel ? " selected" : "") });
+        var count = matchCountFor(kind === "구매" ? "구매계약ID" : "전기사용지ID", idVal);
+        var pill = el("span", { class: "ppaf-matchpill" + (count > 0 ? " on" : "") }, [count > 0 ? count + "건 매칭됨" : "미매칭"]);
+        card.appendChild(el("div", { class: "ppaf-matchcard-head" }, [el("b", {}, [idVal]), pill]));
+        if (kind === "구매") {
+          var plant = joinPlantName[row["발전소ID"]] || row["발전소ID"] || "";
+          card.appendChild(el("div", { class: "ppaf-matchcard-line" }, [plant + " · " + (row["구매계약용량(MW)"] || "?") + " MW"]));
+          card.appendChild(el("div", { class: "ppaf-matchcard-sub" }, ["담당자: " + (row["구매 담당자"] || "-") + " · 공급기한: " + (row["공급기한_구매"] || "-")]));
+        } else {
+          card.appendChild(el("div", { class: "ppaf-matchcard-line" }, [(row["전기사용지명"] || "") + " · " + (row["전기사용지계약용량(MW)"] || "?") + " MW"]));
+          card.appendChild(el("div", { class: "ppaf-matchcard-sub" }, ["판매계약: " + (row["판매계약ID"] || "-")]));
+        }
+        card.addEventListener("click", function () {
+          sel[kind] = isSel ? null : row;
+          renderLists();
+          renderPreview();
+        });
+        return card;
+      }
+
+      function filteredRows(tableName, query) {
+        var rows = recordCache[tableName] || [];
+        var q = (query || "").trim().toLowerCase();
+        if (!q) return rows;
+        return rows.filter(function (r) {
+          return Object.keys(r).some(function (k) { return String(r[k] || "").toLowerCase().indexOf(q) !== -1; });
+        });
+      }
+
+      function renderLists() {
+        var pcSchema = SCHEMA_BY_KEY["T_구매계약"], feSchema = SCHEMA_BY_KEY["T_전기사용지"];
+        pcList.innerHTML = "";
+        filteredRows("T_구매계약", pcSearch.value).forEach(function (r) { pcList.appendChild(cardRow("구매", r, pcSchema)); });
+        if (!pcList.children.length) pcList.appendChild(el("div", { class: "ppaf-picker-hint" }, ["일치하는 구매계약이 없습니다."]));
+        feList.innerHTML = "";
+        filteredRows("T_전기사용지", feSearch.value).forEach(function (r) { feList.appendChild(cardRow("전기", r, feSchema)); });
+        if (!feList.children.length) feList.appendChild(el("div", { class: "ppaf-picker-hint" }, ["일치하는 전기사용지가 없습니다."]));
+      }
+
+      function renderPreview() {
+        if (!sel.구매 || !sel.전기) {
+          previewText.className = "ppaf-matchpreview";
+          previewText.textContent = "구매계약과 전기사용지를 각각 하나씩 선택하세요.";
+          connectBtn.disabled = true;
+          return;
+        }
+        var pcId = sel.구매["구매계약ID"], feId = sel.전기["전기사용지ID"];
+        if (existingPairs[pairKey(feId, pcId)]) {
+          previewText.className = "ppaf-matchpreview warn";
+          previewText.textContent = "⚠ 이미 이 조합으로 매칭된 수급매칭이 있습니다 - 다른 조합을 선택해주세요.";
+          connectBtn.disabled = true;
+          return;
+        }
+        previewText.className = "ppaf-matchpreview ok";
+        previewText.textContent = "구매계약 " + pcId + "  ↔  전기사용지 " + feId;
+        connectBtn.disabled = false;
+      }
+
+      pcSearch.addEventListener("input", renderLists);
+      feSearch.addEventListener("input", renderLists);
+
+      connectBtn.addEventListener("click", function () {
+        var feInput = fields.querySelector('[data-name="fld_전기사용지ID"]');
+        var pcInput = fields.querySelector('[data-name="fld_구매계약ID"]');
+        var pkSchema = SCHEMA_BY_KEY["T_수급매칭"];
+        var pkInput = pkSchema ? fields.querySelector('[data-name="fld_' + pkSchema.pk + '"]') : null;
+
+        if (feInput) { feInput.value = sel.전기["전기사용지ID"]; feInput.dispatchEvent(new Event("change", { bubbles: true })); }
+        if (pcInput) { pcInput.value = sel.구매["구매계약ID"]; pcInput.dispatchEvent(new Event("change", { bubbles: true })); }
+        if (pkInput && !pkInput.value && !formState.loadedPk) {
+          var suggested = suggestNextId((recordCache["T_수급매칭"] || []).map(function (r) { return r[pkSchema.pk]; }));
+          if (suggested) { pkInput.value = suggested; pkInput.dispatchEvent(new Event("change", { bubbles: true })); }
+        }
+        formDirty = true;
+
+        panel.style.display = "none";
+        showToast("선택한 구매계약·전기사용지가 연결되었습니다. 현황을 선택하고 저장하세요.", "success");
+        var statusInput = fields.querySelector('[data-name="fld_현황"]');
+        if (statusInput) { statusInput.focus(); statusInput.scrollIntoView({ block: "center", behavior: "smooth" }); }
+      });
+
+      closeBtn2.addEventListener("click", function () { panel.style.display = "none"; });
+
+      var pcCol = el("div", { class: "ppaf-matchcol" }, [
+        el("div", { class: "ppaf-matchcol-title" }, ["구매계약 선택"]), pcSearch, pcList
+      ]);
+      var feCol = el("div", { class: "ppaf-matchcol" }, [
+        el("div", { class: "ppaf-matchcol-title" }, ["전기사용지 선택"]), feSearch, feList
+      ]);
+      var grid = el("div", { class: "ppaf-matchgrid" }, [pcCol, feCol]);
+      var foot = el("div", { class: "ppaf-matchfoot" }, [previewText, el("div", { class: "ppaf-matchfoot-btns" }, [closeBtn2, connectBtn])]);
+      panel.appendChild(grid);
+      panel.appendChild(foot);
+
+      trigger.addEventListener("click", function () {
+        if (panel.style.display !== "none") { panel.style.display = "none"; return; }
+        panel.style.display = "";
+        (async function () {
+          if (!loaded) {
+            trigger.disabled = true;
+            try {
+              await Promise.all([
+                getTableRecords("T_구매계약", false),
+                getTableRecords("T_전기사용지", false),
+                getTableRecords("T_발전소", false)
+              ]);
+              (recordCache["T_발전소"] || []).forEach(function (p) { joinPlantName[p["발전소ID"]] = p["발전소명"]; });
+              loaded = true;
+            } catch (e) {
+              showToast("매칭용 데이터 불러오기 실패: " + (e.message || e), "error");
+            } finally {
+              trigger.disabled = false;
+            }
+          }
+          recomputeExistingPairs();
+          sel = { 구매: null, 전기: null };
+          renderLists();
+          renderPreview();
+        })();
+      });
+
+      return { trigger: trigger, panel: panel };
     }
 
     function renderFields(tableName) {
@@ -1459,7 +1659,28 @@
         ".ppaf-confirm-error{color:var(--ppaf-danger)}" +
         ".ppaf-confirm-loading{color:var(--ppaf-sub)}" +
         ".ppaf-confirm-foot{display:flex;justify-content:flex-end;gap:8px;padding:16px 20px 20px}" +
-        "@media(max-width:640px){.ppaf-modal{right:12px;bottom:72px;width:calc(100vw - 24px)}.ppaf-fields{grid-template-columns:1fr}.ppaf-picker-controls{flex-direction:column}.ppaf-open{right:16px;bottom:16px;padding:12px 16px;font-size:13px}}"
+        "@media(max-width:640px){.ppaf-modal{right:12px;bottom:72px;width:calc(100vw - 24px)}.ppaf-fields{grid-template-columns:1fr}.ppaf-picker-controls{flex-direction:column}.ppaf-open{right:16px;bottom:16px;padding:12px 16px;font-size:13px}}" +
+        ".ppaf-matchtrigger{background:rgba(11,133,119,.08);border-color:var(--ppaf-teal);color:var(--ppaf-teal-d)}" +
+        ".ppaf-matchtrigger:hover:not(:disabled){background:rgba(11,133,119,.16)}" +
+        ".ppaf-matchwrap{grid-column:1 / -1;margin:10px 0 16px;border:1.5px solid var(--ppaf-teal);border-radius:12px;padding:14px;background:rgba(11,133,119,.04)}" +
+        ".ppaf-matchgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}" +
+        ".ppaf-matchcol-title{font-size:12px;font-weight:800;color:var(--ppaf-teal-d);margin-bottom:6px}" +
+        ".ppaf-matchsearch{width:100%;box-sizing:border-box;margin-bottom:8px}" +
+        ".ppaf-matchlist{max-height:260px;overflow:auto;display:flex;flex-direction:column;gap:6px;padding-right:2px}" +
+        ".ppaf-matchcard{border:1.5px solid var(--ppaf-line);border-radius:9px;padding:8px 10px;background:var(--ppaf-bg);cursor:pointer;transition:border-color .12s ease,background .12s ease}" +
+        ".ppaf-matchcard:hover{border-color:var(--ppaf-teal)}" +
+        ".ppaf-matchcard.selected{border-color:var(--ppaf-teal);background:rgba(11,133,119,.12);box-shadow:0 0 0 2px rgba(11,133,119,.18)}" +
+        ".ppaf-matchcard-head{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px}" +
+        ".ppaf-matchcard-line{font-size:12px;color:var(--ppaf-ink);margin-top:2px}" +
+        ".ppaf-matchcard-sub{font-size:11px;color:var(--ppaf-sub);margin-top:1px}" +
+        ".ppaf-matchpill{font-size:10.5px;font-weight:700;color:var(--ppaf-sub);background:rgba(91,107,101,.12);border-radius:999px;padding:2px 8px;white-space:nowrap}" +
+        ".ppaf-matchpill.on{color:var(--ppaf-teal-d);background:rgba(11,133,119,.14)}" +
+        ".ppaf-matchfoot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--ppaf-line);flex-wrap:wrap}" +
+        ".ppaf-matchpreview{font-size:12.5px;font-weight:700;color:var(--ppaf-sub)}" +
+        ".ppaf-matchpreview.ok{color:var(--ppaf-teal-d)}" +
+        ".ppaf-matchpreview.warn{color:var(--ppaf-danger)}" +
+        ".ppaf-matchfoot-btns{display:flex;gap:8px}" +
+        "@media(max-width:640px){.ppaf-matchgrid{grid-template-columns:1fr}}"
     });
 
     var openBtn = el("button", { class: "ppaf-open", type: "button" }, ["✎ 간편 입력/저장"]);
