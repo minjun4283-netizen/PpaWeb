@@ -754,6 +754,29 @@ function onSearchType(e,setter){
   clearTimeout(el._searchTimer);
   el._searchTimer=setTimeout(()=>setter(v),140);
 }
+/* 한글처럼 여러 음절로 이루어진 검색어일 때, 앞 음절을 막 확정하고 바로
+   다음 음절을 조합하기 시작하면(정상 타이핑 속도로도 흔함) 앞 음절 확정
+   때 예약해 둔 위 140ms 타이머가 "다음 음절을 한창 조합하는 도중"에
+   발동할 수 있습니다. 이 타이머가 그대로 setter(...)→render()를 부르면
+   #view.innerHTML을 통째로 새로 그려 입력창 DOM이 재생성되고, 그 순간
+   브라우저의 IME 조합 세션이 끊겨 지금 조합 중이던 음절이 잘려나가거나
+   깨집니다(검색어가 "일진" 대신 "일"에서 잘리는 식) — 여러 음절 한글
+   검색어가 탭을 가리지 않고 자주 실패하던 원인이었습니다. 새 음절 조합이
+   시작되는 순간(compositionstart) 대기 중인 타이머를 미리 취소해 두면,
+   그 타이머는 발동하지 않고 이번 음절이 확정될 때 새 타이머가 정확한
+   전체 값으로 다시 예약되므로 안전합니다.
+
+   주의: oncompositionstart="..." 같은 HTML 인라인 속성은 oninput과 달리
+   브라우저가 이벤트 핸들러로 연결해주지 않습니다(실제로 Chromium에서
+   확인 — 속성은 파싱되지만 el.oncompositionstart는 계속 undefined이고
+   이벤트가 발생해도 절대 호출되지 않습니다). 그래서 검색창마다 인라인
+   속성을 붙이는 대신, 아래에서 document 레벨에 위임 리스너 하나를
+   addEventListener로 딱 한 번 등록합니다 — render()가 #view.innerHTML을
+   통째로 새로 그려도 리스너는 document에 달려 있으므로 그대로 살아남고,
+   이벤트 버블링으로 어떤 검색창의 조합 시작이든 다 잡아냅니다. */
+function onSearchComposeStart(e){
+  clearTimeout(e.target._searchTimer);
+}
 
 /* 필터·검색·정렬을 모두 적용한 행 목록 (페이징 전) — 화면과 내려받기가 공유 */
 function filteredRows(t){
@@ -915,7 +938,8 @@ function tableView(t){
     `<label class="colopt" style="display:block"><span class="dkey">${esc(c)}</span>
       <input id="cq-${esc(k)}-${esc(c)}" class="search" style="width:100%;min-width:0;margin-top:3px"
         value="${esc((state.colQ[k]||{})[c]||'')}" placeholder="이 컬럼에서 찾기…"
-        oninput="onSearchType(event,v=>setColQ('${jsq(k)}','${jsq(c)}',v))"></label>`).join('');
+        oninput="onSearchType(event,v=>setColQ('${jsq(k)}','${jsq(c)}',v))"
+       ></label>`).join('');
 
   return `<div class="toolbar">
       <input id="search-${esc(k)}" class="search" placeholder="${esc(t.label)} 전체 컬럼 검색…" value="${esc(raw)}" oninput="onSearchType(event,v=>setQ('${jsq(k)}',v))">
@@ -3006,6 +3030,11 @@ document.addEventListener('click',e=>{
   const w=document.querySelector('.gsearchwrap');
   if(w&&!w.contains(e.target)) closeGlobalSearch();
 });
+/* onSearchComposeStart()의 위임 등록 지점 — 위 함수 정의 옆 주석 참고.
+   버블링을 타므로 render()로 매번 새로 생기는 검색창(#globalSearch,
+   #lookupSearchInput, #exploreSearch, #clog-q, 표별 검색창, 컬럼별 찾기
+   입력창 전부)에 개별로 리스너를 다시 붙일 필요가 없습니다. */
+document.addEventListener('compositionstart',onSearchComposeStart);
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     if(state.modal){closeDetail();return;}
