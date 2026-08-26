@@ -98,8 +98,34 @@
       return node;
     }
 
+    // fetch() 자체가 실패하는 경우(서버에 아예 도달 못함)는 브라우저마다
+    // TypeError를 던지고 메시지도 제각각입니다(크롬 "Failed to fetch",
+    // 사파리 "Load failed" 등) - 이 원문 그대로가 저장/삭제 등 곳곳의
+    // showToast("저장 실패: " + (e.message||e)) 패턴을 통해 사용자에게
+    // 그대로 노출되고 있었습니다. 실제 원인은 대부분 (1) 실시간 입력
+    // 서버가 이미 꺼진 상태(엑셀을 닫으면 자동 종료됨) 이거나 (2) 컴퓨터가
+    // 절전에서 막 깨어난 직후의 아주 짧은 네트워크 끊김입니다. (2)는
+    // 잠깐 뒤 한 번 더 시도하면 대부분 저절로 풀리므로 조용히 재시도하고,
+    // 그래도 안 되면 (1)에 해당하는 명확한 한글 안내로 바꿔서 던집니다.
+    async function fetchWithRetry(url, opts) {
+      try {
+        return await fetch(url, opts);
+      } catch (e) {
+        await new Promise(function (r) { setTimeout(r, 600); });
+        try {
+          return await fetch(url, opts);
+        } catch (e2) {
+          throw new Error(
+            "서버와 연결할 수 없습니다. 엑셀의 \"대시보드생성\" 시트에서 " +
+            "[실시간 입력 서버 시작] 버튼으로 서버가 켜져 있는지 확인해주세요 " +
+            "(엑셀 파일을 닫으면 서버도 함께 꺼집니다)."
+          );
+        }
+      }
+    }
+
     async function apiGet(url) {
-      var res = await fetch(url, { cache: "no-store" });
+      var res = await fetchWithRetry(url, { cache: "no-store" });
       var text = await res.text();
       var data = {};
       try {
@@ -112,7 +138,7 @@
     }
 
     async function apiPost(url, payload) {
-      var res = await fetch(url, {
+      var res = await fetchWithRetry(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload || {})
