@@ -1246,6 +1246,34 @@ function initExplore(base){
   state.explore={base:base,tables:[],cols:t.columns.slice(0,4).map(c=>base+'|'+c),
     q:'',sort:null,page:1,missing:''};
 }
+/* 탐색 탭 첫 화면 — 6개 표를 모두 연결한 상태로, 실무에서 자주 같이 보는
+   값(회사명·용량·단가·공급기한·현황 등)만 요청받은 순서로 미리 골라둔
+   기본 조회표입니다. 시작점일 뿐이며, initExplore()와 마찬가지로 이후
+   "2. 연결할 표"/"3. 출력 컬럼"에서 얼마든지 표·컬럼을 추가·삭제하거나
+   드래그로 순서를 바꿀 수 있습니다. */
+function initExploreDefault(){
+  state.explore={
+    base:'T_수급매칭',
+    tables:['T_발전소','T_구매계약','T_수요기업','T_판매계약','T_전기사용지'],
+    cols:[
+      'T_수요기업|기업명',
+      'T_판매계약|판매계약용량(MW)',
+      'T_전기사용지|전기사용지명',
+      'T_전기사용지|전기사용지계약용량(MW)',
+      'T_판매계약|판매단가(원/kWh)',
+      'T_판매계약|공급기한_판매',
+      'T_발전소|발전법인명',
+      'T_발전소|발전소명',
+      'T_수급매칭|현황',
+      'T_구매계약|구매계약용량(MW)',
+      'T_구매계약|구매단가(원/kWh)',
+      'T_구매계약|공급기한_구매',
+      'T_구매계약|수요기업 미확보',
+      'T_판매계약|공급자원 미확보',
+    ],
+    q:'',sort:null,page:1,missing:'',
+  };
+}
 function setExploreBase(k){initExplore(k);render();}
 function exploreEffective(){
   /* 사용자가 고른 표 + 거기까지 가는 데 필요한 경유 표 */
@@ -1472,7 +1500,7 @@ function applyMissingPreset(base,child){
 }
 
 function tExplore(){
-  if(!state.explore) initExplore(DATA.tables[0].key);
+  if(!state.explore) initExploreDefault();
   const ex=state.explore;
   const {rows,cols,eff,joined,truncated}=buildExplore();
   const {dist}=joinPaths(ex.base);
