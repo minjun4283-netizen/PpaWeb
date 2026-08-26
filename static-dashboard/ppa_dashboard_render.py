@@ -413,6 +413,7 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 /* 상세 모달 */
 .backdrop{position:fixed;inset:0;background:rgba(10,15,17,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px}
 .modal{background:var(--panel);border-radius:14px;box-shadow:var(--shadow);width:min(720px,100%);max-height:88vh;display:flex;flex-direction:column}
+.modal.wide{width:min(920px,100%)}
 .modalhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:18px 20px 12px;border-bottom:1px solid var(--line)}
 .modalhead h3{margin:0;font-size:16px;font-weight:800}
 .modalhead .sub{font-size:12px;color:var(--sub);margin-top:3px}
@@ -423,6 +424,18 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 .dkey{color:var(--sub);font-weight:600;font-size:12.5px}
 .drow.err .dkey{color:var(--fail)}
 .drow.chg .dkey{color:var(--info)}
+
+/* 탐색 탭에서 행 클릭 시 뜨는, 그 행에 걸친 여러 표를 한 번에 보여주는
+   모달 — 표마다 구역을 나누고 표별로 독립된 수정/삭제 버튼을 둔다
+   (표별로 따로 저장하는 방식 — 한 화면에서 여러 표를 한 번에 저장하는
+   건 일부만 성공했을 때 상태가 꼬일 위험이 있어 일부러 안 만듦). */
+.modalsection{border:1px solid var(--line);border-radius:10px;margin:14px 0;overflow:hidden}
+.modalsection:first-child{margin-top:4px}
+.modalsectionhead{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;background:var(--paper2,rgba(11,133,119,.06))}
+.modalsectionhead h4{margin:0;font-size:13.5px;font-weight:800}
+.modalsectionhead .sub{font-size:11.5px;color:var(--sub)}
+.modalsectionbody{padding:2px 14px}
+.modalsectionfoot{display:flex;gap:8px;padding:10px 14px;flex-wrap:wrap;border-top:1px solid var(--line)}
 
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);font-size:13px;font-weight:600;padding:10px 18px;border-radius:8px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:80}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -1004,9 +1017,27 @@ function tData(t){
 /* ── 상세 모달 ──────────────────────────────────────────────────────────── */
 function openDetail(tk,i){state.modal={t:tk,i:i};render();}
 function openRemovedDetail(tk,idx){state.modal={t:tk,removed:idx};render();}
+/* 탐색 탭에서 조인된 행을 클릭했을 때 — 그 행에 실제로 걸친 모든 표(예:
+   구매계약+발전소+수급매칭)를 한 모달 안에 표별 구역으로 나눠 보여주고,
+   구역마다 독립된 수정/삭제 버튼을 둡니다(표별로 따로 저장 — 한 화면에서
+   여러 표를 한 번에 저장하면 일부만 성공했을 때 상태가 꼬일 위험이 있어
+   기존에 이미 검증된 표별 수정 흐름(openInlineEdit/openInlineDelete)을
+   표 개수만큼 재사용하는 쪽을 택함). tables: [{t:표키,pk:PK값}, ...] —
+   PK로 넘겨받아 여기서 rowPos로 현재 행 인덱스를 다시 찾으므로, 탐색 탭
+   페이지를 넘기거나 정렬을 바꿔 인덱스가 달라져도 항상 정확합니다. */
+function openExploreRowDetail(tables){
+  const resolved=(tables||[]).map(({t,pk})=>{
+    const i=rowPos[t]?rowPos[t][String(pk)]:undefined;
+    return i!==undefined?{t,i}:null;
+  }).filter(Boolean);
+  if(!resolved.length) return;
+  state.modal={rowMulti:true,tables:resolved};
+  render();
+}
 function closeDetail(){state.modal=null;render();}
 function modalHtml(){
   if(!state.modal) return '';
+  if(state.modal.rowMulti) return rowMultiModalHtml(state.modal.tables);
   const t=byKey[state.modal.t];if(!t) return '';
   if(state.modal.removed!==undefined) return removedModalHtml(t,state.modal.removed);
   const r=t.rows[state.modal.i];if(!r) return '';
@@ -1045,6 +1076,46 @@ function modalHtml(){
         <button class="btn" onclick="copyText(detailText('${jsq(t.key)}',${state.modal.i}))">내용 복사</button>
         <button class="btn" onclick="closeDetail()">닫기</button>
       </div></div></div>`;
+}
+/* 탐색 탭 행 상세 — 그 행에 걸친 표 하나하나를 구역으로 나눠 컬럼 값을
+   전부 보여주고, 구역마다 독립된 수정/삭제 버튼을 둡니다. */
+function rowMultiModalHtml(tables){
+  const sections=tables.map(({t:tk,i})=>{
+    const t=byKey[tk];if(!t) return '';
+    const r=t.rows[i];if(!r) return '';
+    const pkv=r.cells[t.pk];
+    const rows=t.columns.map(c=>{
+      const bad=(r.error_cols||[]).includes(c);
+      const chg=(r.changed_cols||[]).includes(c);
+      const prev=chg&&r.prev?`<div class="chgval"><span class="chgold">${esc(r.prev[c]||'(공란)')}</span>→ <span class="chgnew">${esc(r.cells[c]||'(공란)')}</span></div>`:'';
+      return `<div class="drow ${bad?'err':''} ${chg?'chg':''}">
+        <span class="dkey">${esc(c)}${c===t.pk?'<span class="pkbadge">PK</span>':''}${(t.fk||{})[c]?'<span class="fkbadge">FK</span>':''}</span>
+        <span>${cellHtml(t,c,r.cells[c])||'<span style="color:var(--sub)">(공란)</span>'}${prev}</span></div>`;
+    }).join('');
+    const errs=(r.error_cols||[]).length
+      ? `<span class="badge no">검증 오류 ${(r.error_cols||[]).length}건</span>`:'';
+    return `<div class="modalsection">
+      <div class="modalsectionhead">
+        <div><h4>${esc(t.label)}</h4><span class="sub">${esc(String(pkv||'(PK 공란)'))}</span></div>
+        ${errs}
+      </div>
+      <div class="modalsectionbody">${rows}</div>
+      <div class="modalsectionfoot">
+        <button class="btn primary" onclick="openInlineEdit('${jsq(tk)}','${jsq(pkv)}')">수정</button>
+        <button class="btn danger" onclick="openInlineDelete('${jsq(tk)}','${jsq(pkv)}')">삭제</button>
+        <button class="btn" onclick="closeDetail();jumpTo('${jsq(tk)}','${jsq(pkv)}')">관계조회로 보기</button>
+      </div></div>`;
+  }).join('');
+  return `<div class="backdrop" onclick="if(event.target===this)closeDetail()">
+    <div class="modal wide" role="dialog" aria-modal="true">
+      <div class="modalhead">
+        <div><h3>탐색 결과 상세</h3>
+          <div class="sub">이 행에 걸친 ${tables.length}개 표 — 표마다 따로 수정·저장합니다</div></div>
+        <button class="iconbtn" onclick="closeDetail()" aria-label="닫기">✕</button>
+      </div>
+      <div class="modalbody">${sections||'<div class="nocand">표시할 데이터가 없습니다.</div>'}</div>
+      <div class="modalfoot"><button class="btn" onclick="closeDetail()">닫기</button></div>
+    </div></div>`;
 }
 function detailText(tk,i){
   const t=byKey[tk],r=t.rows[i];
@@ -1596,8 +1667,14 @@ function tExplore(){
       const [tk,c]=id.split('|');
       if(!rec[tk]) return '<td class="cellmiss">—</td>';
       return `<td class="${isNumCol(c)?'num':''}">${cellHtml(byKey[tk],c,rec[tk].cells[c])}</td>`;}).join('');
-    const baseIdx=rowPos[ex.base]?rowPos[ex.base][String(rec[ex.base].cells[byKey[ex.base].pk])]:undefined;
-    const click=baseIdx!==undefined?` onclick="openDetail('${jsq(ex.base)}',${baseIdx})"`:'';
+    /* 행 클릭 시 이 행에 실제로 걸쳐 있는(누락 아닌) 모든 표를 모아 넘김 —
+       기준 표만이 아니라 조인된 모든 표를 한 모달에서 표별로 수정할 수
+       있게 하기 위함(rowMultiModalHtml 참고). */
+    const rowTables=eff.filter(tk=>rec[tk]).map(tk=>{
+      const pkv=rec[tk].cells[byKey[tk].pk];
+      return `{t:'${jsq(tk)}',pk:'${jsq(pkv)}'}`;
+    }).join(',');
+    const click=rowTables?` onclick="openExploreRowDetail([${rowTables}])"`:'';
     return `<tr class="${missAny?'rowmiss':''}${click?' clickrow':''}"${click}>${tds}</tr>`;}).join('')
     ||`<tr><td class="emptyrow" colspan="${Math.max(1,cols.length)}">조건에 맞는 데이터가 없습니다.</td></tr>`;
 
