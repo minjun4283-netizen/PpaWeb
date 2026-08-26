@@ -41,11 +41,20 @@ def _normalize_cell(value: object) -> str:
     return str(value).strip()
 
 
-def load_from_xlsm(path: str) -> dict[str, list[dict]]:
+def load_from_xlsm(path: str) -> tuple[dict[str, list[dict]], dict[str, list[str]]]:
+    """반환값: (표별 데이터, 표별 "인식 안 된 헤더" 목록).
+
+    "인식 안 된 헤더"는 실제 엑셀에는 있지만 ppa_schema.py의 columns 목록에는
+    없는 헤더입니다 - 예전 매크로가 남긴 계산열(PK중복 등)일 수도 있지만,
+    스키마를 만든 뒤 실제 업무에서 새로 추가된 컬럼일 수도 있습니다. 후자라면
+    그 열의 데이터는 여기서 조용히 버려지고, 대시보드의 어떤 검색·조회
+    기능으로도 절대 찾을 수 없게 됩니다 - 콘솔 출력에만 의존하지 않도록
+    호출자가 이 값을 build_payload()에 넘겨 대시보드에도 노출해야 합니다."""
     import openpyxl  # optional dependency, only needed for this path
 
     wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
     tables_data: dict[str, list[dict]] = {}
+    unmatched_by_table: dict[str, list[str]] = {}
 
     for t in TABLES:
         if t.key not in wb.sheetnames:
@@ -63,6 +72,8 @@ def load_from_xlsm(path: str) -> dict[str, list[dict]]:
         header = [str(h).strip() if h is not None else "" for h in header]
         col_index = {name: idx for idx, name in enumerate(header)}
         unmatched = [h for h in header if h and h not in t.columns]
+        if unmatched:
+            unmatched_by_table[t.key] = unmatched
 
         rows: list[dict] = []
         for raw in rows_iter:
@@ -79,14 +90,16 @@ def load_from_xlsm(path: str) -> dict[str, list[dict]]:
                 rows.append(record)
 
         tables_data[t.key] = rows
-        note = f" 인식 안 된 헤더(검증열 등, 정상): {', '.join(unmatched)}" if unmatched else ""
+        note = f" 인식 안 된 헤더(검증열이면 정상, 업무 컬럼이면 확인 필요): {', '.join(unmatched)}" if unmatched else ""
         print(f"{t.key}: {len(rows)}행 인식.{note}")
 
-    return tables_data
+    return tables_data, unmatched_by_table
 
 
-def load_from_csv_dir(dir_path: str) -> dict[str, list[dict]]:
+def load_from_csv_dir(dir_path: str) -> tuple[dict[str, list[dict]], dict[str, list[str]]]:
+    """반환값: (표별 데이터, 표별 "인식 안 된 헤더" 목록). load_from_xlsm() 참고."""
     tables_data: dict[str, list[dict]] = {}
+    unmatched_by_table: dict[str, list[str]] = {}
 
     for t in TABLES:
         path = os.path.join(dir_path, f"{t.key}.csv")
@@ -98,6 +111,8 @@ def load_from_csv_dir(dir_path: str) -> dict[str, list[dict]]:
         with open(path, encoding="utf-8-sig", newline="") as f:
             reader = csv.DictReader(f)
             unmatched = [h for h in (reader.fieldnames or []) if h and h not in t.columns]
+            if unmatched:
+                unmatched_by_table[t.key] = unmatched
             rows = []
             for raw in reader:
                 record = {col: (raw.get(col) or "").strip() for col in t.columns}
@@ -105,7 +120,7 @@ def load_from_csv_dir(dir_path: str) -> dict[str, list[dict]]:
                     rows.append(record)
 
         tables_data[t.key] = rows
-        note = f" 인식 안 된 헤더(검증열 등, 정상): {', '.join(unmatched)}" if unmatched else ""
+        note = f" 인식 안 된 헤더(검증열이면 정상, 업무 컬럼이면 확인 필요): {', '.join(unmatched)}" if unmatched else ""
         print(f"{t.key}: {len(rows)}행 인식.{note}")
 
-    return tables_data
+    return tables_data, unmatched_by_table

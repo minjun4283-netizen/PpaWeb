@@ -95,6 +95,7 @@ def build_payload(
     changes: dict | None = None,
     marks: dict | None = None,
     changelog: list | None = None,
+    unmatched_headers: dict[str, list[str]] | None = None,
 ) -> dict:
     validation = validate(tables_data)
     marks = marks or {}
@@ -137,6 +138,7 @@ def build_payload(
         },
         "changes": changes or {"has_prev": False},
         "changelog": changelog or [],
+        "unmatched_headers": unmatched_headers or {},
     }
 
 
@@ -169,7 +171,7 @@ def main():
 
     if args.xlsm:
         try:
-            tables_data = load_from_xlsm(args.xlsm)
+            tables_data, unmatched_headers = load_from_xlsm(args.xlsm)
         except ModuleNotFoundError:
             sys.exit(
                 "openpyxl을 불러올 수 없습니다. vendor/ 폴더가 build_dashboard.py와 "
@@ -186,7 +188,7 @@ def main():
                 "엑셀에서 이 파일을 열어둔 상태라면 닫고 다시 시도해주세요."
             )
     else:
-        tables_data = load_from_csv_dir(args.csv_dir)
+        tables_data, unmatched_headers = load_from_csv_dir(args.csv_dir)
 
     # baseline: [변경] 탭에 보이는 "지난 기준 대비" 비교 대상 - 리셋을 누르기
     # 전까지는 절대 안 바뀝니다(그래서 그 사이 변경이 계속 누적돼 보임).
@@ -210,7 +212,10 @@ def main():
         if new_entries:
             changelog = append_changelog(changelog_path, new_entries)
 
-    payload = build_payload(tables_data, is_demo=False, changes=changes, marks=marks, changelog=changelog)
+    payload = build_payload(
+        tables_data, is_demo=False, changes=changes, marks=marks, changelog=changelog,
+        unmatched_headers=unmatched_headers,
+    )
     payload["generated_at"] = generated_at
 
     with open(args.out, "w", encoding="utf-8") as f:
@@ -235,6 +240,14 @@ def main():
     else:
         print("기준 스냅샷이 없어 이번에는 변경 비교를 건너뛰었습니다 "
               "(다음 실행부터 [변경] 탭에 표시되고, 이번 실행 결과가 새 기준점이 됩니다).")
+
+    if unmatched_headers:
+        print("\n[주의] 다음 표에는 대시보드가 모르는 엑셀 헤더가 있습니다 — "
+              "예전 매크로의 계산열이면 무시해도 되지만, 실제 업무 컬럼이라면 "
+              "그 열의 데이터는 대시보드 어디에서도(검색 포함) 보이지 않습니다. "
+              "이 대시보드의 [검증] 탭에서도 같은 내용을 확인할 수 있습니다.")
+        for tk, cols in unmatched_headers.items():
+            print(f"  - {tk}: {', '.join(cols)}")
 
 
 if __name__ == "__main__":

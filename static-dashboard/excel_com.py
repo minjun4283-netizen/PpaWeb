@@ -149,6 +149,7 @@ class ExcelBridge:
         self._jobs: "queue.Queue" = queue.Queue()
         self._app = None
         self._we_launched_app = False
+        self._last_unmatched: dict[str, list[str]] = {}
         self._thread = threading.Thread(target=self._run, name="ExcelComWorker", daemon=True)
         self._thread.start()
 
@@ -494,16 +495,24 @@ class ExcelBridge:
 
     # ---- 읽기 ----
     def _read_table(self, table_key: str) -> dict:
+        """스키마(ppa_schema.py)에 선언된 컬럼만 골라 읽습니다 - 실제 엑셀에
+        스키마가 모르는 헤더(오탈자로 이름이 미세하게 다르거나, 스키마를
+        만든 뒤 새로 추가된 진짜 업무 컬럼)가 있으면 그 열의 데이터는 조용히
+        빠지고, 그 결과 검색을 포함한 대시보드 어디에서도 절대 나타나지
+        않습니다. 이런 열이 있으면 self._last_unmatched에 남겨 두고
+        unmatched_headers()로 노출해, 검증 탭 배너로 눈에 보이게 합니다."""
         schema = TABLE_BY_KEY[table_key]
         wb = self._ensure_workbook()
         ws = self._worksheet(wb, table_key)
         values, start_row, start_col = self._read_grid(ws)
 
         if not values:
+            self._last_unmatched[table_key] = []
             return {"headers": schema.columns, "rows": []}
 
         col_at = self._header_map(values, start_col)
         col_idx = {name: (abs_col - start_col) for name, abs_col in col_at.items()}
+        self._last_unmatched[table_key] = sorted(name for name in col_at if name not in schema.columns)
 
         rows = []
         for raw in values[1:]:
@@ -519,6 +528,12 @@ class ExcelBridge:
                 rows.append(record)
 
         return {"headers": schema.columns, "rows": rows}
+
+    def unmatched_headers(self) -> dict[str, list[str]]:
+        """가장 최근 read_all_tables()/read_table() 기준, 스키마에 없어서
+        읽히지 않은 실제 엑셀 헤더 목록 (표별). 비어있지 않은 표가 있으면
+        그 열의 데이터는 검색·조회 어디에도 나타나지 않는다는 뜻입니다."""
+        return self._call(lambda: {k: list(v) for k, v in self._last_unmatched.items() if v})
 
     def _read_all_tables(self) -> dict[str, list[dict]]:
         return {t.key: self._read_table(t.key)["rows"] for t in TABLES}

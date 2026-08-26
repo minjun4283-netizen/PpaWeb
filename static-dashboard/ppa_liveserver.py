@@ -175,6 +175,7 @@ class App:
             if force_refresh:
                 refresh_note = self.bridge.refresh_from_disk().get("note")
             tables_data = self.bridge.read_all_tables()
+            unmatched_headers = self.bridge.unmatched_headers()
 
             baseline_path = default_snapshot_path(self.html_path)
             baseline = load_snapshot(baseline_path)
@@ -195,7 +196,10 @@ class App:
                 if new_entries:
                     changelog = append_changelog(changelog_path, new_entries)
 
-            payload = build_payload(tables_data, is_demo=False, changes=changes, marks=marks, changelog=changelog)
+            payload = build_payload(
+                tables_data, is_demo=False, changes=changes, marks=marks, changelog=changelog,
+                unmatched_headers=unmatched_headers,
+            )
             payload["generated_at"] = generated_at
             payload["refresh_note"] = refresh_note
 

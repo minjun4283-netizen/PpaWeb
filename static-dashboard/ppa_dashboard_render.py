@@ -1345,14 +1345,17 @@ function buildExplore(){
      "표 순서 → 원래 컬럼 순서"로 강제 정렬하지 않습니다 — 그렇게 하면
      드래그로 바꾼 순서가 매번 원래대로 되돌아가 버립니다. */
   const cols=ex.cols.filter(id=>eff.includes(id.split('|')[0]));
-  /* 검색 — 표시 중인 컬럼들을 한 줄로 합친 텍스트에서, 검색어를 공백
-     기준으로 쪼갠 낱말이 전부(AND) 어딘가에 있으면 매치. 특정 한 컬럼에
-     검색어 전체가 고스란히 들어있어야 했던 예전 방식보다 여러 컬럼에
-     걸친 값도 잘 찾고, 검색어에 공백이 있어도(예: "영광 풍력") 값에 공백이
-     없어도(예: "영광풍력1호") 매치됩니다. */
+  /* 검색 — 검색어를 공백 기준으로 쪼갠 낱말이 전부(AND) 어딘가에 있으면
+     매치. 특정 한 컬럼에 검색어 전체가 고스란히 들어있어야 했던 예전
+     방식보다 여러 컬럼에 걸친 값도 잘 찾고, 검색어에 공백이 있어도(예:
+     "영광 풍력") 값에 공백이 없어도(예: "영광풍력1호") 매치됩니다.
+     "3. 출력 컬럼"에서 현재 화면에 보이기로 고른 컬럼(cols)이 아니라,
+     지금 조인에 걸려 있는 모든 표(eff)의 전체 컬럼을 검색 대상으로 삼습니다
+     — 그렇지 않으면 회사명 같은 컬럼을 출력 목록에서 잠깐 뺀 것만으로도
+     그 값이 검색에서 "아예 안 나오는" 것처럼 보이는 문제가 있었습니다. */
   const q=(ex.q||'').trim();
   if(q) out=out.filter(rec=>matchesSearch(
-    cols.map(id=>{const [tk,c]=id.split('|');return (rec[tk]&&rec[tk].cells[c])??'';}).join(' '),q));
+    eff.map(tk=>{const row=rec[tk];return row?byKey[tk].columns.map(c=>row.cells[c]??'').join(' '):'';}).join(' '),q));
   /* 정렬 */
   if(ex.sort){
     const [stk,sc]=ex.sort.key.split('|');
@@ -2456,6 +2459,21 @@ function changelogView(){
 }
 
 /* ── 검증 탭 ────────────────────────────────────────────────────────────── */
+/* 엑셀에는 있지만 대시보드 스키마가 모르는 헤더 — 이 열의 데이터는 화면
+   표시·검색 등 대시보드 어디에도 절대 나타나지 않으므로(조용히 버려짐),
+   PK/FK 오류만큼 눈에 띄게 별도 배너로 보여줍니다. */
+function unmatchedHeaderBanner(){
+  const um=DATA.unmatched_headers||{};
+  const entries=Object.entries(um).filter(([,cols])=>cols&&cols.length);
+  if(!entries.length) return '';
+  const rows=entries.map(([tk,cols])=>
+    `<div class="chk no"><span>${esc(byKey[tk]?byKey[tk].label:tk)}</span>
+      <span class="mono">${esc(cols.join(', '))}</span>
+      <span class="badge no">데이터 대시보드에 없음</span></div>`).join('');
+  return panel('⚠ 대시보드가 인식하지 못한 엑셀 열이 있습니다',
+    '예전 매크로가 남긴 계산열이면 무시해도 되지만, 실제 업무 컬럼이라면 이 열의 값은 검색·조회 등 대시보드 어디에도 나타나지 않습니다 — 데이터 담당자에게 확인해주세요.',
+    rows);
+}
 function tVerify(){
   const v=DATA.validation;
   const byTable=Object.entries(v.by_table).map(([k,c])=>
@@ -2475,6 +2493,7 @@ function tVerify(){
       <span class="badge no">클릭해서 확인</span></div>`;}).join('')
     ||'<div class="nocand" style="text-align:center;padding:20px">오류가 없습니다.</div>';
   return `<section>${printHead('검증 결과','총 '+v.total_errors+'건')}
+    ${unmatchedHeaderBanner()}
     <div class="kpis">${kpi('총 오류 건수',nf(v.total_errors,0),v.total_errors>0?'표별 세부는 아래':'전 표 정상',v.total_errors>0?'warn':'accent')}</div>
     <div class="grid2">
       ${panel('표별 오류 건수','행 클릭 시 오류만 보기',`<table><thead><tr><th class="nosort">표</th><th class="nosort num">건수</th></tr></thead><tbody>${byTable}</tbody></table>`)}
@@ -2942,9 +2961,13 @@ function render(){
     if(el){el.focus();if(ss!==null&&el.setSelectionRange){try{el.setSelectionRange(ss,se);}catch(e){}}}
   }
   const st=document.getElementById('status');
-  const ok=DATA.validation.total_errors===0;
+  const hasUnmatched=Object.values(DATA.unmatched_headers||{}).some(cols=>cols&&cols.length);
+  const ok=DATA.validation.total_errors===0&&!hasUnmatched;
   st.className='pill '+(ok?'ok':'no');
-  st.textContent=ok?'검증 통과':`검증 오류 ${DATA.validation.total_errors}건`;
+  st.textContent=ok?'검증 통과'
+    :(DATA.validation.total_errors>0&&hasUnmatched?`검증 오류 ${DATA.validation.total_errors}건 · 인식 안 된 열 있음`
+      :DATA.validation.total_errors>0?`검증 오류 ${DATA.validation.total_errors}건`
+      :'인식 안 된 열 있음');
   const cp=document.getElementById('chgpill');
   const chgTot=CHANGES.has_prev?(CHANGES.total_added+CHANGES.total_changed+CHANGES.total_removed):0;
   cp.style.display=chgTot?'':'none';
