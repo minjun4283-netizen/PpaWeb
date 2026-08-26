@@ -2484,20 +2484,42 @@ function tVerify(){
 }
 
 /* ── 전역 검색 ──────────────────────────────────────────────────────────── */
+/* 표마다 매칭 개수를 먼저 따로 모은 뒤 라운드로빈으로 섞어서 보여줍니다.
+   예전에는 표 순서대로 다 채운 뒤 20건에서 잘랐기 때문에, 검색어가 앞쪽
+   표(예: 발전소)에서만 대량으로 매칭되면 뒤쪽 표(예: 구매계약)에 훨씬 더
+   많은 결과가 있어도 화면에 단 하나도 안 보이는 문제가 있었습니다 —
+   "일부 표에서 검색이 전혀 안 되는 것처럼" 보이던 원인. */
 function runGlobalSearch(v){
   const box=document.getElementById('globalResults');
   const q=(v||'').trim();
   if(!q){box.classList.remove('show');box.innerHTML='';return;}
-  const res=[];
-  DATA.tables.forEach(t=>t.rows.forEach((r,i)=>{
-    if(matchesSearch(t.columns.map(c=>r.cells[c]??'').join(' '),q)){
-      res.push({table:t.key,tlabel:t.label,pk:r.cells[t.pk],idx:i,
-        text:t.columns.slice(0,3).map(c=>r.cells[c]).filter(x=>x!==undefined&&x!=='').join(' · ')});}}));
-  const shown=res.slice(0,20);
+  const TOTAL=20;
+  const perTable=DATA.tables.map(t=>{
+    const list=[];
+    t.rows.forEach((r,i)=>{
+      if(matchesSearch(t.columns.map(c=>r.cells[c]??'').join(' '),q)){
+        list.push({table:t.key,tlabel:t.label,pk:r.cells[t.pk],idx:i,
+          text:t.columns.slice(0,3).map(c=>r.cells[c]).filter(x=>x!==undefined&&x!=='').join(' · ')});}});
+    return list;
+  });
+  const totalMatches=perTable.reduce((s,l)=>s+l.length,0);
+  const shown=[];
+  for(let round=0;shown.length<TOTAL;round++){
+    let addedThisRound=false;
+    for(const list of perTable){
+      if(round<list.length){
+        shown.push(list[round]);
+        addedThisRound=true;
+        if(shown.length>=TOTAL) break;
+      }
+    }
+    if(!addedThisRound) break;
+  }
+  const remaining=totalMatches-shown.length;
   box.innerHTML=shown.length
     ? shown.map(r=>`<button class="gresrow" onclick="closeGlobalSearch();openDetail('${jsq(r.table)}',${r.idx})">
         <span class="tag">${esc(r.tlabel)}</span>${esc(r.text)}</button>`).join('')
-      +(res.length>20?`<div class="nocand" style="padding:8px 16px">${nf(res.length-20,0)}건 더 있음 — 검색어를 좁혀보세요.</div>`:'')
+      +(remaining>0?`<div class="nocand" style="padding:8px 16px">${nf(remaining,0)}건 더 있음 — 검색어를 좁혀보세요.</div>`:'')
     : '<div class="nocand" style="padding:10px 16px">일치하는 항목이 없습니다.</div>';
   box.classList.add('show');
 }
