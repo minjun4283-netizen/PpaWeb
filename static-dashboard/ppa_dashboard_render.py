@@ -154,13 +154,13 @@ section{margin-top:20px}
 
 /* KPI — 엔터프라이즈 SaaS 대시보드 느낌의 타이포그래피 계층: 라벨은
    작고 옅은 대문자 eyebrow, 값은 크고 굵게, 보조문구는 더 작고 옅게. */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;margin-bottom:18px}
-.kpi{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 17px;display:flex;flex-direction:column;gap:5px;text-align:left;box-shadow:var(--shadow-sm)}
-.kpi.accent{background:var(--teal);border-color:var(--teal)}
-.kpi.accent .kk,.kpi.accent .ks{color:#CDE8E6}.kpi.accent .kv{color:#fff}
-.kpi.warn{background:var(--fail);border-color:var(--fail)}
-.kpi.warn .kk,.kpi.warn .ks{color:#F9DEDC}.kpi.warn .kv{color:#fff}
-.kpi.warn::after{content:'⚠';position:absolute;top:11px;right:13px;font-size:13px;opacity:.85;line-height:1}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:16px;margin-bottom:20px}
+.kpi{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 19px;display:flex;flex-direction:column;gap:6px;text-align:left;box-shadow:var(--shadow-sm)}
+.kpi.accent{background:var(--teal-w);border-color:var(--teal-w)}
+.kpi.accent .kk,.kpi.accent .ks{color:var(--teal-d);opacity:.8}.kpi.accent .kv{color:var(--teal-d)}
+.kpi.warn{background:var(--fail-w);border-color:var(--fail-w)}
+.kpi.warn .kk,.kpi.warn .ks{color:var(--fail);opacity:.85}.kpi.warn .kv{color:var(--fail)}
+.kpi.warn::after{content:'⚠';position:absolute;top:11px;right:13px;font-size:13px;opacity:.85;line-height:1;color:var(--fail)}
 .kpi.clickable{cursor:pointer}.kpi.clickable:hover{border-color:var(--teal);box-shadow:var(--shadow)}
 .kk{font-size:10.5px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.045em}
 .infotip{display:inline-flex;align-items:center;justify-content:center;margin-left:4px;color:var(--mute);
@@ -169,8 +169,8 @@ section{margin-top:20px}
 .kv{font-size:23px;font-weight:800;letter-spacing:-.015em}
 .ks{font-size:11.5px;color:var(--sub)}
 
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:18px;box-shadow:var(--shadow-sm)}
-.ph{display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin-bottom:20px;box-shadow:var(--shadow-sm)}
+.ph{display:flex;align-items:baseline;gap:10px;margin-bottom:16px;flex-wrap:wrap}
 .ph h3{font-size:15px;margin:0;font-weight:800;letter-spacing:-.01em}
 .ph .sub{font-size:12px;color:var(--sub);margin-left:auto}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -309,22 +309,27 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 
 /* 홈 위젯 — "한눈에 보기" 카드형 레이아웃(핵심 지표 칩 + 현황 아이콘
    스트립 + 확인 필요 알림 줄), 문장을 읽지 않고 훑어만 봐도 파악되도록 */
-.insight{background:linear-gradient(135deg,var(--teal-d),var(--teal));border-radius:14px;padding:20px 24px;margin-bottom:16px;color:#fff}
-.insight .ieyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:#CDE8E6;margin:0 0 12px}
-.insight .dim{color:#CDE8E6;font-weight:600}
-.insight .ichiprow{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
-.insight .ichip{display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.14);border-radius:12px;padding:9px 14px}
-.insight .ichipicon{font-size:21px;line-height:1}
+/* "한눈에 보기" — 예전엔 진한 그라디언트 히어로 배너였지만, 페이지의
+   나머지가 전부 흰 카드 기반이라 이 블록만 유독 무겁고 채도가 튀어
+   보였습니다. 참고 스크린샷(엔터프라이즈 SaaS 실적 대시보드)처럼 다른
+   패널과 같은 흰 카드 톤으로 맞추고, 색은 칩·배지 같은 작은 강조
+   요소에만 남겨 전체적으로 더 정돈되고 차분하게 보이도록 했습니다. */
+.insight{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin-bottom:18px;box-shadow:var(--shadow-sm)}
+.insight .ieyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--teal-d);margin:0 0 14px}
+.insight .dim{color:var(--sub);font-weight:600}
+.insight .ichiprow{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.insight .ichip{display:flex;align-items:center;gap:10px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px 15px}
+.insight .ichipicon{font-size:20px;line-height:1}
 .insight .ichiptext{display:flex;flex-direction:column;line-height:1.3}
-.insight .ichiptext b{font-size:17.5px;font-weight:800;letter-spacing:-.01em;order:1}
+.insight .ichiptext b{font-size:17px;font-weight:800;letter-spacing:-.01em;color:var(--ink);order:1}
 .insight .ichiptext .dim{font-size:11.5px;order:2}
-.insight .ichiplabel{font-size:10px;color:#CDE8E6;text-transform:uppercase;letter-spacing:.05em;font-weight:700;order:0}
-.insight .istatusrow{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-.insight .ischip{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.16);border-radius:20px;padding:5px 11px;font-size:13.5px;font-weight:700}
-.insight .ischip.zero{opacity:.4}
-.insight .ialert{font-size:14.5px;font-weight:700;background:rgba(255,255,255,.16);border-radius:10px;padding:10px 15px;letter-spacing:-.01em}
-.insight .ialert.urgent{background:#fff;color:var(--fail)}
-.insight .ialert.ok{font-weight:600}
+.insight .ichiplabel{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.05em;font-weight:700;order:0}
+.insight .istatusrow{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+.insight .ischip{display:inline-flex;align-items:center;gap:5px;background:var(--teal-w);color:var(--teal-d);border-radius:20px;padding:5px 12px;font-size:13px;font-weight:700}
+.insight .ischip.zero{opacity:.42;background:var(--paper);color:var(--sub)}
+.insight .ialert{font-size:14px;font-weight:700;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:11px 16px;letter-spacing:-.01em;color:var(--ink)}
+.insight .ialert.urgent{background:var(--fail-w);color:var(--fail);border-color:transparent}
+.insight .ialert.ok{font-weight:600;background:var(--pass-w);color:var(--pass);border-color:transparent}
 @media(max-width:640px){
   .insight .ichip{padding:7px 11px;gap:7px}
   .insight .ichipicon{font-size:17px}
