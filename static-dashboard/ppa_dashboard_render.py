@@ -740,6 +740,16 @@ function matchesSearch(hayText,q){
    멈췄을 때만(디바운스) 실제로 상태를 반영해, 대량 데이터에서 매 키 입력마다
    표 전체를 다시 그리는 렉도 함께 줄입니다.
 
+   조합 중인지 여부는 각 input 이벤트의 e.isComposing 값이 아니라, 우리가
+   compositionstart/compositionend로 직접 기록해 둔 el._composing 플래그로
+   판단합니다 — 브라우저에 따라 compositionend 직후에 뒤따르는 input
+   이벤트의 e.isComposing이 곧바로 false로 안 잡히는 경우가 있어서,
+   e.isComposing만 믿으면 "글자 조합을 다 끝냈는데도 마지막 한 글자가
+   검색에 반영 안 되고, 스페이스처럼 조합과 무관한 키를 하나 더 눌러야만
+   그제서야 검색어 전체가 반영되는" 문제가 있었습니다. compositionstart/
+   compositionend 자체는 이런 흔들림 없이 확실하게 조합 시작·끝을 알려주는
+   이벤트라 이 플래그로 직접 관리하는 편이 더 안전합니다.
+
    타이머는 반드시 "입력창 하나마다 하나씩"(e.target에 매달아 둠) 둬야
    합니다 — 예전에는 타이머 변수 하나를 모든 검색창이 같이 썼는데, 그러면
    예를 들어 표 검색창에 타이핑한 직후(140ms 안에) 같은 화면의 "컬럼별
@@ -748,11 +758,16 @@ function matchesSearch(hayText,q){
    검색·컬럼별 찾기·탐색 결과 검색이 전부 한 화면에 같이 있을 수 있는
    구조라 실제로 자주 걸림). */
 function onSearchType(e,setter){
-  if(e.isComposing) return;
   const el=e.target;
+  el._searchSetter=setter;
+  if(el._composing) return;
+  scheduleSearchCommit(el);
+}
+function scheduleSearchCommit(el){
+  if(!el._searchSetter) return;
   const v=el.value;
   clearTimeout(el._searchTimer);
-  el._searchTimer=setTimeout(()=>setter(v),140);
+  el._searchTimer=setTimeout(()=>el._searchSetter(v),140);
 }
 /* 한글처럼 여러 음절로 이루어진 검색어일 때, 앞 음절을 막 확정하고 바로
    다음 음절을 조합하기 시작하면(정상 타이핑 속도로도 흔함) 앞 음절 확정
@@ -763,19 +778,32 @@ function onSearchType(e,setter){
    깨집니다(검색어가 "일진" 대신 "일"에서 잘리는 식) — 여러 음절 한글
    검색어가 탭을 가리지 않고 자주 실패하던 원인이었습니다. 새 음절 조합이
    시작되는 순간(compositionstart) 대기 중인 타이머를 미리 취소해 두면,
-   그 타이머는 발동하지 않고 이번 음절이 확정될 때 새 타이머가 정확한
-   전체 값으로 다시 예약되므로 안전합니다.
+   그 타이머는 발동하지 않고 이번 음절이 확정될 때(compositionend) 새
+   타이머가 정확한 전체 값으로 다시 예약되므로 안전합니다.
+
+   compositionend에서 곧바로 scheduleSearchCommit을 부르는 것도 중요합니다
+   — 뒤따르는 input 이벤트의 isComposing이 브라우저에 따라 아직 true로
+   남아있어 onSearchType 쪽에서 무시될 수 있기 때문에(위 주석 참고),
+   여기서 한 번 더 확실하게 예약해 둡니다(중복 예약돼도 같은 값으로
+   다시 스케줄될 뿐이라 안전).
 
    주의: oncompositionstart="..." 같은 HTML 인라인 속성은 oninput과 달리
    브라우저가 이벤트 핸들러로 연결해주지 않습니다(실제로 Chromium에서
    확인 — 속성은 파싱되지만 el.oncompositionstart는 계속 undefined이고
    이벤트가 발생해도 절대 호출되지 않습니다). 그래서 검색창마다 인라인
-   속성을 붙이는 대신, 아래에서 document 레벨에 위임 리스너 하나를
-   addEventListener로 딱 한 번 등록합니다 — render()가 #view.innerHTML을
+   속성을 붙이는 대신, 아래에서 document 레벨에 위임 리스너를
+   addEventListener로 딱 한 번씩 등록합니다 — render()가 #view.innerHTML을
    통째로 새로 그려도 리스너는 document에 달려 있으므로 그대로 살아남고,
-   이벤트 버블링으로 어떤 검색창의 조합 시작이든 다 잡아냅니다. */
+   이벤트 버블링으로 어떤 검색창의 조합 시작·끝이든 다 잡아냅니다. */
 function onSearchComposeStart(e){
-  clearTimeout(e.target._searchTimer);
+  const el=e.target;
+  el._composing=true;
+  clearTimeout(el._searchTimer);
+}
+function onSearchComposeEnd(e){
+  const el=e.target;
+  el._composing=false;
+  scheduleSearchCommit(el);
 }
 
 /* 필터·검색·정렬을 모두 적용한 행 목록 (페이징 전) — 화면과 내려받기가 공유 */
@@ -3030,11 +3058,13 @@ document.addEventListener('click',e=>{
   const w=document.querySelector('.gsearchwrap');
   if(w&&!w.contains(e.target)) closeGlobalSearch();
 });
-/* onSearchComposeStart()의 위임 등록 지점 — 위 함수 정의 옆 주석 참고.
-   버블링을 타므로 render()로 매번 새로 생기는 검색창(#globalSearch,
-   #lookupSearchInput, #exploreSearch, #clog-q, 표별 검색창, 컬럼별 찾기
-   입력창 전부)에 개별로 리스너를 다시 붙일 필요가 없습니다. */
+/* onSearchComposeStart()/onSearchComposeEnd()의 위임 등록 지점 — 위 함수
+   정의 옆 주석 참고. 버블링을 타므로 render()로 매번 새로 생기는 검색창
+   (#globalSearch, #lookupSearchInput, #exploreSearch, #clog-q, 표별
+   검색창, 컬럼별 찾기 입력창 전부)에 개별로 리스너를 다시 붙일 필요가
+   없습니다. */
 document.addEventListener('compositionstart',onSearchComposeStart);
+document.addEventListener('compositionend',onSearchComposeEnd);
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     if(state.modal){closeDetail();return;}
