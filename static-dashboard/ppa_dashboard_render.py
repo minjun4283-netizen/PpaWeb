@@ -62,6 +62,10 @@ _CSS = r"""
   --pass:#15803D;--pass-w:#E7F5EC;--fail:#B91C1C;--fail-w:#FBEAEA;
   --info:#1D4ED8;--info-w:#E7EEFC;--mute:#C3D0CB;
   --s1:#1baf7a;--s2:#eb6834;--s3:#4a3aa7;--s4:#e87ba4; /* 차트 계열: 아쿠아·오렌지·바이올렛·마젠타 */
+  /* 수급매칭 현황 8단계(1.공급 중 → 99.공급종료) 초록→빨강 그라데이션 -
+     statusColor()가 STATUS_META 순서상 인덱스로 이 중 하나를 고릅니다. */
+  --st1:#27A555;--st2:#27A52C;--st3:#4BA527;--st4:#74A527;
+  --st5:#9DA527;--st6:#A58427;--st7:#A55B27;--st8:#A53127;
 }
 :root[data-theme="dark"]{
   --paper:#12191A;--panel:#1B2422;--ink:#EAF3F0;--sub:#93A8A1;--line:#29332F;
@@ -72,6 +76,8 @@ _CSS = r"""
   --pass:#4ADE80;--pass-w:#123420;--fail:#F87171;--fail-w:#3A1414;
   --info:#60A5FA;--info-w:#142440;--mute:#48534E;
   --s1:#199e70;--s2:#d95926;--s3:#9085e9;--s4:#d55181;
+  --st1:#5AD888;--st2:#5AD85F;--st3:#7ED85A;--st4:#A7D85A;
+  --st5:#D0D85A;--st6:#D8B75A;--st7:#D88E5A;--st8:#D8645A;
 }
 :root{
   --font-sans:"Pretendard","Pretendard Variable",-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
@@ -642,7 +648,6 @@ const STATUS_META={
   '공급종료':{icon:'🏁',cls:'mute',terminal:true},
 };
 function statusMeta(val){return STATUS_META[parseStatus(val).label]||null;}
-function statusClass(val){const m=statusMeta(val);return m?m.cls:null;}
 function isTerminalStatus(val){const m=statusMeta(val);return !!(m&&m.terminal);}
 /* ID만 봐서는 뭔지 알기 어려운 표는 FK로 참조될 때 이름을 같이 보여줍니다. */
 const NAME_COLS={"T_발전소":["발전소명","발전법인명"],"T_수요기업":["기업명"],"T_전기사용지":["전기사용지명"]};
@@ -1856,7 +1861,7 @@ function parseStatus(raw){
 }
 /* 구매계약/판매계약 표 자체엔 "종료" 상태 컬럼이 없어서, 그 계약에 걸린
    수급매칭 현황을 근거로 판단합니다: 매칭이 하나 이상 있고 그 전부가
-   "8. 공급종료"(isTerminalStatus)일 때만 "완전히 종료"로 봅니다. 매칭이
+   "99. 공급종료"(isTerminalStatus)일 때만 "완전히 종료"로 봅니다. 매칭이
    하나도 없으면 판단할 근거가 없으니 활성으로 취급합니다(계약이 아직
    매칭 전 단계일 수도 있으므로). 색상 분류(statusClass)와는 별개로
    terminal 여부만 따로 봅니다 - "착공 전" 등 다른 회색(mute) 상태를
@@ -2096,8 +2101,16 @@ function actionItemsPanel(){
     +actionCategory('데이터 정합성 이상치','🧩',catC));
 }
 
-const STATUS_COLOR={ok:'var(--pass)',warn:'var(--amber)',mute:'var(--sub)',no:'var(--fail)',info:'var(--info)'};
-function statusColor(v){return STATUS_COLOR[statusClass(v)]||'var(--info)';}
+/* "수급매칭 — 현황별 비율·용량" 패널 전용 색상 - 심각도(cls)가 아니라
+   STATUS_META에 나열된 순서(1.공급 중 → 99.공급종료) 그대로 초록→빨강
+   그라데이션을 매깁니다. 표/모달의 배지 색(statusMeta().cls)은 이 색과
+   별개로 그대로 유지됩니다 - 이 패널의 시각화에만 적용되는 색입니다. */
+const STATUS_ORDER=Object.keys(STATUS_META);
+const STATUS_GRADIENT=['var(--st1)','var(--st2)','var(--st3)','var(--st4)','var(--st5)','var(--st6)','var(--st7)','var(--st8)'];
+function statusColor(v){
+  const idx=STATUS_ORDER.indexOf(parseStatus(v).label);
+  return idx>=0?STATUS_GRADIENT[idx%STATUS_GRADIENT.length]:'var(--info)';
+}
 
 /* 년월(YYYY-MM) 단위 집계 — 날짜 컬럼 하나를 기준으로 건수·용량 */
 function monthKey(v){const s=String(v||'');return /^\d{4}-\d{2}/.test(s)?s.slice(0,7):null;}
