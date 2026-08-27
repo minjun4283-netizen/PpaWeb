@@ -578,6 +578,23 @@ const SOON_DAYS=180;
 const CONTRACT_END_YEARS_COL='계약기간(년)';
 const CONTRACT_END_DATE_COLS=new Set(['공급기한_구매','공급기한_판매']);
 const CONTRACT_END_SOON_DAYS=90;
+const CONTRACT_END_FIELD='계약종료일';
+const CONTRACT_END_CONFIG={
+  'T_구매계약':{dateCol:'공급기한_구매',capCol:'구매계약용량(MW)'},
+  'T_판매계약':{dateCol:'공급기한_판매',capCol:'판매계약용량(MW)'},
+};
+/* 구매계약/판매계약 각 행에 "계약종료일" 합성 필드를 미리 계산해 둡니다.
+   실제 엑셀 컬럼은 아니지만(t.columns에는 안 넣음 - 입력폼/표 헤더에는 안
+   보임), r.cells에 넣어두면 월별/일별 추이 그룹핑(groupByMonth/groupByDay)과
+   기간 드릴다운(jumpToMonth/jumpToDay, 날짜범위 필터)이 일반 날짜 컬럼과
+   완전히 동일한 방식으로 재사용됩니다. addYears가 아직 아래에서 정의되지만
+   함수 선언은 호이스팅되므로 이 시점(스크립트 최상단)에서 호출해도 안전. */
+Object.entries(CONTRACT_END_CONFIG).forEach(([tk,cfg])=>{
+  const t=byKey[tk];if(!t) return;
+  t.rows.forEach(r=>{
+    r.cells[CONTRACT_END_FIELD]=addYears(String(r.cells[cfg.dateCol]||''),r.cells[CONTRACT_END_YEARS_COL])||'';
+  });
+});
 function isNumCol(c){return NUMCOL.test(c);}
 function fmtVal(col,val){
   if(isNumCol(col)&&val!==''){const n=Number(val);if(!isNaN(n)) return nf(n,4);}
@@ -2223,6 +2240,8 @@ const TREND_METRICS={
   new:{label:'신규 판매계약',tk:'T_판매계약',col:'계약일',cap:'판매계약용량(MW)'},
   buyexp:{label:'구매계약 공급기한',tk:'T_구매계약',col:'공급기한_구매',cap:'구매계약용량(MW)'},
   saleexp:{label:'판매계약 공급기한',tk:'T_판매계약',col:'공급기한_판매',cap:'판매계약용량(MW)'},
+  buyend:{label:'구매계약 종료(공급기한+계약기간)',tk:'T_구매계약',col:CONTRACT_END_FIELD,cap:'구매계약용량(MW)'},
+  saleend:{label:'판매계약 종료(공급기한+계약기간)',tk:'T_판매계약',col:CONTRACT_END_FIELD,cap:'판매계약용량(MW)'},
 };
 function setHomeTrend(k,v){state.homeTrend[k]=v;render();}
 function fmtTick(v,unit){return unit==='cap'?nf(v):nf(v,0);}
@@ -2506,6 +2525,11 @@ function tHome(){
   const sUn=S?countWhere('T_판매계약','공급자원 미확보','TRUE'):0;
   const bExp=B?countExpiring('T_구매계약','공급기한_구매',SOON_DAYS):0;
   const sExp=S?countExpiring('T_판매계약','공급기한_판매',SOON_DAYS):0;
+  /* 공급기한 자체가 아니라 "공급기한+계약기간"으로 계산한 실제 계약종료일
+     기준 0~90일 이내 용량 — "종료/만료 용량"(현황=종료류) 카드와는 다른
+     축(날짜 기준)이라 구매/판매를 분리해 바로 옆에 별도 카드로 보여줍니다. */
+  const bEnd90h=B?computedEndBucket('T_구매계약','공급기한_구매',CONTRACT_END_YEARS_COL,'구매계약용량(MW)',0,CONTRACT_END_SOON_DAYS):{n:0,cap:0,pks:[]};
+  const sEnd90h=S?computedEndBucket('T_판매계약','공급기한_판매',CONTRACT_END_YEARS_COL,'판매계약용량(MW)',0,CONTRACT_END_SOON_DAYS):{n:0,cap:0,pks:[]};
   const mix=P?groupSum('T_발전소','발전원','설비용량(MW)'):[];
   const mixMax=mix.length?mix[0][1]:0;
   const mixBars=mix.map(([g,v],i)=>{
@@ -2535,6 +2559,8 @@ function tHome(){
     ${kpi('판매계약 총 용량 (유효)'+infoTip('수급매칭 현황이 전부 "종료"류인 계약은 제외한 값입니다.'),nf(saleMW)+' MW',(S?(saleSplit.termN?`${nf(saleSplit.activeN,0)}건 · 종료 ${nf(saleSplit.termN,0)}건 제외`:nf(saleSplit.activeN,0)+'건'):'')+deltaBadge(capacityDelta('T_판매계약','판매계약용량(MW)')),'',"state.tab='T_판매계약';render()")}
     ${kpi('구매 − 판매 밸런스'+infoTip('구매계약 유효 용량에서 판매계약 유효 용량을 뺀 값 — 양수면 구매(공급)가 판매(수요)보다 여유 있다는 뜻입니다.'),(balance>=0?'+':'')+nf(balance)+' MW',balance>=0?'구매 우위(여유)':'판매 우위(부족)',balance<0?'warn':'')}
     ${kpi('종료/만료 용량'+infoTip('메인 용량 지표에서 제외된 "계약 종료" 건들의 용량을 모은 값입니다 — 없어진 게 아니라 여기로 옮겨 보이는 것입니다.'),nf(termMW)+' MW',termN?`구매 ${purchSplit.termN}건 · 판매 ${saleSplit.termN}건 (메인 지표 제외됨)`:'해당 없음','')}
+    ${kpi('구매계약 종료임박 용량 (D-90 이내)'+infoTip('공급기한_구매+계약기간(년)으로 계산한 실제 계약종료일이 90일 이내인 구매계약의 용량 합계입니다.'),nf(bEnd90h.cap)+' MW',bEnd90h.n?`${nf(bEnd90h.n,0)}건`:'해당 없음',bEnd90h.n?'warn':'',bEnd90h.pks.length?`jumpToPkSet('T_구매계약',${pkArrLiteral(bEnd90h.pks)})`:'')}
+    ${kpi('판매계약 종료임박 용량 (D-90 이내)'+infoTip('공급기한_판매+계약기간(년)으로 계산한 실제 계약종료일이 90일 이내인 판매계약의 용량 합계입니다.'),nf(sEnd90h.cap)+' MW',sEnd90h.n?`${nf(sEnd90h.n,0)}건`:'해당 없음',sEnd90h.n?'warn':'',sEnd90h.pks.length?`jumpToPkSet('T_판매계약',${pkArrLiteral(sEnd90h.pks)})`:'')}
     </div>
     <div class="kpis">
     ${kpi('검증 오류',nf(DATA.validation.total_errors,0),ok?'전 표 정상':'클릭해서 확인',ok?'':'warn',"state.tab='검증';render()")}
