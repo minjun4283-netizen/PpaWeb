@@ -572,6 +572,12 @@ function nf(n,d){return Number(n).toLocaleString('ko-KR',{maximumFractionDigits:
 const NUMCOL=/\(MW\)|\(원\/kWh\)|\(년\)|MGA/;
 const DEADLINE_COL=/기한/;
 const SOON_DAYS=180;
+/* 실제 계약종료일 = 공급기한(구매/판매) + 계약기간(년) — 공급기한 자체는
+   계약이 끝나는 날짜가 아니라 공급기한만 나타내므로, 진짜 계약 만료 시점을
+   보려면 계약기간(년)을 더해야 합니다. 이 두 표에서만 계산 가능합니다. */
+const CONTRACT_END_YEARS_COL='계약기간(년)';
+const CONTRACT_END_DATE_COLS=new Set(['공급기한_구매','공급기한_판매']);
+const CONTRACT_END_SOON_DAYS=90;
 function isNumCol(c){return NUMCOL.test(c);}
 function fmtVal(col,val){
   if(isNumCol(col)&&val!==''){const n=Number(val);if(!isNaN(n)) return nf(n,4);}
@@ -588,6 +594,30 @@ function deadlineFlag(col,val){
   const d=daysBetween(TODAY,val);
   if(d<0) return {cls:'exp',text:'만료'};
   if(d<=SOON_DAYS) return {cls:'soon',text:'D-'+d};
+  return null;
+}
+/* 날짜 문자열에 연 단위를 더함 - 계약종료일(공급기한+계약기간) 계산용.
+   월/일이 그대로 유지되도록 setFullYear만 사용(예: 2025-03-01 + 3년
+   = 2028-03-01). years가 숫자가 아니면(빈칸 등) null 반환. */
+function addYears(dateStr,years){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+  const y=Number(years);
+  if(!isFinite(y)||years==='') return null;
+  const d=new Date(dateStr+'T00:00:00');
+  d.setFullYear(d.getFullYear()+y);
+  return d.toISOString().slice(0,10);
+}
+/* 공급기한_구매/공급기한_판매 셀에서만 - 실제 계약종료일이 90일 이내로
+   다가왔거나 이미 지났는지 표시합니다. deadlineFlag(공급기한 자체 기준)와는
+   별개의 배지로, cellsObj(같은 행의 전체 값)가 있어야 계약기간(년)을 같이
+   찾아 계산할 수 있습니다. */
+function contractEndFlag(col,val,cellsObj){
+  if(!CONTRACT_END_DATE_COLS.has(col)||!cellsObj||!TODAY) return null;
+  const end=addYears(val,cellsObj[CONTRACT_END_YEARS_COL]);
+  if(!end) return null;
+  const d=daysBetween(TODAY,end);
+  if(d<0) return {cls:'exp',text:'계약종료 만료',end};
+  if(d<=CONTRACT_END_SOON_DAYS) return {cls:'soon',text:'계약종료 D-'+d,end};
   return null;
 }
 /* 수급매칭 "현황" 8개 값 각각의 아이콘·심각도색 - 자유 텍스트 정규식 추측
@@ -628,7 +658,7 @@ function displayNameFor(tableKey,pkVal){
   const parts=cols.map(c=>row.cells[c]).filter(v=>v!==undefined&&v!=='');
   return parts.length?parts.join(' · '):null;
 }
-function cellHtml(t,col,rawVal){
+function cellHtml(t,col,rawVal,cellsObj){
   const val=rawVal??'';
   if(val==='') return '';
   if(val==='TRUE'||val==='FALSE')
@@ -641,7 +671,12 @@ function cellHtml(t,col,rawVal){
     return link;
   }
   const flag=deadlineFlag(col,val);
-  if(flag) return esc(val)+`<span class="datewarn ${flag.cls}">${esc(flag.text)}</span>`;
+  const endFlag=contractEndFlag(col,val,cellsObj);
+  if(flag||endFlag){
+    const flagHtml=flag?`<span class="datewarn ${flag.cls}">${esc(flag.text)}</span>`:'';
+    const endHtml=endFlag?`<span class="datewarn ${endFlag.cls}" title="공급기한+계약기간 기준 계약종료 예정일: ${esc(endFlag.end)}">${esc(endFlag.text)}</span>`:'';
+    return esc(val)+flagHtml+endHtml;
+  }
   if(col==='현황'){const m=statusMeta(val);if(m) return `<span class="badge ${m.cls}">${m.icon} ${esc(val)}</span>`;}
   return esc(fmtVal(col,val));
 }
@@ -973,7 +1008,7 @@ function tableView(t){
       const bad=(r.error_cols||[]).includes(c);
       const chg=(r.changed_cols||[]).includes(c);
       const title=chg&&r.prev?` title="이전값: ${esc(r.prev[c]||'(공란)')}"`:'';
-      return `<td class="${bad?'cellerr':(chg?'cellchg':'')}${isNumCol(c)?' num':''}"${title}>${cellHtml(t,c,r.cells[c])}</td>`;
+      return `<td class="${bad?'cellerr':(chg?'cellchg':'')}${isNumCol(c)?' num':''}"${title}>${cellHtml(t,c,r.cells[c],r.cells)}</td>`;
     }).join('');
     return `<tr class="clickrow ${cls}" onclick="openDetail('${jsq(k)}',${i})">${tds}</tr>`;
   }).join('')||`<tr><td class="emptyrow" colspan="${cols.length}">조건에 맞는 데이터가 없습니다.</td></tr>`;
@@ -1058,7 +1093,7 @@ function modalHtml(){
     const prev=chg&&r.prev?`<div class="chgval"><span class="chgold">${esc(r.prev[c]||'(공란)')}</span>→ <span class="chgnew">${esc(r.cells[c]||'(공란)')}</span></div>`:'';
     return `<div class="drow ${bad?'err':''} ${chg?'chg':''}">
       <span class="dkey">${esc(c)}${c===t.pk?'<span class="pkbadge">PK</span>':''}${(t.fk||{})[c]?'<span class="fkbadge">FK</span>':''}</span>
-      <span>${cellHtml(t,c,r.cells[c])||'<span style="color:var(--sub)">(공란)</span>'}${prev}</span></div>`;
+      <span>${cellHtml(t,c,r.cells[c],r.cells)||'<span style="color:var(--sub)">(공란)</span>'}${prev}</span></div>`;
   }).join('');
   const errs=(r.error_cols||[]).length
     ? `<div class="badge no" style="margin-top:8px">검증 오류: ${esc((r.error_cols||[]).join(', '))}</div>`:'';
@@ -1095,7 +1130,7 @@ function rowMultiModalHtml(tables){
       const prev=chg&&r.prev?`<div class="chgval"><span class="chgold">${esc(r.prev[c]||'(공란)')}</span>→ <span class="chgnew">${esc(r.cells[c]||'(공란)')}</span></div>`:'';
       return `<div class="drow ${bad?'err':''} ${chg?'chg':''}">
         <span class="dkey">${esc(c)}${c===t.pk?'<span class="pkbadge">PK</span>':''}${(t.fk||{})[c]?'<span class="fkbadge">FK</span>':''}</span>
-        <span>${cellHtml(t,c,r.cells[c])||'<span style="color:var(--sub)">(공란)</span>'}${prev}</span></div>`;
+        <span>${cellHtml(t,c,r.cells[c],r.cells)||'<span style="color:var(--sub)">(공란)</span>'}${prev}</span></div>`;
     }).join('');
     const errs=(r.error_cols||[]).length
       ? `<span class="badge no">검증 오류 ${(r.error_cols||[]).length}건</span>`:'';
@@ -1136,7 +1171,7 @@ function removedModalHtml(t,idx){
   const pkv=cells[t.pk];
   const rows=t.columns.map(c=>`<div class="drow">
       <span class="dkey">${esc(c)}${c===t.pk?'<span class="pkbadge">PK</span>':''}${(t.fk||{})[c]?'<span class="fkbadge">FK</span>':''}</span>
-      <span>${cellHtml(t,c,cells[c])||'<span style="color:var(--sub)">(공란)</span>'}</span></div>`).join('');
+      <span>${cellHtml(t,c,cells[c],cells)||'<span style="color:var(--sub)">(공란)</span>'}</span></div>`).join('');
   return `<div class="backdrop" onclick="if(event.target===this)closeDetail()">
     <div class="modal" role="dialog" aria-modal="true">
       <div class="modalhead">
@@ -1213,7 +1248,7 @@ function miniTable(t,rows,highlightPk){
     const tds=cols.map(c=>{
       const bad=(r.error_cols||[]).includes(c);
       const chg=(r.changed_cols||[]).includes(c);
-      return `<td class="${bad?'cellerr':(chg?'cellchg':'')}${isNumCol(c)?' num':''}">${cellHtml(t,c,r.cells[c])}</td>`;}).join('');
+      return `<td class="${bad?'cellerr':(chg?'cellchg':'')}${isNumCol(c)?' num':''}">${cellHtml(t,c,r.cells[c],r.cells)}</td>`;}).join('');
     return `<tr class="clickrow ${cls}" onclick="openDetail('${jsq(t.key)}',${i})">${tds}</tr>`;}).join('');
   return `<div class="tbl-wrap stickyfirst"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
@@ -1316,7 +1351,7 @@ function tCompare(){
       `<th class="nosort">${esc(r.cells[t.pk])}<button class="iconbtn" style="width:18px;height:18px;font-size:10px;display:inline-flex;margin-left:6px" onclick="togglePin('${jsq(tk)}','${jsq(r.cells[t.pk])}')">✕</button></th>`).join('');
     const body=cols.map(c=>{
       const differ=new Set(rows.map(r=>String(r.cells[c]??''))).size>1;
-      const tds=rows.map(r=>`<td class="${differ?'diffcell':''}${isNumCol(c)?' num':''}">${cellHtml(t,c,r.cells[c])}</td>`).join('');
+      const tds=rows.map(r=>`<td class="${differ?'diffcell':''}${isNumCol(c)?' num':''}">${cellHtml(t,c,r.cells[c],r.cells)}</td>`).join('');
       const pk=c===t.pk?'<span class="pkbadge">PK</span>':'';
       const fk=(t.fk||{})[c]?'<span class="fkbadge">FK</span>':'';
       return `<tr><td><span class="dkey">${esc(c)}</span>${pk}${fk}</td>${tds}</tr>`;}).join('');
@@ -1671,7 +1706,7 @@ function tExplore(){
     const tds=cols.map(id=>{
       const [tk,c]=id.split('|');
       if(!rec[tk]) return '<td class="cellmiss">—</td>';
-      return `<td class="${isNumCol(c)?'num':''}">${cellHtml(byKey[tk],c,rec[tk].cells[c])}</td>`;}).join('');
+      return `<td class="${isNumCol(c)?'num':''}">${cellHtml(byKey[tk],c,rec[tk].cells[c],rec[tk].cells)}</td>`;}).join('');
     /* 행 클릭 시 이 행에 실제로 걸쳐 있는(누락 아닌) 모든 표를 모아 넘김 —
        기준 표만이 아니라 조인된 모든 표를 한 모달에서 표별로 수정할 수
        있게 하기 위함(rowMultiModalHtml 참고). */
@@ -1775,6 +1810,23 @@ function dateBucket(tk,col,capCol,minDays,maxDays){
     if(d>=minDays&&d<=maxDays){n++;const c=Number(r.cells[capCol]);cap+=isNaN(c)?0:c;}
   });
   return {n,cap};
+}
+/* dateBucket과 같은 모양이지만, 원본 날짜 컬럼이 아니라 addYears로 구한
+   "실제 계약종료일"(공급기한+계약기간) 기준으로 셉니다. 계산된 날짜라 표의
+   날짜필터 UI로는 못 걸러서, pks도 같이 돌려줘 jumpToPkSet으로 드릴다운합니다. */
+function computedEndBucket(tk,dateCol,yearsCol,capCol,minDays,maxDays){
+  const t=byKey[tk];if(!t||!TODAY) return {n:0,cap:0,pks:[]};
+  let n=0,cap=0;const pks=[];
+  t.rows.forEach(r=>{
+    const end=addYears(String(r.cells[dateCol]||''),r.cells[yearsCol]);
+    if(!end) return;
+    const d=daysBetween(TODAY,end);
+    if(d>=minDays&&d<=maxDays){
+      n++;const c=Number(r.cells[capCol]);cap+=isNaN(c)?0:c;
+      pks.push(String(r.cells[t.pk]));
+    }
+  });
+  return {n,cap,pks};
 }
 /* 시작일이 종료일보다 뒤인("날짜 역전") 행의 PK 목록 — 개수만 필요하면
    .length를 쓰고, 드릴다운(jumpToPkSet)에는 배열 자체를 그대로 씁니다. */
@@ -1987,11 +2039,17 @@ function actionItemsPanel(){
   const s30=S?dateBucket('T_판매계약','공급기한_판매','판매계약용량(MW)',0,30):{n:0,cap:0};
   const b60=B?dateBucket('T_구매계약','공급기한_구매','구매계약용량(MW)',31,60):{n:0,cap:0};
   const s60=S?dateBucket('T_판매계약','공급기한_판매','판매계약용량(MW)',31,60):{n:0,cap:0};
+  /* 공급기한 자체가 아니라 "공급기한+계약기간"으로 계산한 실제 계약종료일
+     기준 — 계산값이라 날짜필터 UI로는 못 걸러서 jumpToPkSet으로 드릴다운. */
+  const bEnd90=B?computedEndBucket('T_구매계약','공급기한_구매',CONTRACT_END_YEARS_COL,'구매계약용량(MW)',0,CONTRACT_END_SOON_DAYS):{n:0,cap:0,pks:[]};
+  const sEnd90=S?computedEndBucket('T_판매계약','공급기한_판매',CONTRACT_END_YEARS_COL,'판매계약용량(MW)',0,CONTRACT_END_SOON_DAYS):{n:0,cap:0,pks:[]};
   const catA=[
     {label:'구매계약 — 공급기한 D-30 이내',n:b30.n,cap:b30.cap,badgeCls:'no',badgeText:'위험',action:"jumpToDateWindow('T_구매계약','공급기한_구매',30)"},
     {label:'판매계약 — 공급기한 D-30 이내',n:s30.n,cap:s30.cap,badgeCls:'no',badgeText:'위험',action:"jumpToDateWindow('T_판매계약','공급기한_판매',30)"},
     {label:'구매계약 — 공급기한 D-31~60',n:b60.n,cap:b60.cap,badgeCls:'warn',badgeText:'주의',action:"jumpToDateWindowRange('T_구매계약','공급기한_구매',31,60)"},
     {label:'판매계약 — 공급기한 D-31~60',n:s60.n,cap:s60.cap,badgeCls:'warn',badgeText:'주의',action:"jumpToDateWindowRange('T_판매계약','공급기한_판매',31,60)"},
+    {label:'구매계약 — 계약종료(공급기한+계약기간) D-90 이내',n:bEnd90.n,cap:bEnd90.cap,badgeCls:'warn',badgeText:'주의',action:bEnd90.pks.length?`jumpToPkSet('T_구매계약',${pkArrLiteral(bEnd90.pks)})`:''},
+    {label:'판매계약 — 계약종료(공급기한+계약기간) D-90 이내',n:sEnd90.n,cap:sEnd90.cap,badgeCls:'warn',badgeText:'주의',action:sEnd90.pks.length?`jumpToPkSet('T_판매계약',${pkArrLiteral(sEnd90.pks)})`:''},
   ];
 
   /* B. 수급 불균형·미확보 모니터링 — "발전소 탭으로 이동" 정도가 아니라
