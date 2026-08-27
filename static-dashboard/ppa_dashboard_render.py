@@ -307,55 +307,46 @@ td.cellmiss{color:var(--mute);text-align:center}
 tbody tr.rowmiss td{background:var(--amber-w)}
 .tbl-wrap.stickyfirst tbody tr.rowmiss td:first-child{background:var(--amber-w)}
 
-/* 홈 위젯 — "한눈에 보기" 카드형 레이아웃(핵심 지표 칩 + 현황 아이콘
-   스트립 + 확인 필요 알림 줄), 문장을 읽지 않고 훑어만 봐도 파악되도록 */
-/* "한눈에 보기" — 예전엔 진한 그라디언트 히어로 배너였지만, 페이지의
-   나머지가 전부 흰 카드 기반이라 이 블록만 유독 무겁고 채도가 튀어
-   보였습니다. 참고 스크린샷(엔터프라이즈 SaaS 실적 대시보드)처럼 다른
-   패널과 같은 흰 카드 톤으로 맞추고, 색은 칩·배지 같은 작은 강조
-   요소에만 남겨 전체적으로 더 정돈되고 차분하게 보이도록 했습니다. */
-.insight{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin-bottom:18px;box-shadow:var(--shadow-sm)}
-.insight .ieyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--teal-d);margin:0 0 14px}
-.insight .dim{color:var(--sub);font-weight:600}
-.insight .ichiprow{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
-.insight .ichip{display:flex;align-items:center;gap:10px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px 15px}
-.insight .ichipicon{font-size:20px;line-height:1}
-.insight .ichiptext{display:flex;flex-direction:column;line-height:1.3}
-.insight .ichiptext b{font-size:17px;font-weight:800;letter-spacing:-.01em;color:var(--ink);order:1}
-.insight .ichiptext .dim{font-size:11.5px;order:2}
-.insight .ichiplabel{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.05em;font-weight:700;order:0}
-.insight .istatusrow{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
-.insight .ischip{display:inline-flex;align-items:center;gap:5px;background:var(--teal-w);color:var(--teal-d);border-radius:20px;padding:5px 12px;font-size:13px;font-weight:700}
-.insight .ischip.zero{opacity:.42;background:var(--paper);color:var(--sub)}
-.insight .ialert{font-size:14px;font-weight:700;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:11px 16px;letter-spacing:-.01em;color:var(--ink)}
-.insight .ialert.urgent{background:var(--fail-w);color:var(--fail);border-color:transparent}
-.insight .ialert.ok{font-weight:600;background:var(--pass-w);color:var(--pass);border-color:transparent}
-@media(max-width:640px){
-  .insight .ichip{padding:7px 11px;gap:7px}
-  .insight .ichipicon{font-size:17px}
-  .insight .ichiptext b{font-size:15px}
-  .insight .ialert{font-size:13px}
-}
+/* 홈 — 12개 박스(4열×3행) 통합 그리드. 용량 현황(1행)·계약종료 임박+구성
+   (2행)·운영 상태(3행) 순으로 유사한 카드를 같은 줄에 묶습니다. */
+.homegrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+@media(max-width:900px){.homegrid{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.homegrid{grid-template-columns:1fr}}
+/* 발전원별 설비용량 비중 — 12개 박스 중 하나에 들어가는 미니 막대 목록.
+   숫자 하나짜리 카드(.kv)와 나란히 놓여도 어색하지 않도록 같은 카드
+   껍데기(.kpi) 안에 압축된 범례로 표현합니다. */
+.kpi-mix{gap:10px}
+.mixmini{display:flex;flex-direction:column;gap:7px}
+.mixminirow{display:flex;align-items:center;gap:7px;cursor:pointer;border-radius:6px;margin:-2px -4px;padding:2px 4px}
+.mixminirow:hover{background:var(--paper)}
+.mixminidot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.mixminilabel{width:46px;font-size:11.5px;color:var(--sub);flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mixminibar{flex:1;height:7px;background:var(--paper);border-radius:5px;overflow:hidden}
+.mixminibar>span{display:block;height:100%;border-radius:5px}
+.mixminival{flex-shrink:0;font-size:10.5px;color:var(--sub);white-space:nowrap}
 
-.unsecrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 5px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}
-.unsecrow:last-child{border-bottom:none}.unsecrow:hover{background:var(--paper)}
+/* 우선순위 조치 필요 항목 행 — 좌측 색상 바(위험/주의/정상)와 아이콘으로
+   배지 문구를 읽지 않아도 심각도가 한눈에 들어오게 하고, 텍스트는 라벨+
+   값 두 덩어리만 남겨 간결하게 유지합니다. */
+.unsecrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--paper);border-left:3px solid transparent;cursor:pointer;font-size:13px;margin-bottom:6px;transition:background .12s,box-shadow .12s}
+.unsecrow:last-child{margin-bottom:0}
+.unsecrow:hover{background:var(--panel);box-shadow:var(--shadow-sm)}
+.unsecrow.sev-no{border-left-color:var(--fail)}
+.unsecrow.sev-warn{border-left-color:var(--amber)}
+.unsecrow.sev-ok{border-left-color:var(--pass);opacity:.65;cursor:default}
+.unsecrow.sev-ok:hover{background:var(--paper);box-shadow:none}
+.unsecicon{flex-shrink:0;font-size:13px;line-height:1}
 /* 라벨이 길어도(예: "발전 설비용량 대비 수요계약 미매칭 잔여용량") 좁은
-   화면에서 가로로 넘치지 않고 줄바꿈되도록 — 값·배지 칸은 줄어들지 않게 */
-.unsecrow>span:first-child{flex:1 1 auto;min-width:0;white-space:normal;word-break:keep-all}
-.unsecrow>span:not(:first-child){flex:0 0 auto}
-.unsecrow.isok{opacity:.6}
+   화면에서 가로로 넘치지 않고 줄바꿈되도록 — 값 칸은 줄어들지 않게 */
+.unsectext{flex:1 1 auto;min-width:0;white-space:normal;word-break:keep-all;font-weight:600}
+.unsecval{flex:0 0 auto;font-size:12px;color:var(--sub);font-weight:700;white-space:nowrap}
 
 /* 우선순위 조치 필요 항목 — 카테고리별 그룹핑 */
-.actionsummary{display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 14px}
-.actioncat+.actioncat{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
-.actioncathead{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:var(--sub);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.actionsummary{display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 16px}
+.actioncat+.actioncat{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
+.actioncathead{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;color:var(--sub);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px}
+.actioncaticon{font-size:14px;text-transform:none}
 .actioncatcount{font-size:10.5px;font-weight:700;color:var(--ink);background:var(--paper);border-radius:20px;padding:1px 8px;letter-spacing:0;text-transform:none}
-.mixrow{display:flex;align-items:center;gap:8px;padding:6px 0}
-.mixdot{width:9px;height:9px;border-radius:3px;flex-shrink:0}
-.mixlabel{width:70px;font-size:12.5px;color:var(--sub);flex-shrink:0}
-.mixbar{flex:1;height:10px;background:var(--paper);border-radius:6px;overflow:hidden}
-.mixfill{height:100%;background:var(--teal);border-radius:6px}
-.mixval{font-size:12px;width:110px;text-align:right;flex-shrink:0}
 .schemarow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0}
 .schematag{font-size:11px;font-weight:700;color:var(--sub);width:56px;flex-shrink:0}
 .schemabox{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12.5px;font-weight:700;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:8px 16px;cursor:pointer;color:var(--ink)}
@@ -463,7 +454,7 @@ footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-si
   .kpis{grid-template-columns:1fr 1fr}
   .toolbar .search{min-width:100%}
   .gsearchwrap{width:auto;max-width:none;flex:1}
-  .mixlabel{width:60px}.mixval{width:88px}
+  .mixminilabel{width:40px}
   .drow{grid-template-columns:1fr;gap:2px}
   .tbl-wrap{max-height:none}
   .statuslegendhead,.statusrow{grid-template-columns:14px 1fr 34px 46px 72px;gap:5px;font-size:11.5px}
@@ -483,12 +474,8 @@ footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-si
   .sidebar,.sidebarbackdrop,.topbar,.menubtn,.gsearchwrap,.toolbar,.filterbar,.chiprow,.candlist,.subtabbar,
   .pager,.btn,.drop,.iconbtn,.pill,#globalResults,#toast,.backdrop,footer,.segtoggle,.trendrange,
   .excol-draglist,.excol-hint,.infotip,.excol-remove{display:none!important}
-  .insight{background:#fff!important;color:#000!important;border:1px solid #999}
-  .insight .ieyebrow,.insight .dim,.insight .ichiplabel{color:#333!important}
-  .insight span[title]{border-bottom:none!important}
-  .insight .ichip,.insight .ischip,.insight .ialert{background:#f3f3f3!important;color:#000!important}
-  .insight .ialert.urgent{border:1.5px solid #b91c1c;font-weight:800}
   .trendlabel{color:#000}
+  .unsecrow{background:transparent!important;border:1px solid #ccc;border-left-width:3px!important}
   body{background:#fff;color:#000;padding:0}
   .shell{display:block}
   .main{width:100%}
@@ -657,16 +644,6 @@ const STATUS_META={
 function statusMeta(val){return STATUS_META[parseStatus(val).label]||null;}
 function statusClass(val){const m=statusMeta(val);return m?m.cls:null;}
 function isTerminalStatus(val){const m=statusMeta(val);return !!(m&&m.terminal);}
-/* 8개 현황 각각의 현재 건수 - 홈 탭 "한눈에 보기"의 현황 아이콘 줄에 씀 */
-function statusCountsAll(){
-  const M=byKey['T_수급매칭'];
-  const counts={};Object.keys(STATUS_META).forEach(k=>counts[k]=0);
-  if(M) M.rows.forEach(r=>{
-    const label=parseStatus(r.cells['현황']).label;
-    if(counts[label]!==undefined) counts[label]++;
-  });
-  return counts;
-}
 /* ID만 봐서는 뭔지 알기 어려운 표는 FK로 참조될 때 이름을 같이 보여줍니다. */
 const NAME_COLS={"T_발전소":["발전소명","발전법인명"],"T_수요기업":["기업명"],"T_전기사용지":["전기사용지명"]};
 function displayNameFor(tableKey,pkVal){
@@ -2028,22 +2005,26 @@ function capacityGapPanel(){
      C. 데이터 정합성 이상치 — 검증 오류, 날짜 역전
    각 행은 건수와 함께(가능하면) 용량(MW)을 보여주고, 심각도 뱃지
    (위험/주의/정상)와 클릭 시 해당 조건으로 이동하는 바로가기를 갖습니다. */
-function actionRow(label,n,capMW,badgeCls,badgeText,action){
-  const has=n>0;
-  const finalCls=has?badgeCls:'ok';
-  const finalText=has?badgeText:'정상';
-  const capStr=(has&&capMW!=null)?` · ${nf(capMW)} MW`:'';
-  return `<div class="unsecrow${has?'':' isok'}"${action?` onclick="${action}"`:''}>
-    <span>${esc(label)}</span>
-    <span class="chgval mono">${nf(n,0)}건${capStr}</span>
-    <span class="badge ${finalCls}">${finalText}</span></div>`;
+function actionRow(label,n,capMW,badgeCls,action){
+  const icon=badgeCls==='no'?'🔴':'🟠';
+  const capStr=(capMW!=null)?` · ${nf(capMW)} MW`:'';
+  return `<div class="unsecrow sev-${badgeCls}"${action?` onclick="${action}"`:''}>
+    <span class="unsecicon">${icon}</span>
+    <span class="unsectext">${esc(label)}</span>
+    <span class="unsecval mono">${nf(n,0)}건${capStr}</span></div>`;
 }
-function actionCategory(title,rows){
-  const activeN=rows.filter(r=>r.n>0).length;
-  const body=rows.map(r=>actionRow(r.label,r.n,r.cap,r.badgeCls,r.badgeText,r.action)).join('');
+/* 위험/주의 항목만 각각 한 줄로 보여주고, 문제없는(0건) 항목들은 이름을
+   나열하지 않고 "정상 N개 항목"으로 한 줄에 접어서 카테고리당 화면을
+   많이 차지하지 않으면서도 실제 챙길 것만 눈에 띄게 합니다. */
+function actionCategory(title,icon,rows){
+  const active=rows.filter(r=>r.n>0).sort((a,b)=>(a.badgeCls==='no'?0:1)-(b.badgeCls==='no'?0:1));
+  const okN=rows.length-active.length;
+  const body=active.map(r=>actionRow(r.label,r.n,r.cap,r.badgeCls,r.action)).join('');
+  const okRow=okN?`<div class="unsecrow sev-ok">
+      <span class="unsecicon">✅</span><span class="unsectext">정상 ${nf(okN,0)}개 항목</span></div>`:'';
   return `<div class="actioncat">
-      <div class="actioncathead">${esc(title)}${activeN?`<span class="actioncatcount">${activeN}</span>`:''}</div>
-      ${body}
+      <div class="actioncathead"><span class="actioncaticon">${icon}</span>${esc(title)}${active.length?`<span class="actioncatcount">${active.length}</span>`:''}</div>
+      ${body}${okRow}
     </div>`;
 }
 function actionItemsPanel(){
@@ -2110,9 +2091,9 @@ function actionItemsPanel(){
   return panel('우선순위 조치 필요 항목',
     totalIssues?`${totalIssues}개 항목에서 확인이 필요합니다 · 클릭하면 해당 조건으로 이동`:'지금 확인이 필요한 항목이 없습니다',
     summaryHtml
-    +actionCategory('계약/공급 임박 알림',catA)
-    +actionCategory('수급 불균형 · 미확보 모니터링',catB)
-    +actionCategory('데이터 정합성 이상치',catC));
+    +actionCategory('계약/공급 임박 알림','📅',catA)
+    +actionCategory('수급 불균형 · 미확보 모니터링','⚖️',catB)
+    +actionCategory('데이터 정합성 이상치','🧩',catC));
 }
 
 const STATUS_COLOR={ok:'var(--pass)',warn:'var(--amber)',mute:'var(--sub)',no:'var(--fail)',info:'var(--info)'};
@@ -2434,80 +2415,27 @@ function trendPanel(){
     <div class="trendfoot"><span>${esc(rangeDesc)}${esc(yoy)}</span><span>합계 ${nf(totalCnt,0)}건 · ${nf(totalCap)} MW</span></div>`);
 }
 
-/* ── 홈: 한눈에 보기 인사이트 문장 ──────────────────────────────────────── */
-/* 공급기한 컬럼에서 "아직 지나지 않은 것 중 가장 임박한" 한 건을 찾음 —
-   "지금 당장 뭘 봐야 하는지"를 숫자 하나로 압축해 보여주는 용도. */
-function nearestDeadline(tk,col){
-  const t=byKey[tk];if(!t||!TODAY) return null;
-  let best=null;
-  t.rows.forEach(r=>{
-    const v=String(r.cells[col]||'');if(!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
-    const d=daysBetween(TODAY,v);
-    if(d>=0&&(best===null||d<best.days)) best={days:d,pk:String(r.cells[t.pk]??'')};
-  });
-  return best;
-}
-/* 한 문단짜리 문장을 쭉 읽어야 했던 예전 방식 대신, 숫자·아이콘 중심으로
-   3초 안에 훑을 수 있는 3단 구성으로 바꿨습니다:
-     1) 핵심 지표 칩 — 발전소/구매/판매/매칭률/최근 추이를 아이콘+숫자로
-     2) 현황 아이콘 스트립 — 수급매칭 8개 현황 각각의 현재 건수(0건은 흐리게)
-     3) 지금 확인할 것 — 이슈 발생·미확보 건수와 가장 임박한 공급기한을
-        한 줄로 모아, 문제가 있으면 눈에 띄게(흰 배경+빨간 글씨) 강조 */
-function homeInsight(){
-  const P=byKey['T_발전소'],B=byKey['T_구매계약'],S=byKey['T_판매계약'],M=byKey['T_수급매칭'];
-  const supplyMW=P?sumCol('T_발전소','설비용량(MW)'):0;
-  const bs=B?sumCapSplit('T_구매계약','구매계약용량(MW)',purchaseTerminatedIds()):null;
-  const ss=S?sumCapSplit('T_판매계약','판매계약용량(MW)',saleTerminatedIds()):null;
-  if(!P&&!bs&&!ss) return '';
-
-  const chips=[];
-  if(P) chips.push({icon:'🏭',label:'발전소',value:nf(P.rows.length,0)+'개',sub:nf(supplyMW)+'MW'});
-  if(bs) chips.push({icon:'🧾',label:'구매계약',value:nf(bs.activeN,0)+'건',sub:nf(bs.activeMW)+'MW 유효'});
-  if(ss) chips.push({icon:'🧾',label:'판매계약',value:nf(ss.activeN,0)+'건',sub:nf(ss.activeMW)+'MW 유효'});
-  if(bs&&supplyMW>0){
-    const pct=nf(Math.min(999,bs.activeMW/supplyMW*100),0);
-    chips.push({icon:'📊',label:'설비 대비 매칭률',value:pct+'%',sub:'',
-      title:'발전소 설비용량 합계 대비 구매계약 유효 용량의 비율 - 100%에 가까울수록 설비 여유가 없다는 뜻입니다.'});
-  }
-  if(S){
-    const m=groupByMonth('T_판매계약','계약일','판매계약용량(MW)');
-    let cnt=0,cap=0;
-    monthRange(3).forEach(ym=>{if(m[ym]){cnt+=m[ym].cnt;cap+=m[ym].cap;}});
-    if(cnt>0) chips.push({icon:'📈',label:'최근 3개월 신규 판매',value:nf(cnt,0)+'건',sub:nf(cap)+'MW'});
-  }
-  const chipHtml=chips.map(c=>`<span class="ichip"${c.title?` title="${esc(c.title)}"`:''}>
-      <span class="ichipicon">${c.icon}</span>
-      <span class="ichiptext"><b>${esc(c.value)}</b>${c.sub?`<span class="dim">${esc(c.sub)}</span>`:''}<span class="ichiplabel">${esc(c.label)}</span></span>
-    </span>`).join('');
-
-  const counts=M?statusCountsAll():{};
-  const statusStripHtml=(M&&M.rows.length)?`<div class="istatusrow">${
-    Object.entries(STATUS_META).map(([label,meta])=>{
-      const n=counts[label]||0;
-      return `<span class="ischip${n?'':' zero'}" title="${esc(label)}: ${nf(n,0)}건 / 전체 ${nf(M.rows.length,0)}건">${meta.icon} <b>${nf(n,0)}</b></span>`;
-    }).join('')
-  }</div>`:'';
-
-  /* 잔여 공급기한 — 두 표를 통틀어 가장 임박한(D값이 가장 작은) 한 건만
-     짚어서 "지금 당장 뭘 챙겨야 하는지"를 바로 알 수 있게 합니다. */
-  const nb=B?nearestDeadline('T_구매계약','공급기한_구매'):null;
-  const ns=S?nearestDeadline('T_판매계약','공급기한_판매'):null;
-  const nearest=[nb&&{...nb,label:'구매계약'},ns&&{...ns,label:'판매계약'}].filter(Boolean).sort((a,b)=>a.days-b.days)[0];
-  const issueN=counts['이슈 발생']||0;
-  const unsecuredN=counts['미확보']||0;
-  const alertParts=[];
-  if(issueN>0) alertParts.push(`⚠️ 이슈 발생 <b>${nf(issueN,0)}건</b>`);
-  if(unsecuredN>0) alertParts.push(`❓ 미확보 <b>${nf(unsecuredN,0)}건</b>`);
-  if(nearest) alertParts.push(`⏰ 가장 임박한 공급기한 ${esc(nearest.label)} <b>${esc(nearest.pk)}</b> D-<b>${nf(nearest.days,0)}</b>`);
-  const hasUrgent=issueN>0||unsecuredN>0;
-  const alertHtml=alertParts.length
-    ?`<div class="ialert${hasUrgent?' urgent':''}">${alertParts.join(' · ')}</div>`
-    :`<div class="ialert ok">✅ 지금 확인이 필요한 이슈가 없습니다.</div>`;
-
-  return `<div class="insight"><p class="ieyebrow">한눈에 보기</p>
-    <div class="ichiprow">${chipHtml}</div>
-    ${statusStripHtml}
-    ${alertHtml}</div>`;
+/* 발전원별 설비용량 비중을 12박스 그리드 한 칸에 들어가는 압축 범례로
+   그립니다 - 항목이 많아도 박스 높이가 뛰지 않도록 상위 4개 + "기타"로
+   묶고, 각 줄은 statusPanel의 행 클릭 패턴처럼 발전소 표를 그 발전원으로
+   필터링합니다(막대 자체가 "근거가 되는 자료로 이동" 진입점). */
+function mixBox(mix){
+  const total=mix.reduce((s,x)=>s+x[1],0);
+  const CAP=4;
+  const shown=mix.length>CAP+1?mix.slice(0,CAP):mix;
+  const rest=mix.length>CAP+1?mix.slice(CAP):[];
+  const row=(label,v,col,action)=>{
+    const pct=total>0?v/total*100:0;
+    return `<div class="mixminirow" onclick="${action}" title="${esc(label)} · ${nf(v)}MW (${nf(pct,0)}%)">
+      <span class="mixminidot" style="background:${col}"></span>
+      <span class="mixminilabel">${esc(label)}</span>
+      <span class="mixminibar"><span style="width:${pct}%;background:${col}"></span></span>
+      <span class="mixminival mono">${nf(pct,0)}%</span></div>`;
+  };
+  const rows=shown.map(([g,v],i)=>row(g,v,CAT_COLORS[i%CAT_COLORS.length],`jumpToFilter('T_발전소','발전원','${jsq(g)}')`)).join('');
+  const restRow=rest.length?row(`기타 ${rest.length}종`,rest.reduce((s,x)=>s+x[1],0),'var(--mute)',"state.tab='T_발전소';render()"):'';
+  const body=mix.length?(rows+restRow):'<div class="nocand">데이터 없음</div>';
+  return `<div class="kpi kpi-mix"><span class="kk">발전원별 설비용량 비중</span><div class="mixmini">${body}</div></div>`;
 }
 
 function tHome(){
@@ -2516,9 +2444,11 @@ function tHome(){
   /* 메인 용량 KPI는 "계약 종료" 건(수급매칭 현황이 전부 종료류인 계약)을
      빼고 집계하고, 뺀 만큼은 아래 "종료/만료 용량" 카드로 따로 보여줍니다
      — sumCapSplit()이 활성/종료 두 값을 한 번에 계산해서 서로 앞뒤가
-     맞게 유지합니다. */
-  const purchSplit=B?sumCapSplit('T_구매계약','구매계약용량(MW)',purchaseTerminatedIds()):{activeN:0,activeMW:0,termN:0,termMW:0};
-  const saleSplit=S?sumCapSplit('T_판매계약','판매계약용량(MW)',saleTerminatedIds()):{activeN:0,activeMW:0,termN:0,termMW:0};
+     맞게 유지합니다. 종료 건 PK 목록은 그 카드의 드릴다운(jumpToPkSet)에도
+     그대로 씁니다. */
+  const purchTermIds=purchaseTerminatedIds(),saleTermIds=saleTerminatedIds();
+  const purchSplit=B?sumCapSplit('T_구매계약','구매계약용량(MW)',purchTermIds):{activeN:0,activeMW:0,termN:0,termMW:0};
+  const saleSplit=S?sumCapSplit('T_판매계약','판매계약용량(MW)',saleTermIds):{activeN:0,activeMW:0,termN:0,termMW:0};
   const purchMW=purchSplit.activeMW,saleMW=saleSplit.activeMW;
   const termN=purchSplit.termN+saleSplit.termN,termMW=purchSplit.termMW+saleSplit.termMW;
   const bUn=B?countWhere('T_구매계약','수요기업 미확보','TRUE'):0;
@@ -2531,16 +2461,18 @@ function tHome(){
   const bEnd90h=B?computedEndBucket('T_구매계약','공급기한_구매',CONTRACT_END_YEARS_COL,'구매계약용량(MW)',0,CONTRACT_END_SOON_DAYS):{n:0,cap:0,pks:[]};
   const sEnd90h=S?computedEndBucket('T_판매계약','공급기한_판매',CONTRACT_END_YEARS_COL,'판매계약용량(MW)',0,CONTRACT_END_SOON_DAYS):{n:0,cap:0,pks:[]};
   const mix=P?groupSum('T_발전소','발전원','설비용량(MW)'):[];
-  const mixMax=mix.length?mix[0][1]:0;
-  const mixBars=mix.map(([g,v],i)=>{
-    const col=CAT_COLORS[i%CAT_COLORS.length];
-    return `<div class="mixrow"><span class="mixdot" style="background:${col}"></span><span class="mixlabel">${esc(g)}</span>
-      <div class="mixbar"><div class="mixfill" style="width:${mixMax>0?(v/mixMax*100):0}%;background:${col}"></div></div>
-      <span class="mixval mono">${nf(v)} MW (${mixMax>0?nf(v/mix.reduce((s,x)=>s+x[1],0)*100,0):0}%)</span></div>`;
-  }).join('')||'<div class="nocand">데이터 없음</div>';
   const ok=DATA.validation.total_errors===0;
   const balance=purchMW-saleMW;
   const chgTotal=CHANGES.has_prev?(CHANGES.total_added+CHANGES.total_changed+CHANGES.total_removed):0;
+
+  /* 여러 표에 걸친 지표(종료/만료, 미확보, 공급기한)는 카드 하나당 이동
+     대상을 하나만 고를 수 있으므로, 구매 쪽에 해당 건이 있으면 구매계약을
+     먼저 보여주고 없을 때만 판매계약으로 - "근거 자료로 이동"을 모든
+     카드에서 빠짐없이 보장하기 위한 일관된 우선순위입니다. */
+  const balanceAction=balance>=0?"state.tab='T_판매계약';render()":"state.tab='T_구매계약';render()";
+  const termAction=purchSplit.termN?`jumpToPkSet('T_구매계약',${pkArrLiteral([...purchTermIds])})`:(saleSplit.termN?`jumpToPkSet('T_판매계약',${pkArrLiteral([...saleTermIds])})`:'');
+  const unsecuredAction=bUn?"jumpToFilter('T_구매계약','수요기업 미확보','TRUE')":(sUn?"jumpToFilter('T_판매계약','공급자원 미확보','TRUE')":'');
+  const expAction=bExp?`jumpToDateWindow('T_구매계약','공급기한_구매',${SOON_DAYS})`:(sExp?`jumpToDateWindow('T_판매계약','공급기한_판매',${SOON_DAYS})`:'');
 
   return `<section>${printHead('PPA 계약관리 현황 요약','')}
     <div class="homehead"><span class="sub mono">기준 시각: ${esc((DATA.generated_at||'').replace('T',' '))}</span>
@@ -2552,30 +2484,25 @@ function tHome(){
         </div></details>
         <button class="btn" onclick="window.print()">인쇄 / PDF</button>
       </div></div>
-    ${homeInsight()}
-    <div class="kpis">
+    ${trendPanel()}
+    <div class="homegrid">
     ${kpi('발전소 설비용량 합계',nf(supplyMW)+' MW',(P?nf(P.rows.length,0)+'개 발전소':'')+deltaBadge(capacityDelta('T_발전소','설비용량(MW)')),'accent',"state.tab='T_발전소';render()")}
     ${kpi('구매계약 총 용량 (유효)'+infoTip('공급기한과 무관하게, 수급매칭 현황이 전부 "종료"류인 계약만 뺀 값입니다.'),nf(purchMW)+' MW',(B?(purchSplit.termN?`${nf(purchSplit.activeN,0)}건 · 종료 ${nf(purchSplit.termN,0)}건 제외`:nf(purchSplit.activeN,0)+'건'):'')+deltaBadge(capacityDelta('T_구매계약','구매계약용량(MW)')),'',"state.tab='T_구매계약';render()")}
     ${kpi('판매계약 총 용량 (유효)'+infoTip('수급매칭 현황이 전부 "종료"류인 계약은 제외한 값입니다.'),nf(saleMW)+' MW',(S?(saleSplit.termN?`${nf(saleSplit.activeN,0)}건 · 종료 ${nf(saleSplit.termN,0)}건 제외`:nf(saleSplit.activeN,0)+'건'):'')+deltaBadge(capacityDelta('T_판매계약','판매계약용량(MW)')),'',"state.tab='T_판매계약';render()")}
-    ${kpi('구매 − 판매 밸런스'+infoTip('구매계약 유효 용량에서 판매계약 유효 용량을 뺀 값 — 양수면 구매(공급)가 판매(수요)보다 여유 있다는 뜻입니다.'),(balance>=0?'+':'')+nf(balance)+' MW',balance>=0?'구매 우위(여유)':'판매 우위(부족)',balance<0?'warn':'')}
-    ${kpi('종료/만료 용량'+infoTip('메인 용량 지표에서 제외된 "계약 종료" 건들의 용량을 모은 값입니다 — 없어진 게 아니라 여기로 옮겨 보이는 것입니다.'),nf(termMW)+' MW',termN?`구매 ${purchSplit.termN}건 · 판매 ${saleSplit.termN}건 (메인 지표 제외됨)`:'해당 없음','')}
+    ${kpi('구매 − 판매 밸런스'+infoTip('구매계약 유효 용량에서 판매계약 유효 용량을 뺀 값 — 양수면 구매(공급)가 판매(수요)보다 여유 있다는 뜻입니다. 클릭하면 여유가 적은 쪽 표로 이동합니다.'),(balance>=0?'+':'')+nf(balance)+' MW',balance>=0?'구매 우위(여유)':'판매 우위(부족)',balance<0?'warn':'',balanceAction)}
+    ${kpi('종료/만료 용량'+infoTip('메인 용량 지표에서 제외된 "계약 종료" 건들의 용량을 모은 값입니다 — 없어진 게 아니라 여기로 옮겨 보이는 것입니다.'),nf(termMW)+' MW',termN?`구매 ${purchSplit.termN}건 · 판매 ${saleSplit.termN}건 (메인 지표 제외됨)`:'해당 없음','',termAction)}
     ${kpi('구매계약 종료임박 용량 (D-90 이내)'+infoTip('공급기한_구매+계약기간(년)으로 계산한 실제 계약종료일이 90일 이내인 구매계약의 용량 합계입니다.'),nf(bEnd90h.cap)+' MW',bEnd90h.n?`${nf(bEnd90h.n,0)}건`:'해당 없음',bEnd90h.n?'warn':'',bEnd90h.pks.length?`jumpToPkSet('T_구매계약',${pkArrLiteral(bEnd90h.pks)})`:'')}
     ${kpi('판매계약 종료임박 용량 (D-90 이내)'+infoTip('공급기한_판매+계약기간(년)으로 계산한 실제 계약종료일이 90일 이내인 판매계약의 용량 합계입니다.'),nf(sEnd90h.cap)+' MW',sEnd90h.n?`${nf(sEnd90h.n,0)}건`:'해당 없음',sEnd90h.n?'warn':'',sEnd90h.pks.length?`jumpToPkSet('T_판매계약',${pkArrLiteral(sEnd90h.pks)})`:'')}
-    </div>
-    <div class="kpis">
+    ${mixBox(mix)}
     ${kpi('검증 오류',nf(DATA.validation.total_errors,0),ok?'전 표 정상':'클릭해서 확인',ok?'':'warn',"state.tab='검증';render()")}
     ${kpi('지난 대비 변경',CHANGES.has_prev?nf(chgTotal,0):'—',
       CHANGES.has_prev?`추가 ${CHANGES.total_added} · 수정 ${CHANGES.total_changed} · 삭제 ${CHANGES.total_removed}`:'이전 스냅샷 없음',
-      '',CHANGES.has_prev?"state.tab='변경';render()":'')}
-    ${kpi('미확보 계약',nf(bUn+sUn,0),`구매 ${bUn} · 판매 ${sUn}`,(bUn+sUn)>0?'warn':'')}
-    ${kpi(SOON_DAYS+'일 내 공급기한',nf(bExp+sExp,0),`구매 ${bExp} · 판매 ${sExp}`,'')}
+      '',"state.tab='변경';render()")}
+    ${kpi('미확보 계약',nf(bUn+sUn,0),`구매 ${bUn} · 판매 ${sUn}`,(bUn+sUn)>0?'warn':'',unsecuredAction)}
+    ${kpi(SOON_DAYS+'일 내 공급기한',nf(bExp+sExp,0),`구매 ${bExp} · 판매 ${sExp}`,'',expAction)}
     </div>
     ${statusPanel()}
-    ${trendPanel()}
-    <div class="grid2">
-      ${panel('발전원별 설비용량 비중','',mixBars)}
-      ${actionItemsPanel()}
-    </div>
+    ${actionItemsPanel()}
     ${capacityGapPanel()}
     ${schemaDiagram()?panel('표 관계 구조','박스를 누르면 해당 표로 이동합니다',schemaDiagram()):''}</section>`;
 }
