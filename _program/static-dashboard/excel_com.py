@@ -243,6 +243,45 @@ class ExcelBridge:
             self._close_if_we_launched()
             pythoncom.CoUninitialize()
 
+    def _find_open_workbook_anywhere(self, target_name: str):
+        """실행 중인 모든 프로세스의 ROT(Running Object Table) 전체를 훑어서
+        파일명이 같은 워크북을 찾습니다. GetObject(경로)나 GetObject(Class=
+        "Excel.Application")은 각각 "정확히 그 경로 문자열로 등록된 항목 하나"
+        또는 "임의의 엑셀 인스턴스 하나"만 잡을 수 있어서, 엑셀 프로세스가
+        여러 개 떠 있거나 경로 표기가 조금이라도 다르면(OneDrive, 짧은/긴
+        경로, 네트워크 드라이브 등) 실제로 열려 있는데도 못 찾을 수 있습니다.
+        ROT는 시스템 전체에 등록된 COM 객체 목록이고, 열려 있는 통합문서는
+        보통 자기 전체 경로를 모니커 이름으로 스스로 등록해두므로, 이걸 직접
+        전부 순회하면 어느 프로세스에 어떻게 열려 있든 파일명만으로 찾아낼
+        수 있습니다 - "같은 이름의 통합 문서를 동시에 열 수 없습니다" 오류를
+        실제로 겪었다면(=파일이 이미 열려 있다는 뜻) 이 방법으로도 못 찾을
+        때만 DispatchEx로 넘어가도록, 마지막 안전망으로 씁니다."""
+        try:
+            rot = pythoncom.GetRunningObjectTable()
+            ctx = pythoncom.CreateBindCtx(0)
+            enum_moniker = rot.EnumRunning()
+            while True:
+                fetched = enum_moniker.Next(1)
+                if not fetched:
+                    break
+                moniker = fetched[0]
+                try:
+                    display_name = moniker.GetDisplayName(ctx, None)
+                except Exception:
+                    continue
+                if os.path.basename(display_name).lower() != target_name:
+                    continue
+                try:
+                    obj = rot.GetObject(moniker)
+                    wb = win32com.client.Dispatch(obj)
+                    _ = wb.FullName  # 진짜 워크북 객체인지 확인
+                    return wb
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return None
+
     def _workbook_reachable(self) -> bool:
         # 우리가 스스로 띄운 숨김 인스턴스는 서버가 세션 내내 직접 붙잡고
         # 있으므로(위 _run 참고) 그 생사는 이 워치독이 신경 쓸 대상이 아닙니다
@@ -272,6 +311,8 @@ class ExcelBridge:
                     continue
         except Exception:
             pass
+        if self._find_open_workbook_anywhere(os.path.basename(self.xlsm_path).lower()) is not None:
+            return True
         return False
 
     # ---- 워크북 확보: 이미 열려 있으면 그 세션, 아니면 숨김 인스턴스로 새로 염 ----
@@ -341,6 +382,19 @@ class ExcelBridge:
                 self._app = None
                 self._we_launched_app = False
 
+        # 위 두 방법(경로 모니커, 임의의 Excel.Application 하나의 Workbooks)
+        # 모두 실패했어도 실제로는 열려 있을 수 있습니다 - 특히 엑셀 프로세스가
+        # 여러 개 떠 있으면 GetObject(Class=...)가 그중 파일을 안 갖고 있는
+        # 엉뚱한 하나를 잡을 수 있습니다. DispatchEx로 넘어가기 직전 마지막
+        # 안전망으로, 시스템 전체 ROT를 훑어 정말로 안 열려 있는지 한 번 더
+        # 확인합니다 - 열려 있는데도 이 단계를 건너뛰고 DispatchEx+Open을
+        # 시도하면, 십중팔구 "같은 이름의 통합 문서를 동시에 열 수 없습니다"
+        # 대화상자가 뜨고(DisplayAlerts로도 못 막는 경우가 있음) 그게 반복
+        # 재현되는 원인이 됩니다.
+        found = self._find_open_workbook_anywhere(target_name)
+        if found is not None:
+            return found
+
         if not os.path.exists(self.xlsm_path):
             raise ExcelComError(f"엑셀 파일을 찾을 수 없습니다: {self.xlsm_path}")
 
@@ -360,6 +414,12 @@ class ExcelBridge:
             app = win32com.client.DispatchEx("Excel.Application")
             app.Visible = False
             app.DisplayAlerts = False
+            # DisplayAlerts=False로도 안 막히는 대화상자(파일 잠금/같은 이름
+            # 충돌 등 일부는 "알림"이 아니라 더 강한 수준의 사용자 확인으로
+            # 취급돼 그냥 떠버림)가 있어, Interactive까지 꺼서 이 숨김
+            # 인스턴스가 어떤 경우에도 사용자 개입이 필요한 대화상자를 화면에
+            # 띄우지 않고 그냥 실패(예외)로 돌아가도록 만듭니다.
+            app.Interactive = False
             app.AutomationSecurity = 3  # msoAutomationSecurityForceDisable - 매크로 자동 실행 금지
 
             # 새로 띄운 인스턴스는 사용자가 평소 쓰는 애드인(OpenSolver.xlam 등)을
