@@ -436,6 +436,12 @@ Public Sub 대시보드_생성()
     단계 "배치파일 확인"
     found = Dir$(batPath)
     If Len(found) = 0 Then
+        ' 예상 위치에 없으면 - 폴더 구조가 바뀌었는데 매크로를 아직 새로
+        ' 받지 않은 경우 등을 대비해 작업폴더 전체에서 다시 찾아본다.
+        found = 파일찾기_재귀(작업폴더, "dashboard_recreate.bat")
+        If Len(found) > 0 Then batPath = found
+    End If
+    If Len(found) = 0 Then
         MsgBox "dashboard_recreate.bat 를 찾을 수 없습니다." & vbCrLf & vbCrLf & _
                경로진단(작업폴더, "\_program\static-dashboard\dashboard_recreate.bat"), _
                vbExclamation, "대시보드 생성"
@@ -564,6 +570,12 @@ Public Sub 웹서버_시작()
 
     단계 "실행 파일 확인"
     found = Dir$(vbsPath)
+    If Len(found) = 0 Then
+        ' 예상 위치에 없으면 - 폴더 구조가 바뀌었는데 매크로를 아직 새로
+        ' 받지 않은 경우 등을 대비해 작업폴더 전체에서 다시 찾아본다.
+        found = 파일찾기_재귀(작업폴더, "run_live_server_hidden.vbs")
+        If Len(found) > 0 Then vbsPath = found
+    End If
     If Len(found) > 0 Then
         ' 콘솔 창 없이 백그라운드로 - 정상 작동 시 아무 창도 뜨지 않습니다.
         cmd = "wscript.exe """ & vbsPath & """ """ & xlsmPath & """"
@@ -577,6 +589,10 @@ Public Sub 웹서버_시작()
     ' run_live_server_hidden.vbs 가 없는 예전 static-dashboard 폴더 대비 -
     ' 예전처럼 검은 콘솔 창이 뜨는 방식으로 대체합니다.
     found = Dir$(batPath)
+    If Len(found) = 0 Then
+        found = 파일찾기_재귀(작업폴더, "run_live_server.bat")
+        If Len(found) > 0 Then batPath = found
+    End If
     If Len(found) = 0 Then
         MsgBox "run_live_server_hidden.vbs 도 run_live_server.bat 도 찾을 수 없습니다." & vbCrLf & vbCrLf & _
                경로진단(작업폴더, "\_program\static-dashboard\run_live_server.bat") & vbCrLf & vbCrLf & _
