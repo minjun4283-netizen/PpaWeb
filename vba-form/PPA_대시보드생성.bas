@@ -5,8 +5,8 @@ Attribute VB_Name = "PPA_DashboardGen"
 '      Windows 기본 코드페이지로 읽기 때문입니다. 다시 저장할 일이 있으면
 '      인코딩을 반드시 'ANSI'로 두세요 (UTF-8로 저장하면 한글이 깨집니다).
 '------------------------------------------------------------------------------
-' 이 통합문서 옆의 static-dashboard 폴더에 있는 두 배치파일을 실행하는
-' 버튼 두 개를 만듭니다.
+' 이 통합문서 옆의 _program\static-dashboard 폴더에 있는 두 배치파일을
+' 실행하는 버튼 두 개를 만듭니다.
 '
 '   [대시보드 생성]        : dashboard_recreate.bat 실행 (한 번만 새로 만들고
 '                            끝 - 서버 없음, 조회 전용 PPA현황.html 생성)
@@ -16,15 +16,19 @@ Attribute VB_Name = "PPA_DashboardGen"
 '
 ' 데이터 입력/수정은 여전히 PPA_InputForm(입력폼)/PPA_Explorer(탐색) 시트
 ' 에서도 할 수 있습니다 - 실시간 입력 서버는 그 대안(브라우저에서도 입력
-' 가능)이지 대체가 아닙니다. 자세한 차이는 static-dashboard/README.md 참고.
+' 가능)이지 대체가 아닙니다. 자세한 차이는 _program/static-dashboard/README.md
+' 참고.
 '
 ' 폴더 구조 (이 순서를 벗어나면 아래 매크로가 배치파일을 못 찾습니다):
 '   (작업 폴더)\
 '     PPA파일.xlsm            <- 이 통합문서
-'     static-dashboard\
-'       dashboard_recreate.bat
-'       run_live_server.bat
-'       ppa_liveserver.py, excel_com.py, dashboard_form.js, ppa_*.py, vendor\...
+'     PPA현황.html            <- 생성된 대시보드(최상위에 생성됨)
+'     _program\
+'       archive\              <- 저장/종료 시 자동 백업(섹션 참고)
+'       static-dashboard\
+'         dashboard_recreate.bat
+'         run_live_server.bat
+'         ppa_liveserver.py, excel_com.py, dashboard_form.js, ppa_*.py, vendor\...
 '
 ' OneDrive/SharePoint 조직 정책으로 AutoSave를 강제로 켜두는 경우, 로컬 폴더
 ' 에서 다시 열어도 ThisWorkbook.FullName이 계속 클라우드 주소(https://...)로
@@ -43,6 +47,7 @@ Private Const C_SUB    As Long = 7367516      ' RGB(92,107,110)
 Private Const C_TEAL   As Long = 8093710      ' RGB(14,124,123)
 Private Const C_LINE   As Long = 14213347     ' RGB(227,225,216)
 Private Const C_FAIL   As Long = 3818163      ' RGB(179,58,58)
+Private Const ARCHIVE_KEEP As Long = 100   ' 확장자별 보관할 백업 최대 개수
 
 '---- 지금 어느 단계인지 (오류가 나면 이 값을 같이 보여줍니다) ---------------
 Private g_단계 As String
@@ -335,14 +340,14 @@ Public Sub 대시보드_생성()
     End If
 
     작업폴더 = 폴더경로(xlsmPath)
-    batPath = 작업폴더 & "\static-dashboard\dashboard_recreate.bat"
+    batPath = 작업폴더 & "\_program\static-dashboard\dashboard_recreate.bat"
 
     단계 "배치파일 확인"
     found = Dir$(batPath)
     If Len(found) = 0 Then
         MsgBox "dashboard_recreate.bat 를 찾을 수 없습니다." & vbCrLf & vbCrLf & _
                "찾은 경로: " & batPath & vbCrLf & vbCrLf & _
-               "이 통합문서 옆에 static-dashboard 폴더가 있고 그 안에 " & _
+               "이 통합문서 옆에 _program\static-dashboard 폴더가 있고 그 안에 " & _
                "dashboard_recreate.bat 가 있는지 확인해주세요.", vbExclamation, "대시보드 생성"
         상태쓰기 "배치파일을 찾지 못해 중단됨", True, 7
         Exit Sub
@@ -368,13 +373,16 @@ Public Sub 대시보드_생성()
 
     If ret = 0 Then
         상태쓰기 "마지막 생성 " & Format$(Now, "yyyy-mm-dd hh:nn") & " - 성공", False, 7
+        단계 "백업 저장"
+        아카이브_백업 작업폴더, xlsmPath, 작업폴더 & "\PPA현황.html"
         MsgBox "대시보드를 다시 만들었습니다." & vbCrLf & _
                "PPA현황.html 이 자동으로 열렸어야 합니다(안 열렸으면 " & _
-               "static-dashboard 폴더에서 직접 열어주세요).", vbInformation, "대시보드 생성"
+               "작업 폴더에서 직접 열어주세요).", vbInformation, "대시보드 생성"
     Else
         상태쓰기 "마지막 시도 " & Format$(Now, "yyyy-mm-dd hh:nn") & " - 실패(코드 " & ret & ")", True, 7
         MsgBox "대시보드 생성이 실패했습니다(종료 코드 " & ret & ")." & vbCrLf & vbCrLf & _
-               "static-dashboard 폴더에서 dashboard_recreate.bat 를 직접 더블클릭해서 " & _
+               "_program\static-dashboard 폴더에서 dashboard_recreate.bat 를 직접 " & _
+               "더블클릭해서 " & _
                "실행하면 자세한 오류 메시지를 볼 수 있습니다.", vbExclamation, "대시보드 생성"
     End If
     Exit Sub
@@ -382,6 +390,56 @@ Public Sub 대시보드_생성()
 처리안됨:
     상태쓰기 "오류 - " & Err.Description, True, 7
     오류보고 "대시보드_생성"
+End Sub
+
+'==============================================================================
+' 저장/생성 시점마다 xlsm + html을 archive 폴더에 타임스탬프로 복사해두는
+' 간단한 백업입니다. 개수가 늘어나기만 하면 디스크가 계속 차오르므로,
+' 매번 복사한 뒤 확장자별로 오래된 것부터 정리해 ARCHIVE_KEEP개만 남깁니다.
+' 오류가 나도(디스크 꽉 참 등) 대시보드 생성 자체는 실패시키지 않도록
+' On Error Resume Next로 조용히 넘어갑니다 - 백업은 있으면 좋은 안전장치일
+' 뿐, 이것 때문에 정작 원래 하려던 대시보드 생성이 막히면 안 됩니다.
+'==============================================================================
+Private Sub 아카이브_백업(ByVal 작업폴더 As String, ByVal xlsmPath As String, ByVal htmlPath As String)
+    Dim archiveDir As String, ts As String
+    On Error Resume Next
+    archiveDir = 작업폴더 & "\_program\archive"
+    If Len(Dir$(archiveDir, vbDirectory)) = 0 Then MkDir archiveDir
+    ts = Format$(Now, "yyyymmdd_hhnnss")
+    If Len(Dir$(xlsmPath)) > 0 Then FileCopy xlsmPath, archiveDir & "\PPA파일_" & ts & ".xlsm"
+    If Len(Dir$(htmlPath)) > 0 Then FileCopy htmlPath, archiveDir & "\PPA현황_" & ts & ".html"
+    아카이브_정리 archiveDir, "*.xlsm"
+    아카이브_정리 archiveDir, "*.html"
+    On Error GoTo 0
+End Sub
+
+' archiveDir 안에서 패턴에 맞는 파일 중 ARCHIVE_KEEP개를 넘는 만큼, 이름이
+' 가장 앞서는(=타임스탬프가 파일명 안에 있어 이름순 = 시간순) 것부터 지웁니다.
+Private Sub 아카이브_정리(ByVal archiveDir As String, ByVal 패턴 As String)
+    Dim col As Collection, f As String, i As Long, j As Long
+    Dim arr() As String, n As Long, tmp As String
+    Set col = New Collection
+    f = Dir$(archiveDir & "\" & 패턴)
+    Do While Len(f) > 0
+        col.Add f
+        f = Dir$()
+    Loop
+    n = col.Count
+    If n <= ARCHIVE_KEEP Then Exit Sub
+    ReDim arr(n - 1)
+    For i = 1 To n
+        arr(i - 1) = col(i)
+    Next i
+    For i = 0 To n - 2
+        For j = 0 To n - 2 - i
+            If arr(j) > arr(j + 1) Then
+                tmp = arr(j): arr(j) = arr(j + 1): arr(j + 1) = tmp
+            End If
+        Next j
+    Next i
+    For i = 0 To n - ARCHIVE_KEEP - 1
+        Kill archiveDir & "\" & arr(i)
+    Next i
 End Sub
 
 '==============================================================================
@@ -411,8 +469,8 @@ Public Sub 웹서버_시작()
     End If
 
     작업폴더 = 폴더경로(xlsmPath)
-    vbsPath = 작업폴더 & "\static-dashboard\run_live_server_hidden.vbs"
-    batPath = 작업폴더 & "\static-dashboard\run_live_server.bat"
+    vbsPath = 작업폴더 & "\_program\static-dashboard\run_live_server_hidden.vbs"
+    batPath = 작업폴더 & "\_program\static-dashboard\run_live_server.bat"
 
     단계 "실행 파일 확인"
     found = Dir$(vbsPath)
@@ -431,7 +489,7 @@ Public Sub 웹서버_시작()
     found = Dir$(batPath)
     If Len(found) = 0 Then
         MsgBox "run_live_server_hidden.vbs 도 run_live_server.bat 도 찾을 수 없습니다." & vbCrLf & vbCrLf & _
-               "이 통합문서 옆에 static-dashboard 폴더가 있고 그 안에 실행 파일이 " & _
+               "이 통합문서 옆에 _program\static-dashboard 폴더가 있고 그 안에 실행 파일이 " & _
                "있는지 확인해주세요(최신 버전으로 폴더를 통째로 다시 받아보세요).", vbExclamation, "실시간 입력 서버"
         상태쓰기 "실행 파일을 찾지 못해 중단됨", True, 15
         Exit Sub
@@ -442,7 +500,7 @@ Public Sub 웹서버_시작()
     CreateObject("WScript.Shell").Run cmd, 1, False
     상태쓰기 "시작 요청됨 " & Format$(Now, "yyyy-mm-dd hh:nn") & " (구버전 방식 - 검은 콘솔 창에서 확인)", False, 15
     MsgBox "실시간 입력 서버를 시작했습니다(구버전 방식 - 콘솔 창이 뜹니다)." & vbCrLf & vbCrLf & _
-           "static-dashboard 폴더를 최신 버전으로 갱신하면 콘솔 창 없이 시작할 수 있습니다.", _
+           "_program\static-dashboard 폴더를 최신 버전으로 갱신하면 콘솔 창 없이 시작할 수 있습니다.", _
            vbInformation, "실시간 입력 서버"
     Exit Sub
 

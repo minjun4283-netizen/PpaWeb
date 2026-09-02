@@ -131,6 +131,43 @@ VDI에서도 그대로 열리고, 만들어진 HTML 파일 하나만 공유폴�
   지우지 않고 "(목록에 없는 기존 값)"으로 표시된 임시 항목을 만들어 보존합니다
   — 저장하려면 정해진 값 중 하나로 바꿔야 합니다.
 
+### 구매계약/판매계약/전기사용지/수급매칭 — ID 자동 채번 (`ppa_ids.py`)
+
+이 4개 표는 PK를 직접 입력받지 않습니다. `ppa_ids.compute_id()`가 관련
+필드로부터 다음 규칙대로 계산하고, 화면에는 읽기전용 미리보기(`.ppaf-idpreview`)
+로 보여줍니다 — 관련 필드(발전소ID/수요기업ID/공급기한_*/전기사용지명)가
+바뀔 때마다 `/api/preview_id`를 디바운스 호출해 다시 계산합니다.
+
+| 표 | 형식 | 연도 출처 |
+|---|---|---|
+| 구매계약ID | `구매-{발전소ID}-{연도}-{순번}` | `공급기한_구매` |
+| 판매계약ID | `판매-{수요기업ID}-{연도}-{순번}` | `공급기한_판매` |
+| 전기사용지ID | `전기사용지-{수요기업ID}-{연도}-{순번}-{전기사용지명}` | 연결된 판매계약의 `공급기한_판매` |
+| 수급매칭ID | `매칭-{수요기업ID}-{연도}-{순번}` | 연결된 전기사용지 → 판매계약의 `공급기한_판매` |
+
+날짜가 비어 있으면(임시 계약 — 날짜 입력칸 옆 체크박스로 비움/잠금 처리)
+연도 자리가 `T`가 됩니다. 근거 필드가 바뀌지 않았으면(=새로 계산한 접두어가
+기존 PK와 같으면) 순번을 그대로 유지해 재저장할 때마다 번호가 계속
+올라가지 않도록 합니다.
+
+**저장 전 확인 + 연쇄 갱신**: "엑셀에 저장"을 누르면 실제 POST 전에
+`openIdConfirm()` 모달이 서버에 ID를 한 번 더 확정 계산시켜 보여주고,
+확인해야만 `/api/save`가 나갑니다(사용자 요청 사항). 편집으로 근거 필드가
+바뀌어 ID 자체가 달라지는 경우, `excel_com.py`의 `_cascade_rename()`이
+참조하는 다른 표의 FK를 자동 갱신합니다 — 단, 두 방향의 갱신 폭이 다릅니다:
+구매계약 쪽 변경은 수급매칭의 FK만 갱신하고(수급매칭ID 자체는 재계산 안 함),
+판매계약 쪽 변경은 전기사용지·수급매칭의 ID까지 두 단계 아래로 재계산이
+전파됩니다(둘 다 판매계약의 수요기업ID/공급기한_판매로부터 채번되므로).
+확인 모달에는 몇 건이 함께 갱신되는지 `/api/references`로 미리 보여줍니다.
+이 로직은 `test_id_cascade.py`류의 fake-COM 통합 테스트로 9개 시나리오
+(신규 채번, 무변경 편집, 1단계/2단계 연쇄, 이름만 바뀌는 경우, 임시→실제
+전환, 번호 충돌 회피)를 검증했습니다.
+
+**적용 범위**: 이 자동 채번은 실시간 입력 서버(`dashboard_form.js` → 이
+서버)의 개별입력 화면에만 적용됩니다 — 그룹(마스터+자식) 일괄 저장과 엑셀
+안의 옛 입력폼(`PPA_통합입력폼`/`PPA_탐색폼`)은 이번 범위 밖이라 ID를
+여전히 직접 입력받습니다.
+
 ### 수급매칭 — 카드로 쉽게 매칭하기
 
 구매계약ID·전기사용지ID를 드롭다운에서 하나씩 골라 외우다시피 입력하는 대신,
@@ -196,20 +233,24 @@ VDI에서도 그대로 열리고, 만들어진 HTML 파일 하나만 공유폴�
 ```
 📁 (작업 폴더)\
    PPA파일.xlsm
-   📁 static-dashboard\
-      run_live_server_hidden.vbs    ← 콘솔 창 없이 백그라운드로 시작(권장)
-      _run_server_hidden_worker.bat ← 위 vbs가 내부적으로만 씀(직접 실행 X)
-      run_live_server.bat           ← 콘솔 창이 보이는 예전 방식(문제 진단용)
-      ppa_liveserver.py, excel_com.py, dashboard_form.js
-      dashboard_recreate.bat, build_dashboard.py, ppa_*.py, vendor\...
+   PPA현황.html                     ← 생성 결과(최상위에 생성됨)
+   📁 _program\
+      📁 archive\                   ← 저장/종료 시 자동 백업
+      📁 python-embed\              ← python 미설치 환경만 필요
+      📁 static-dashboard\          ← 이 폴더(지금 README가 있는 폴더)
+         run_live_server_hidden.vbs    ← 콘솔 창 없이 백그라운드로 시작(권장)
+         _run_server_hidden_worker.bat ← 위 vbs가 내부적으로만 씀(직접 실행 X)
+         run_live_server.bat           ← 콘솔 창이 보이는 예전 방식(문제 진단용)
+         ppa_liveserver.py, excel_com.py, dashboard_form.js
+         dashboard_recreate.bat, build_dashboard.py, ppa_*.py, vendor\...
 ```
 
-엑셀의 **[실시간 입력 서버 시작]** 버튼(`../vba-form/README_대시보드생성.md`
+엑셀의 **[실시간 입력 서버 시작]** 버튼(`../../vba-form/README_대시보드생성.md`
 참고)이 이제 `run_live_server_hidden.vbs`를 통해 서버를 띄웁니다 — **정상적으로
 시작되면 콘솔 창이든 안내창이든 아무것도 뜨지 않고, 몇 초 뒤 브라우저만
 자동으로 열립니다.** 문제가 있을 때만(엑셀/python을 못 찾음, 서버가 30초 안에
 응답하지 않음) 안내 창이 뜹니다. 서버의 출력은 화면 대신
-`static-dashboard\live_server.log` 파일에 남습니다.
+`_program\static-dashboard\live_server.log` 파일에 남습니다.
 
 `run_live_server_hidden.vbs`를 직접 더블클릭해서 실행해도 되고(탐색기에서
 `.vbs` 더블클릭은 기본적으로 wscript.exe로 실행되어 콘솔이 뜨지 않습니다),
@@ -395,7 +436,7 @@ Excel이 안 열린 상태에서 먼저 띄운 뒤 나중에 파일을 연 것�
 5. 새 PK로 저장(추가) → 표(ListObject) 서식이 새 행까지 그대로 이어지는지
 6. 저장 직후 대시보드 화면이 자동으로 새로고침되고 [변경] 탭에 방금 저장한
    항목이 뜨는지
-7. 엑셀 쪽 버튼(`../vba-form/README_대시보드생성.md`의 [실시간 입력 서버
+7. 엑셀 쪽 버튼(`../../vba-form/README_대시보드생성.md`의 [실시간 입력 서버
    시작])으로도 같은 서버가 뜨는지
 8. 참조되고 있는 데이터(예: 구매계약이 딸린 발전소) 삭제 시도 → 삭제 버튼을
    눌러도 확인창에서 참조 목록만 보이고 실제 삭제 버튼은 비활성인지
@@ -648,6 +689,8 @@ Excel이 안 열린 상태에서 먼저 띄운 뒤 나중에 파일을 연 것�
 | `make_demo.py` | 화면 확인용 데모(의도적 오류·변경 케이스 포함) 생성기 |
 | `vendor/` | **동봉된 openpyxl** — pip install도, 인터넷 연결도 필요 없습니다 |
 | `excel_com.py` | Windows COM(pywin32)으로 열려 있는 엑셀을 직접 읽고 쓰는 모듈 |
+| `ppa_ids.py` | 구매계약/판매계약/전기사용지/수급매칭 4개 표의 PK 자동 채번 순수 함수(`excel_com.py`가 사용) |
+| `ppa_archive.py` | 저장/종료 시점마다 xlsm+html을 `_program/archive/`에 백업하는 순수 함수(`excel_com.py`/`ppa_liveserver.py`가 사용) |
 | `ppa_liveserver.py` | 입력/저장을 엑셀에 실시간 반영하는 웹 서버 (`excel_com.py` 사용) |
 | `dashboard_form.js` | 대시보드에 주입되는 "간편 입력/저장" 플로팅 폼 — 개별입력, 컬럼별 검색, 그룹A/B 일괄 입력·삭제 포함 (서버 실행 시에만 동작) |
 | `run_live_server_hidden.vbs` | `ppa_liveserver.py`를 콘솔 창 없이 백그라운드로 띄우는 실행 파일 (권장, 실패 시에만 안내 창) |
@@ -667,7 +710,8 @@ Excel이 안 열린 상태에서 먼저 띄운 뒤 나중에 파일을 연 것�
 
 1. 인터넷 되는 PC에서 <https://www.python.org/downloads/windows/> 접속
 2. "Windows embeddable package (64-bit)" zip 다운로드 (설치 없이 압축만 풀면 되는 휴대용 버전)
-3. 압축 푼 내용물을 `static-dashboard` 폴더 **옆에** `python-embed/` 폴더로 배치
+3. 압축 푼 내용물을 `static-dashboard` 폴더 **옆에**(=`_program\python-embed\`)
+   `python-embed/` 폴더로 배치
 4. VDI에서는 그 폴더의 `python.exe`를 직접 실행:
    ```powershell
    ..\python-embed\python.exe build_dashboard.py --xlsm="...\PPA파일.xlsm"
@@ -691,20 +735,23 @@ python3 make_demo.py
 
 **Windows에서 매번 다시 만들기 — `dashboard_recreate.bat` (추천)**
 
-이 폴더의 `dashboard_recreate.bat`을 더블클릭하면 됩니다. 이 폴더 바로 위(상위
-폴더)에 있는 xlsm 파일을 자동으로 찾고, 출력 파일명(`PPA현황.html`)과 스냅샷
-경로를 매번 고정해서 [변경] 탭 비교가 실행할 때마다 끊기지 않고 이어지게
-합니다. 아래 폴더 구조를 그대로 맞춰주세요.
+이 폴더의 `dashboard_recreate.bat`을 더블클릭하면 됩니다. 이 폴더 기준 두 단계
+위(작업 폴더)에 있는 xlsm 파일을 자동으로 찾고, 결과 HTML도 그 작업 폴더에
+바로 생성합니다. 출력 파일명(`PPA현황.html`)과 스냅샷 경로를 매번 고정해서
+[변경] 탭 비교가 실행할 때마다 끊기지 않고 이어지게 합니다. 아래 폴더 구조를
+그대로 맞춰주세요.
 
 ```
 📁 (작업 폴더)\
    PPA파일.xlsm              ← 실제 엑셀 파일 (하나만)
-   📁 static-dashboard\       ← 이 폴더 전체(=지금 README가 있는 폴더)
-      dashboard_recreate.bat
-      build_dashboard.py, ppa_*.py, vendor\...
+   PPA현황.html              ← 생성 결과(최상위에 생성됨)
+   📁 _program\
+      📁 static-dashboard\    ← 이 폴더 전체(=지금 README가 있는 폴더)
+         dashboard_recreate.bat
+         build_dashboard.py, ppa_*.py, vendor\...
 ```
 
-엑셀 안에서 버튼 하나로 실행하고 싶으면 `../vba-form/README_대시보드생성.md`도
+엑셀 안에서 버튼 하나로 실행하고 싶으면 `../../vba-form/README_대시보드생성.md`도
 같이 보세요(`PPA_대시보드생성.bas` — 저장 → 버튼 클릭 → 이 배치파일을 자동으로
 실행하고 결과를 엽니다).
 

@@ -29,6 +29,7 @@ import threading
 from typing import Optional
 
 from ppa_schema import TABLE_BY_KEY, TABLES
+from ppa_ids import ID_TABLE_KEYS, compute_id, find_row, id_dependents
 
 try:
     import pythoncom
@@ -166,8 +167,13 @@ class ExcelBridge:
     def get_options(self, table_key: str) -> list[dict]:
         return self._call(self._get_options, table_key)
 
-    def save_record(self, table_key: str, record: dict) -> dict:
-        return self._call(self._save_record, table_key, record)
+    def save_record(self, table_key: str, record: dict, original_pk: str | None = None) -> dict:
+        return self._call(self._save_record, table_key, record, original_pk)
+
+    def preview_id(self, table_key: str, record: dict, original_pk: str | None = None) -> dict:
+        """실제로 쓰지 않고 구매계약ID 등 4개 표의 PK만 미리 계산합니다 -
+        간편입력 폼이 저장 전 확인창에 보여줄 값을 구하는 용도."""
+        return self._call(self._preview_id, table_key, record, original_pk)
 
     def get_references(self, table_key: str, pk_value: str) -> list[dict]:
         return self._call(self._referencing_records, table_key, pk_value)
@@ -614,27 +620,92 @@ class ExcelBridge:
 
         return values, start_row, start_col, col_at, target_row
 
+    # ---- ID 자동생성 (구매계약/판매계약/수급매칭/전기사용지 4개 표) ----
+    def _preview_id(self, table_key: str, record: dict, original_pk: str | None = None) -> dict:
+        tables_data = self._read_all_tables()
+        return compute_id(table_key, record, tables_data, current_pk=original_pk)
+
+    def _cascade_rename(self, wb, table_key: str, old_pk: str, new_pk: str, tables_data: dict) -> list[dict]:
+        """table_key의 PK가 old_pk -> new_pk로 바뀔 때 참조하는 자식 표의 FK
+        컬럼을 전부 새 값으로 다시 쓰고, 그 자식의 ID 자체가 이 부모 데이터
+        에서 파생되는 표(id_dependents)면 자식 ID도 재계산해 재귀적으로
+        반영합니다. tables_data는 이번 저장 안에서 계속 갱신해가며 씁니다 -
+        자식이 조회할 때 방금 바뀐 부모 값을 보도록 하기 위함입니다."""
+        changed: list[dict] = []
+        dependents = set(id_dependents(table_key))
+
+        for t in TABLES:
+            for fk_col, ref_key in t.fk.items():
+                if ref_key != table_key:
+                    continue
+                child_schema = TABLE_BY_KEY[t.key]
+                for child in list(tables_data.get(t.key, [])):
+                    if str(child.get(fk_col) or "").strip() != old_pk:
+                        continue
+                    child_old_pk = str(child.get(child_schema.pk) or "").strip()
+
+                    child[fk_col] = new_pk
+                    self._write_row(wb, t.key, {child_schema.pk: child_old_pk, fk_col: new_pk}, locate_pk=child_old_pk)
+
+                    if t.key in dependents:
+                        id_result = compute_id(t.key, child, tables_data, current_pk=child_old_pk)
+                        if id_result["ok"] and id_result["changed"]:
+                            child_new_pk = id_result["id"]
+                            child[child_schema.pk] = child_new_pk
+                            self._write_row(wb, t.key, {child_schema.pk: child_new_pk}, locate_pk=child_old_pk)
+                            changed.append({"table": t.key, "old_pk": child_old_pk, "new_pk": child_new_pk})
+                            changed.extend(self._cascade_rename(wb, t.key, child_old_pk, child_new_pk, tables_data))
+
+        return changed
+
     # ---- 쓰기 ----
-    def _save_record(self, table_key: str, record: dict) -> dict:
+    def _save_record(self, table_key: str, record: dict, original_pk: str | None = None) -> dict:
         schema = TABLE_BY_KEY[table_key]
+        original_pk = str(original_pk or "").strip() or None
+        tables_data = None
+        id_changed = False
+
+        if table_key in ID_TABLE_KEYS:
+            tables_data = self._read_all_tables()
+            id_result = compute_id(table_key, record, tables_data, current_pk=original_pk)
+            if not id_result["ok"]:
+                raise ExcelComError(id_result["reason"])
+            record[schema.pk] = id_result["id"]
+            id_changed = id_result["changed"]
 
         errors = self._validate(table_key, record)
         if errors:
             raise ExcelComError(" / ".join(errors))
 
         wb = self._ensure_workbook()
-        result = self._write_row(wb, table_key, record)
+        locate_pk = original_pk if (table_key in ID_TABLE_KEYS and original_pk) else None
+        result = self._write_row(wb, table_key, record, locate_pk=locate_pk)
+
+        cascaded: list[dict] = []
+        if table_key in ID_TABLE_KEYS and original_pk and id_changed:
+            parent_row = find_row(tables_data, table_key, schema.pk, original_pk)
+            if parent_row is not None:
+                parent_row.update(record)
+            cascaded = self._cascade_rename(wb, table_key, original_pk, record[schema.pk], tables_data)
+
         wb.Save()
+        if cascaded:
+            result = dict(result, cascaded=cascaded)
         return result
 
-    def _write_row(self, wb, table_key: str, record: dict) -> dict:
+    def _write_row(self, wb, table_key: str, record: dict, locate_pk: str | None = None) -> dict:
         """검증은 이미 끝났다고 보고 실제로 셀에 씁니다(저장은 호출자 책임 -
-        배치 작업은 마지막에 한 번만 저장해야 해서 여기서 매번 저장하지 않음)."""
+        배치 작업은 마지막에 한 번만 저장해야 해서 여기서 매번 저장하지 않음).
+        locate_pk를 주면 record[schema.pk](이미 새 값으로 바뀌었을 수 있음)
+        대신 그 값으로 기존 행을 찾습니다 - ID 자동생성으로 PK 자체가 바뀌는
+        편집(예: 구매계약의 발전소ID를 바꿔 구매계약ID가 새로 계산된 경우)을
+        "새 행 추가"가 아니라 "그 행을 찾아 고쳐쓰기"로 처리하기 위함입니다."""
         schema = TABLE_BY_KEY[table_key]
         pk_value = str(record.get(schema.pk) or "").strip()
+        locate_value = str(locate_pk).strip() if locate_pk else pk_value
         ws = self._worksheet(wb, table_key)
 
-        values, start_row, start_col, col_at, target_row = self._locate_row(ws, schema, pk_value)
+        values, start_row, start_col, col_at, target_row = self._locate_row(ws, schema, locate_value)
 
         missing = [c for c in schema.columns if c not in col_at]
         if missing:

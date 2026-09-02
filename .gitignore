@@ -8,3 +8,10 @@ backend/data/
 .env.local
 __pycache__/
 *.pyc
+
+# 실행 시점에 생성되는 실제 배포 산출물/백업 - 저장소에는 코드만 있으면 됨
+_program/archive/
+_program/python-embed/
+*.xlsm
+/PPA현황.html
+/PPA현황_snapshot.json

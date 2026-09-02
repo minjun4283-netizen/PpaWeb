@@ -22,6 +22,23 @@
       "T_수급매칭": { "전기사용지ID": "T_전기사용지", "구매계약ID": "T_구매계약" }
     };
 
+    // 구매계약/판매계약/전기사용지/수급매칭 4개 표는 PK를 사람이 직접 입력하지
+    // 않고 관련 필드(발전소ID/수요기업ID/공급기한_*/전기사용지명)로부터 서버
+    // (ppa_ids.py)가 자동으로 계산합니다 - excel_com.py의 ID_TABLE_KEYS와
+    // 반드시 동일한 4개 표를 유지해야 합니다.
+    var ID_TABLE_KEYS = ["T_구매계약", "T_판매계약", "T_전기사용지", "T_수급매칭"];
+    function isAutoIdTable(tableName) {
+      return ID_TABLE_KEYS.indexOf(tableName) !== -1;
+    }
+
+    // 계약을 아직 체결하지 않은 "임시" 건은 이 날짜 칸을 비워두면 서버가 ID의
+    // 연도 자리를 "T"로 채웁니다(ppa_ids.py의 _year_or_t와 동일 규칙) - 체크박스로
+    // 날짜 입력을 비활성화/비움 처리해 그 규칙을 그대로 타게 합니다.
+    var TEMP_DATE_COLUMNS = { "T_구매계약": "공급기한_구매", "T_판매계약": "공급기한_판매" };
+    function temporaryDateColumnFor(tableName) {
+      return TEMP_DATE_COLUMNS[tableName] || null;
+    }
+
     var optionCache = {};
     var recordCache = {};
 
@@ -152,6 +169,23 @@
       }
       if (!data.ok) throw new Error(data.error || "요청 실패");
       return data;
+    }
+
+    // ID 미리보기(/api/preview_id)는 "아직 관련 필드를 안 채운" 흔한 상태도
+    // {ok:false, reason:...}로 돌려주는데, 이건 오류가 아니라 화면에 그대로
+    // 보여줄 안내 문구입니다 - apiPost처럼 예외로 던지지 않고 그대로 반환합니다.
+    async function apiPostRaw(url, payload) {
+      var res = await fetchWithRetry(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload || {})
+      });
+      var text = await res.text();
+      try {
+        return text ? JSON.parse(text) : {};
+      } catch (e) {
+        return { ok: false, error: text || "응답 파싱 실패" };
+      }
     }
 
     // ---------------------------------------------------------------------
@@ -501,8 +535,76 @@
       });
     }
 
+    // 구매계약/판매계약/전기사용지/수급매칭의 PK는 사람이 입력하지 않고
+    // 서버(ppa_ids.py)가 관련 필드로부터 계산합니다 - 여기서는 그 결과를
+    // 보여주는 읽기전용 미리보기만 두고, 실제 저장값은 숨김 input에
+    // 넣어 collectRecord()가 그대로 집어가게 합니다. 값 자체는
+    // scheduleIdPreview()/refreshIdPreview()가 /api/preview_id를 불러
+    // 채웁니다.
+    function createIdPreviewField(tableName, columnName) {
+      var wrap = el("div", { class: "ppaf-row ppaf-idpreview" });
+      wrap.appendChild(el("label", { class: "ppaf-label ppaf-required" }, [columnName]));
+      var display = el("div", { class: "ppaf-idpreview-display" }, ["관련 항목을 입력하면 자동으로 계산됩니다."]);
+      var hidden = el("input", { type: "hidden", "data-name": "fld_" + columnName });
+      wrap.appendChild(display);
+      wrap.appendChild(hidden);
+      wrap._idDisplay = display;
+      wrap._idHidden = hidden;
+      return wrap;
+    }
+
+    // 구매계약의 공급기한_구매/판매계약의 공급기한_판매는 계약을 아직 체결
+    // 하지 않은 "임시" 건이면 비워둘 수 있습니다(서버가 그 경우 ID의 연도
+    // 자리를 "T"로 채움) - 체크박스로 날짜 입력을 비활성화/비움 처리합니다.
+    function createTempDateField(tableName, columnName) {
+      var wrap = el("div", { class: "ppaf-row" });
+      var labelClass = isRequiredColumn(tableName, columnName) ? "ppaf-label ppaf-required" : "ppaf-label";
+      wrap.appendChild(el("label", { class: labelClass }, [columnName]));
+
+      var fieldName = "fld_" + columnName;
+      var input = el("input", { class: "ppaf-input", type: "date", "data-name": fieldName });
+      var tempCb = el("input", { type: "checkbox" });
+      var tempLabel = el("label", { class: "ppaf-tempcheck" }, [tempCb, " 임시 계약 (공급기한 미정)"]);
+
+      wrap.appendChild(input);
+      wrap.appendChild(tempLabel);
+
+      tempCb.addEventListener("change", function () {
+        input.disabled = tempCb.checked;
+        if (tempCb.checked) input.value = "";
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+
+      // fillRecord()가 실제 값을 채운 뒤 호출 - 값이 비어있으면 임시로 간주.
+      wrap._syncTempFromValue = function () {
+        tempCb.checked = !input.value;
+        input.disabled = tempCb.checked;
+      };
+      // clearRecord()가 새 입력을 시작할 때 호출 - 기본은 체크 해제 상태.
+      wrap._resetTemp = function () {
+        tempCb.checked = false;
+        input.disabled = false;
+      };
+
+      var onLiveCheck = function () { validateFieldLive(tableName, columnName, wrap, input, !!formState.loadedPk); };
+      input.addEventListener("blur", onLiveCheck);
+      input.addEventListener("change", onLiveCheck);
+      input.addEventListener("input", function () {
+        if (wrap.classList.contains("invalid")) onLiveCheck();
+      });
+
+      return wrap;
+    }
+
     function createField(tableName, columnName) {
       if (isFormula24Column(columnName)) return createFormula24Field(tableName, columnName);
+      var schema0 = SCHEMA_BY_KEY[tableName];
+      if (isAutoIdTable(tableName) && schema0 && columnName === schema0.pk) {
+        return createIdPreviewField(tableName, columnName);
+      }
+      if (temporaryDateColumnFor(tableName) === columnName) {
+        return createTempDateField(tableName, columnName);
+      }
 
       var wrap = el("div", { class: "ppaf-row" });
       var labelClass = isRequiredColumn(tableName, columnName) ? "ppaf-label ppaf-required" : "ppaf-label";
@@ -670,12 +772,19 @@
       });
       fields.querySelectorAll(".ppaf-row").forEach(clearFieldNote);
       syncFormula24Displays(fields);
+      fields.querySelectorAll(".ppaf-row").forEach(function (wrap) {
+        if (wrap._syncTempFromValue) wrap._syncTempFromValue();
+      });
+      scheduleIdPreview(currentTable());
     }
 
     function clearRecord() {
       fields.querySelectorAll("[data-name^='fld_']").forEach(function (inp) { inp.value = ""; });
       fields.querySelectorAll(".ppaf-row").forEach(clearFieldNote);
       syncFormula24Displays(fields);
+      fields.querySelectorAll(".ppaf-row").forEach(function (wrap) {
+        if (wrap._resetTemp) wrap._resetTemp();
+      });
       formState.loadedPk = null;
       formDirty = false;
       updateDeleteButtonState();
@@ -685,6 +794,7 @@
       if (loadedIndicator) loadedIndicator.style.display = "none";
       var dupBtn = fields.querySelector(".ppaf-dup-btn");
       if (dupBtn) dupBtn.disabled = true;
+      scheduleIdPreview(currentTable());
     }
 
     function updateDeleteButtonState() {
@@ -975,6 +1085,53 @@
       columns.forEach(function (col) {
         fields.appendChild(createField(tableName, col));
       });
+      scheduleIdPreview(tableName);
+    }
+
+    // ---------------------------------------------------------------------
+    // 구매계약/판매계약/전기사용지/수급매칭 PK 자동생성 미리보기 -
+    // 관련 필드가 바뀔 때마다(디바운스) /api/preview_id를 불러 화면에
+    // 보여주고, 실제 저장에 쓸 값을 숨김 input에 채웁니다. 저장 자체는
+    // openIdConfirm()에서 최종 확인을 받은 뒤에만 나갑니다.
+    // ---------------------------------------------------------------------
+    var idPreviewTimer = null;
+    function scheduleIdPreview(tableName) {
+      if (!isAutoIdTable(tableName)) return;
+      clearTimeout(idPreviewTimer);
+      idPreviewTimer = setTimeout(function () { refreshIdPreview(tableName); }, 300);
+    }
+
+    async function refreshIdPreview(tableName) {
+      var schema = SCHEMA_BY_KEY[tableName];
+      var wrap = fields.querySelector(".ppaf-idpreview");
+      if (!schema || !wrap) return;
+      var record = collectRecord();
+      delete record[schema.pk];
+      var data;
+      try {
+        data = await apiPostRaw("/api/preview_id", {
+          table: tableName, record: record, original_pk: formState.loadedPk || ""
+        });
+      } catch (e) {
+        data = { ok: false, error: (e && e.message) || String(e) };
+      }
+      // 응답이 오는 사이 화면이 이미 다른 표로 바뀌었으면 반영하지 않습니다.
+      if (currentTable() !== tableName) return;
+      var freshWrap = fields.querySelector(".ppaf-idpreview");
+      if (!freshWrap) return;
+      if (data.ok) {
+        freshWrap._idHidden.value = data.id;
+        var msg = "자동 생성될 ID: " + data.id;
+        if (formState.loadedPk && data.id !== formState.loadedPk) {
+          msg += " (기존 ID: " + formState.loadedPk + " → 변경됨)";
+        }
+        freshWrap._idDisplay.textContent = msg;
+        freshWrap._idDisplay.classList.remove("ppaf-idpreview-error");
+      } else {
+        freshWrap._idHidden.value = "";
+        freshWrap._idDisplay.textContent = data.reason || data.error || "ID를 계산할 수 없습니다.";
+        freshWrap._idDisplay.classList.add("ppaf-idpreview-error");
+      }
     }
 
     // ---------------------------------------------------------------------
@@ -1479,9 +1636,23 @@
         return;
       }
 
+      if (isAutoIdTable(tableName)) {
+        await openIdConfirm(tableName, record);
+        return;
+      }
+
+      await performSave(tableName, record, null);
+    }
+
+    async function performSave(tableName, record, originalPk) {
+      var schema = SCHEMA_BY_KEY[tableName];
+      var pkName = schema && schema.pk;
       try {
         var data = await withBusy(saveBtn, "엑셀에 저장 중...", function () {
-          return apiPost("/api/save", { table: tableName, record: record, actor: getActorName() });
+          return apiPost("/api/save", {
+            table: tableName, record: record, actor: getActorName(),
+            original_pk: originalPk || ""
+          });
         });
         showToast(data.message || "저장 완료", "success");
 
@@ -1498,6 +1669,95 @@
       } catch (e) {
         showToast("저장 실패: " + (e.message || e), "error");
       }
+    }
+
+    // ---------------------------------------------------------------------
+    // 자동생성 ID 저장 전 확인 - 최종 ID를 서버에 다시 계산시켜(동시 편집으로
+    // 어긋날 수 있으므로) 보여주고, 편집으로 ID 자체가 바뀌는 경우엔 함께
+    // 자동 갱신될 참조 데이터까지 안내한 뒤 확인을 받습니다.
+    // ---------------------------------------------------------------------
+    function closeIdConfirm() {
+      idConfirmBackdrop.classList.remove("show");
+      idConfirmBox.classList.remove("show");
+    }
+
+    async function openIdConfirm(tableName, record) {
+      var schema = SCHEMA_BY_KEY[tableName];
+      var originalPk = formState.loadedPk || null;
+
+      idConfirmBody.innerHTML = "";
+      idConfirmBody.appendChild(el("div", { class: "ppaf-confirm-loading" }, ["ID 계산 중..."]));
+      idConfirmBackdrop.classList.add("show");
+      idConfirmBox.classList.add("show");
+      idConfirmSaveBtn.disabled = true;
+
+      var previewRecord = {};
+      Object.keys(record).forEach(function (k) { previewRecord[k] = record[k]; });
+      delete previewRecord[schema.pk];
+
+      var data = await apiPostRaw("/api/preview_id", {
+        table: tableName, record: previewRecord, original_pk: originalPk || ""
+      });
+
+      if (!data.ok) {
+        idConfirmBody.innerHTML = "";
+        idConfirmBody.appendChild(
+          el("div", { class: "ppaf-confirm-error" }, [data.reason || data.error || "ID를 계산할 수 없습니다."])
+        );
+        idConfirmSaveBtn.disabled = true;
+        return;
+      }
+
+      var newId = data.id;
+      var idChanged = !!originalPk && newId !== originalPk;
+      record[schema.pk] = newId;
+
+      idConfirmSaveBtn.onclick = function () {
+        closeIdConfirm();
+        performSave(tableName, record, originalPk).catch(console.error);
+      };
+
+      idConfirmBody.innerHTML = "";
+      idConfirmBody.appendChild(
+        el("div", { class: "ppaf-confirm-target" }, [
+          el("span", { class: "ppaf-confirm-table" }, [TABLE_META[tableName] ? TABLE_META[tableName].label : tableName]),
+          " · " + schema.pk + " = ",
+          el("strong", {}, [newId])
+        ])
+      );
+
+      if (idChanged) {
+        idConfirmBody.appendChild(
+          el("div", { class: "ppaf-confirm-warn" }, [
+            "근거 필드가 바뀌어 ID가 새로 계산됩니다: ", el("strong", {}, [originalPk]), " → ", el("strong", {}, [newId])
+          ])
+        );
+        try {
+          var refData = await apiGet(
+            "/api/references?table=" + encodeURIComponent(tableName) + "&pk=" + encodeURIComponent(originalPk)
+          );
+          var references = refData.references || [];
+          if (references.length > 0) {
+            var list = el("ul", { class: "ppaf-conflict-list" });
+            references.forEach(function (r) {
+              list.appendChild(
+                el("li", {}, [(TABLE_META[r.table] ? TABLE_META[r.table].label : r.table) + " " + r.count + "건도 함께 자동 갱신됩니다 (" + r.fk_col + ")"])
+              );
+            });
+            idConfirmBody.appendChild(list);
+          }
+        } catch (e) {
+          idConfirmBody.appendChild(
+            el("div", { class: "ppaf-confirm-error" }, ["참조 데이터 확인 실패(그래도 저장은 가능합니다): " + (e.message || e)])
+          );
+        }
+      } else {
+        idConfirmBody.appendChild(
+          el("div", { class: "ppaf-confirm-note" }, [originalPk ? "ID는 바뀌지 않습니다." : "새 데이터로 저장됩니다."])
+        );
+      }
+
+      idConfirmSaveBtn.disabled = false;
     }
 
     // ---------------------------------------------------------------------
@@ -1630,6 +1890,9 @@
         ".ppaf-btn.danger:hover:not(:disabled){background:var(--ppaf-danger-bg)}" +
         ".ppaf-required::after{content:' *';color:var(--ppaf-danger);font-weight:800}" +
         ".ppaf-formula24-display{font-size:11px;color:var(--ppaf-sub);margin-top:1px}" +
+        ".ppaf-idpreview-display{font-size:13px;font-weight:700;padding:10px 11px;border:1.5px dashed var(--ppaf-line);border-radius:9px;background:rgba(11,133,119,.05);color:var(--ppaf-teal-d)}" +
+        ".ppaf-idpreview-display.ppaf-idpreview-error{color:var(--ppaf-danger);border-color:var(--ppaf-danger);background:var(--ppaf-danger-bg);font-weight:600}" +
+        ".ppaf-tempcheck{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ppaf-sub);cursor:pointer;margin-top:2px}" +
         ".ppaf-toolbar-wrap{display:flex;flex-direction:column;gap:6px;margin:4px 0 18px;grid-column:1 / -1}" +
         ".ppaf-picker-label{font-size:11.5px;font-weight:700;color:var(--ppaf-sub);margin-top:4px}" +
         ".ppaf-picker{border:1.5px solid var(--ppaf-line);border-radius:10px;padding:10px;background:rgba(11,133,119,.03)}" +
@@ -1775,11 +2038,27 @@
     confirmBox.appendChild(confirmBody);
     confirmBox.appendChild(el("div", { class: "ppaf-confirm-foot" }, [confirmCancelBtn, confirmDeleteBtn]));
 
+    // 자동생성 ID 저장 전 확인 모달 - 구매계약/판매계약/전기사용지/수급매칭
+    // 4개 표에서 "엑셀에 저장" 누르면 실제 저장 전에 여기서 계산된 ID와
+    // (편집이면) 함께 갱신될 참조 데이터를 보여주고 확인을 받습니다.
+    var idConfirmBackdrop = el("div", { class: "ppaf-confirm-backdrop" });
+    var idConfirmBox = el("div", { class: "ppaf-confirm" });
+    var idConfirmBody = el("div", { class: "ppaf-confirm-body" });
+    var idConfirmCancelBtn = el("button", { class: "ppaf-btn", type: "button" }, ["취소"]);
+    var idConfirmSaveBtn = el("button", { class: "ppaf-btn primary", type: "button" }, ["이 ID로 저장"]);
+    idConfirmBox.appendChild(
+      el("div", { class: "ppaf-confirm-head" }, [el("span", { class: "ppaf-confirm-icon" }, ["🆔"]), "이 ID로 저장할까요?"])
+    );
+    idConfirmBox.appendChild(idConfirmBody);
+    idConfirmBox.appendChild(el("div", { class: "ppaf-confirm-foot" }, [idConfirmCancelBtn, idConfirmSaveBtn]));
+
     document.head.appendChild(style);
     document.body.appendChild(backdrop);
     document.body.appendChild(modal);
     document.body.appendChild(confirmBackdrop);
     document.body.appendChild(confirmBox);
+    document.body.appendChild(idConfirmBackdrop);
+    document.body.appendChild(idConfirmBox);
     document.body.appendChild(toastStack);
     document.body.appendChild(openBtn);
 
@@ -1809,6 +2088,8 @@
     confirmCancelBtn.addEventListener("click", closeDeleteConfirm);
     confirmBackdrop.addEventListener("click", closeDeleteConfirm);
     confirmDeleteBtn.addEventListener("click", function () { performDelete().catch(console.error); });
+    idConfirmCancelBtn.addEventListener("click", closeIdConfirm);
+    idConfirmBackdrop.addEventListener("click", closeIdConfirm);
     modeSel.addEventListener("change", function () {
       if (!confirmDiscardIfDirty()) { modeSel.value = currentTable(); return; }
       renderMode(true, true).catch(function (e) { showToast("목록 로딩 실패: " + (e.message || e), "error"); });
@@ -1821,6 +2102,12 @@
     // 상자/컬럼 선택 등 툴바 요소는 "편집"으로 치지 않습니다.
     fields.addEventListener("input", function (e) {
       if (e.target && e.target.closest && e.target.closest(".ppaf-row")) formDirty = true;
+      scheduleIdPreview(currentTable());
+    });
+    // 콤보박스 선택·임시계약 체크박스처럼 "input"이 아니라 "change"로만
+    // 반영되는 변경도 미리보기를 다시 계산해야 합니다.
+    fields.addEventListener("change", function (e) {
+      if (e.target && e.target.closest && e.target.closest(".ppaf-row")) scheduleIdPreview(currentTable());
     });
     groupWrap.addEventListener("input", function (e) {
       if (e.target && e.target.closest && e.target.closest(".ppaf-row")) groupDirty = true;
@@ -1840,6 +2127,7 @@
 
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Escape") return;
+      if (idConfirmBox.classList.contains("show")) { closeIdConfirm(); return; }
       if (confirmBox.classList.contains("show")) { closeDeleteConfirm(); return; }
       if (modal.classList.contains("show")) { closeModal(); }
     });

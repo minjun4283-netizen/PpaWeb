@@ -37,6 +37,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from excel_com import ExcelBridge, ExcelComError  # noqa: E402
 from ppa_schema import TABLE_BY_KEY, TABLES  # noqa: E402
+from ppa_archive import backup_now  # noqa: E402
 
 
 def find_first_xlsm(base_dir: Path) -> Path:
@@ -94,10 +95,11 @@ _LOADING_HTML = """<!doctype html>
 
 
 class App:
-    def __init__(self, xlsm_path: str, html_path: str, form_js_path: str):
+    def __init__(self, xlsm_path: str, html_path: str, form_js_path: str, archive_dir: str | None = None):
         self.xlsm_path = os.path.abspath(xlsm_path)
         self.html_path = os.path.abspath(html_path)
         self.form_js_path = os.path.abspath(form_js_path)
+        self.archive_dir = os.path.abspath(archive_dir) if archive_dir else None
         self.bridge = ExcelBridge(self.xlsm_path)
         self._rebuild_lock = threading.Lock()
         self._last_payload: dict | None = None
@@ -242,9 +244,24 @@ class App:
             return html[:idx] + tag + "\n" + html[idx:]
         return html + "\n" + tag
 
-    def save_and_rebuild(self, table_key: str, record: dict, actor: str | None = None) -> dict:
-        result = self.bridge.save_record(table_key, record)
+    def _backup(self) -> None:
+        """저장이 실제 엑셀에 반영되고 대시보드가 다시 만들어진 직후마다
+        xlsm+html을 archive/에 남깁니다 - 실패해도(디스크 공간 부족 등)
+        여기서 삼키고 넘어갑니다(백업은 부가 기능, 저장 자체를 막으면 안 됨).
+        archive_dir이 없으면(예전 방식으로 실행됐거나 테스트 환경) 조용히
+        건너뜁니다."""
+        if not self.archive_dir:
+            return
+        outcome = backup_now(self.xlsm_path, self.html_path, self.archive_dir)
+        if not outcome["ok"]:
+            print(f"[백업 실패] {outcome['error']}")
+
+    def save_and_rebuild(
+        self, table_key: str, record: dict, actor: str | None = None, original_pk: str | None = None
+    ) -> dict:
+        result = self.bridge.save_record(table_key, record, original_pk)
         payload = self.rebuild(actor=actor)
+        self._backup()
         return {
             "save": result,
             "validation_errors": payload["validation"]["total_errors"],
@@ -253,6 +270,7 @@ class App:
     def delete_and_rebuild(self, table_key: str, pk_value: str, actor: str | None = None) -> dict:
         result = self.bridge.delete_record(table_key, pk_value)
         payload = self.rebuild(actor=actor)
+        self._backup()
         return {
             "delete": result,
             "validation_errors": payload["validation"]["total_errors"],
@@ -261,6 +279,7 @@ class App:
     def batch_and_rebuild(self, operations: list[dict], actor: str | None = None) -> dict:
         result = self.bridge.batch_apply(operations)
         payload = self.rebuild(actor=actor)
+        self._backup()
         return {
             "batch": result,
             "validation_errors": payload["validation"]["total_errors"],
@@ -383,12 +402,29 @@ def make_handler(app: App):
                 actor = (str(payload.get("actor") or "").strip() or None)
                 if actor:
                     actor = actor[:60]
+                original_pk = (str(payload.get("original_pk") or "").strip() or None)
                 if table not in TABLE_BY_KEY:
                     self._send_json({"ok": False, "error": "지원하지 않는 표입니다."})
                     return
                 try:
-                    result = app.save_and_rebuild(table, record, actor=actor)
+                    result = app.save_and_rebuild(table, record, actor=actor, original_pk=original_pk)
                     self._send_json({"ok": True, **result, "message": "엑셀에 저장하고 대시보드를 갱신했습니다."})
+                except ExcelComError as e:
+                    self._send_json({"ok": False, "error": str(e)})
+                except Exception as e:
+                    self._send_json({"ok": False, "error": f"예상하지 못한 오류: {e}"})
+                return
+
+            if path == "/api/preview_id":
+                table = str(payload.get("table") or "").strip()
+                record = payload.get("record") or {}
+                original_pk = (str(payload.get("original_pk") or "").strip() or None)
+                if table not in TABLE_BY_KEY:
+                    self._send_json({"ok": False, "error": "지원하지 않는 표입니다."})
+                    return
+                try:
+                    result = app.bridge.preview_id(table, record, original_pk)
+                    self._send_json({"ok": True, **result})
                 except ExcelComError as e:
                     self._send_json({"ok": False, "error": str(e)})
                 except Exception as e:
@@ -549,27 +585,32 @@ def main():
     parser.add_argument("--no-browser", action="store_true", help="시작할 때 브라우저를 자동으로 열지 않음")
     args = parser.parse_args()
 
+    # script_dir = .../_program/static-dashboard, top_dir = 작업폴더(xlsm·html이
+    # 있는 최상위) - static-dashboard가 _program 밑으로 한 단계 더 들어가
+    # 있으므로 xlsm 자동탐색·html 출력 위치 모두 두 단계 위를 기준으로 삼는다.
     script_dir = Path(__file__).resolve().parent
+    top_dir = script_dir.parent.parent
 
     if args.xlsm:
         xlsm_path = str(Path(args.xlsm).resolve())
     else:
         try:
-            xlsm_path = str(find_first_xlsm(script_dir.parent))
+            xlsm_path = str(find_first_xlsm(top_dir))
         except FileNotFoundError as e:
             sys.exit(str(e))
 
     if not os.path.exists(xlsm_path):
         sys.exit(f"엑셀 파일을 찾을 수 없습니다: {xlsm_path}")
 
-    html_path = str((script_dir / args.out).resolve())
+    html_path = str((top_dir / args.out).resolve())
     form_js_path = str(script_dir / "dashboard_form.js")
+    archive_dir = str(script_dir.parent / "archive")
 
     print(f"[정보] XLSM: {xlsm_path}")
     print(f"[정보] HTML: {html_path}")
 
     try:
-        app = App(xlsm_path=xlsm_path, html_path=html_path, form_js_path=form_js_path)
+        app = App(xlsm_path=xlsm_path, html_path=html_path, form_js_path=form_js_path, archive_dir=archive_dir)
     except ExcelComError as e:
         sys.exit(str(e))
 
@@ -621,6 +662,7 @@ def main():
     except KeyboardInterrupt:
         print("\n[종료] 서버를 멈춥니다.")
     finally:
+        app._backup()
         app.bridge.shutdown()
         server.server_close()
 
