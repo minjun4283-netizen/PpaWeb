@@ -494,12 +494,12 @@ footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-si
       </div>
     </header><div class="demo">⚠ 데모 데이터 — 화면 확인용. 실제 xlsm/CSV로 생성하면 동일 구조로 채워집니다.</div>
     <div class="wrap"><div id="view"></div>
-      <footer><span>생성 2026-09-02 10:37</span><span id="foot-src"></span></footer></div>
+      <footer><span>생성 2026-09-02 11:01</span><span id="foot-src"></span></footer></div>
   </div>
 </div>
 <div id="modalHost"></div><div id="toast"></div>
 <script>
-const DATA = {"generated_at": "2026-09-02T10:37:43", "is_demo": true, "tables": [{"key": "T_발전소", "label": "발전소", "pk": "발전소ID", "columns": ["발전소ID", "발전소명", "발전법인명", "설비용량(MW)", "발전원", "Readiness", "MGA_Supply"], "fk_columns": [], "fk": {}, "rows": [{"cells": {"발전소ID": "P001", "발전소명": "신안태양광1호", "발전법인명": "그린에너지(주)", "설비용량(MW)": "3.0", "발전원": "태양광", "Readiness": "New", "MGA_Supply": "0.133333333"}, "error_cols": []}, {"cells": {"발전소ID": "P002", "발전소명": "영광풍력1호", "발전법인명": "클린파워(주)", "설비용량(MW)": "5.0", "발전원": "풍력", "Readiness": "New", "MGA_Supply": "0.133333333"}, "error_cols": []}, {"cells": {"발전소ID": "P003", "발전소명": "완도해상풍력", "발전법인명": "오션윈드(주)", "설비용량(MW)": "8.0", "발전원": "풍력", "Readiness": "Ready", "MGA_Supply": "0.12"}, "error_cols": [], "change": "added"}]}, {"key": "T_구매계약", "label": "구매계약", "pk": "구매계약ID", "columns": ["구매계약ID", "발전소ID", "구매계약용량(MW)", "구매단가(원/kWh)", "공급기한_구매", "계약기간(년)", "수요기업 미확보", "구매 담당자"], "fk_columns": ["발전소ID"], "fk": {"발전소ID": "T_발전소"}, "rows": [{"cells": {"구매계약ID": "구매-P001-2024-01", "발전소ID": "P001", "구매계약용량(MW)": "3.0", "구매단가(원/kWh)": "142", "공급기한_구매": "2030-12-31", "계약기간(년)": "10", "수요기업 미확보": "FALSE", "구매 담당자": "최기철"}, "error_cols": [], "change": "changed", "changed_cols": ["구매단가(원/kWh)", "구매 담당자"], "prev": {"구매단가(원/kWh)": "138", "구매 담당자": "박창옥"}}, {"cells": {"구매계약ID": "구매-BAD-2024-01", "발전소ID": "P999", "구매계약용량(MW)": "1.0", "구매단가(원/kWh)": "150", "공급기한_구매": "2026-09-30", "계약기간(년)": "5", "수요기업 미확보": "TRUE", "구매 담당자": "박창옥"}, "error_cols": ["발전소ID"]}, {"cells": {"구매계약ID": "구매-P003-2026-01", "발전소ID": "P003", "구매계약용량(MW)": "8.0", "구매단가(원/kWh)": "138", "공급기한_구매": "2032-06-30", "계약기간(년)": "15", "수요기업 미확보": "TRUE", "구매 담당자": "최기철"}, "error_cols": [], "change": "added"}]}, {"key": "T_수요기업", "label": "수요기업", "pk": "수요기업ID", "columns": ["수요기업ID", "기업명"], "fk_columns": [], "fk": {}, "rows": [{"cells": {"수요기업ID": "D001", "기업명": "㈜그린전자"}, "error_cols": []}, {"cells": {"수요기업ID": "D002", "기업명": "한빛반도체㈜"}, "error_cols": []}]}, {"key": "T_판매계약", "label": "판매계약", "pk": "판매계약ID", "columns": ["판매계약ID", "수요기업ID", "판매계약용량(MW)", "계약일", "공급기한_판매", "계약유형", "판매단가(원/kWh)", "공급자원 미확보", "판매 담당자", "계약기간(년)", "Requirement", "MGA_Demand"], "fk_columns": ["수요기업ID"], "fk": {"수요기업ID": "T_수요기업"}, "rows": [{"cells": {"판매계약ID": "판매-D001-2024-01", "수요기업ID": "D001", "판매계약용량(MW)": "1.0", "계약일": "2024-01-01", "공급기한_판매": "2027-01-01", "계약유형": "D", "판매단가(원/kWh)": "160", "공급자원 미확보": "FALSE", "판매 담당자": "홍원정", "계약기간(년)": "10", "Requirement": "New", "MGA_Demand": "0.1"}, "error_cols": ["판매계약ID"]}, {"cells": {"판매계약ID": "판매-D001-2024-01", "수요기업ID": "D001", "판매계약용량(MW)": "1.2", "계약일": "2024-06-01", "공급기한_판매": "2027-06-01", "계약유형": "V", "판매단가(원/kWh)": "158", "공급자원 미확보": "FALSE", "판매 담당자": "홍원정", "계약기간(년)": "10", "Requirement": "New", "MGA_Demand": "0.1"}, "error_cols": ["판매계약ID"], "change": "changed", "changed_cols": ["판매계약용량(MW)", "계약일", "공급기한_판매", "계약유형", "판매단가(원/kWh)"], "prev": {"판매계약용량(MW)": "1.0", "계약일": "2024-01-01", "공급기한_판매": "2027-01-01", "계약유형": "D", "판매단가(원/kWh)": "160"}}, {"cells": {"판매계약ID": "판매-D002-2026-01", "수요기업ID": "D002", "판매계약용량(MW)": "4.0", "계약일": "2026-02-01", "공급기한_판매": "2026-11-30", "계약유형": "D", "판매단가(원/kWh)": "165", "공급자원 미확보": "TRUE", "판매 담당자": "김서연", "계약기간(년)": "8", "Requirement": "New", "MGA_Demand": "0.11"}, "error_cols": []}]}, {"key": "T_전기사용지", "label": "전기사용지", "pk": "전기사용지ID", "columns": ["전기사용지ID", "판매계약ID", "전기사용지명", "전기사용지계약용량(MW)"], "fk_columns": ["판매계약ID"], "fk": {"판매계약ID": "T_판매계약"}, "rows": [{"cells": {"전기사용지ID": "전기사용지-D001-2024-01", "판매계약ID": "판매-D001-2024-01", "전기사용지명": "그린전자 본사", "전기사용지계약용량(MW)": "1.0"}, "error_cols": []}, {"cells": {"전기사용지ID": "전기사용지-D002-2026-01", "판매계약ID": "판매-D002-2026-01", "전기사용지명": "한빛반도체 청주캠퍼스", "전기사용지계약용량(MW)": "4.0"}, "error_cols": []}]}, {"key": "T_수급매칭", "label": "수급매칭", "pk": "수급매칭ID", "columns": ["수급매칭ID", "전기사용지ID", "구매계약ID", "현황", "원인"], "fk_columns": ["전기사용지ID", "구매계약ID"], "fk": {"전기사용지ID": "T_전기사용지", "구매계약ID": "T_구매계약"}, "rows": [{"cells": {"수급매칭ID": "매칭-001", "전기사용지ID": "전기사용지-D001-2024-01", "구매계약ID": "구매-P001-2024-01", "현황": "1. 공급 중", "원인": ""}, "error_cols": ["구매계약ID", "전기사용지ID"]}, {"cells": {"수급매칭ID": "매칭-002", "전기사용지ID": "전기사용지-D001-2024-01", "구매계약ID": "구매-P001-2024-01", "현황": "1. 공급 중", "원인": ""}, "error_cols": ["구매계약ID", "전기사용지ID"]}, {"cells": {"수급매칭ID": "매칭-003", "전기사용지ID": "전기사용지-D002-2026-01", "구매계약ID": "구매-P003-2026-01", "현황": "3. 상업운전 개시", "원인": ""}, "error_cols": []}, {"cells": {"수급매칭ID": "매칭-004", "전기사용지ID": "전기사용지-D001-2024-01", "구매계약ID": "구매-BAD-2024-01", "현황": "4. 공사 중", "원인": ""}, "error_cols": []}, {"cells": {"수급매칭ID": "매칭-005", "전기사용지ID": "전기사용지-D002-2026-01", "구매계약ID": "구매-P001-2024-01", "현황": "5. 착공 전", "원인": ""}, "error_cols": []}, {"cells": {"수급매칭ID": "매칭-006", "전기사용지ID": "전기사용지-D001-2024-01", "구매계약ID": "구매-P003-2026-01", "현황": "6. 이슈 발생", "원인": "한전 이슈"}, "error_cols": []}, {"cells": {"수급매칭ID": "매칭-007", "전기사용지ID": "전기사용지-D002-2026-01", "구매계약ID": "구매-BAD-2024-01", "현황": "7. 미확보", "원인": ""}, "error_cols": []}]}], "validation": {"total_errors": 5, "by_table": {"T_구매계약": 1, "T_판매계약": 2, "T_수급매칭": 2}, "by_item": {"발전소ID 참조": 1, "PK 중복": 2, "조합중복": 2}, "errors": [{"table": "T_구매계약", "row_index": 1, "pk_value": "구매-BAD-2024-01", "error_item": "발전소ID 참조"}, {"table": "T_판매계약", "row_index": 0, "pk_value": "판매-D001-2024-01", "error_item": "PK 중복"}, {"table": "T_판매계약", "row_index": 1, "pk_value": "판매-D001-2024-01", "error_item": "PK 중복"}, {"table": "T_수급매칭", "row_index": 0, "pk_value": "매칭-001", "error_item": "조합중복"}, {"table": "T_수급매칭", "row_index": 1, "pk_value": "매칭-002", "error_item": "조합중복"}]}, "changes": {"has_prev": true, "prev_generated_at": "2026-08-26T10:37:43", "summary": {"T_발전소": {"added": 1, "removed": 0, "changed": 0}, "T_구매계약": {"added": 1, "removed": 0, "changed": 1}, "T_수요기업": {"added": 0, "removed": 1, "changed": 0}, "T_판매계약": {"added": 0, "removed": 0, "changed": 1}, "T_전기사용지": {"added": 0, "removed": 0, "changed": 0}, "T_수급매칭": {"added": 0, "removed": 0, "changed": 0}}, "total_added": 2, "total_removed": 1, "total_changed": 2, "removed_rows": {"T_발전소": [], "T_구매계약": [], "T_수요기업": [{"수요기업ID": "D009", "기업명": "종료된거래처㈜"}], "T_판매계약": [], "T_전기사용지": [], "T_수급매칭": []}, "details": [{"table": "T_구매계약", "pk": "구매-P001-2024-01", "col": "구매단가(원/kWh)", "old": "138", "new": "142"}, {"table": "T_구매계약", "pk": "구매-P001-2024-01", "col": "구매 담당자", "old": "박창옥", "new": "최기철"}, {"table": "T_판매계약", "pk": "판매-D001-2024-01", "col": "판매계약용량(MW)", "old": "1.0", "new": "1.2"}, {"table": "T_판매계약", "pk": "판매-D001-2024-01", "col": "계약일", "old": "2024-01-01", "new": "2024-06-01"}, {"table": "T_판매계약", "pk": "판매-D001-2024-01", "col": "공급기한_판매", "old": "2027-01-01", "new": "2027-06-01"}, {"table": "T_판매계약", "pk": "판매-D001-2024-01", "col": "계약유형", "old": "D", "new": "V"}, {"table": "T_판매계약", "pk": "판매-D001-2024-01", "col": "판매단가(원/kWh)", "old": "160", "new": "158"}], "truncated": false}, "changelog": [{"generated_at": "2026-08-30T10:37:43", "kind": "added", "table": "T_수요기업", "pk": "D002", "actor": "박창옥", "cells": {"수요기업ID": "D002", "기업명": "한빛반도체㈜"}}, {"generated_at": "2026-08-30T10:37:43", "kind": "changed", "table": "T_판매계약", "pk": "판매-D002-2026-01", "actor": "홍원정", "changed_cols": ["판매단가(원/kWh)"], "prev": {"판매단가(원/kWh)": "160"}, "cells": {"판매단가(원/kWh)": "165"}}, {"generated_at": "2026-09-02T10:37:43", "kind": "added", "table": "T_발전소", "pk": "P003", "actor": "최기철", "cells": {"발전소ID": "P003", "발전소명": "완도해상풍력", "발전법인명": "오션윈드(주)", "설비용량(MW)": "8.0", "발전원": "풍력", "Readiness": "Ready", "MGA_Supply": "0.12"}}, {"generated_at": "2026-09-02T10:37:43", "kind": "changed", "table": "T_구매계약", "pk": "구매-P001-2024-01", "actor": "최기철", "changed_cols": ["구매단가(원/kWh)", "구매 담당자"], "prev": {"구매단가(원/kWh)": "138", "구매 담당자": "박창옥"}, "cells": {"구매단가(원/kWh)": "142", "구매 담당자": "최기철"}}, {"generated_at": "2026-09-02T10:37:43", "kind": "added", "table": "T_구매계약", "pk": "구매-P003-2026-01", "actor": "최기철", "cells": {"구매계약ID": "구매-P003-2026-01", "발전소ID": "P003", "구매계약용량(MW)": "8.0", "구매단가(원/kWh)": "138", "공급기한_구매": "2032-06-30", "계약기간(년)": "15", "수요기업 미확보": "TRUE", "구매 담당자": "최기철"}}, {"generated_at": "2026-09-02T10:37:43", "kind": "changed", "table": "T_판매계약", "pk": "판매-D001-2024-01", "actor": "최기철", "changed_cols": ["판매계약용량(MW)", "계약일", "공급기한_판매", "계약유형", "판매단가(원/kWh)"], "prev": {"판매계약용량(MW)": "1.0", "계약일": "2024-01-01", "공급기한_판매": "2027-01-01", "계약유형": "D", "판매단가(원/kWh)": "160"}, "cells": {"판매계약용량(MW)": "1.2", "계약일": "2024-06-01", "공급기한_판매": "2027-06-01", "계약유형": "V", "판매단가(원/kWh)": "158"}}, {"generated_at": "2026-09-02T10:37:43", "kind": "removed", "table": "T_수요기업", "pk": "D009", "actor": "최기철", "cells": {"수요기업ID": "D009", "기업명": "종료된거래처㈜"}}], "unmatched_headers": {}};
+const DATA = {"generated_at": "2026-09-02T11:01:33", "is_demo": true, "tables": [{"key": "T_발전소", "label": "발전소", "pk": "발전소ID", "columns": ["발전소ID", "발전소명", "발전법인명", "설비용량(MW)", "발전원", "Readiness", "MGA_Supply"], "fk_columns": [], "fk": {}, "rows": [{"cells": {"발전소ID": "P001", "발전소명": "신안태양광1호", "발전법인명": "그린에너지(주)", "설비용량(MW)": "3.0", "발전원": "태양광", "Readiness": "New", "MGA_Supply": "0.133333333"}, "error_cols": []}, {"cells": {"발전소ID": "P002", "발전소명": "영광풍력1호", "발전법인명": "클린파워(주)", "설비용량(MW)": "5.0", "발전원": "풍력", "Readiness": "New", "MGA_Supply": "0.133333333"}, "error_cols": []}, {"cells": {"발전소ID": "P003", "발전소명": "완도해상풍력", "발전법인명": "오션윈드(주)", "설비용량(MW)": "8.0", "발전원": "풍력", "Readiness": "Ready", "MGA_Supply": "0.12"}, "error_cols": [], "change": "added"}]}, {"key": "T_구매계약", "label": "구매계약", "pk": "구매계약ID", "columns": ["구매계약ID", "발전소ID", "구매계약용량(MW)", "구매단가(원/kWh)", "공급기한_구매", "계약기간(년)", "수요기업 미확보", "구매 담당자"], "fk_columns": ["발전소ID"], "fk": {"발전소ID": "T_발전소"}, "rows": [{"cells": {"구매계약ID": "구매-P001-2024-01", "발전소ID": "P001", "구매계약용량(MW)": "3.0", "구매단가(원/kWh)": "142", "공급기한_구매": "2030-12-31", "계약기간(년)": "10", "수요기업 미확보": "FALSE", "구매 담당자": "최기철"}, "error_cols": [], "change": "changed", "changed_cols": ["구매단가(원/kWh)", "구매 담당자"], "prev": {"구매단가(원/kWh)": "138", "구매 담당자": "박창옥"}}, {"cells": {"구매계약ID": "구매-BAD-2024-01", "발전소ID": "P999", "구매계약용량(MW)": "1.0", "구매단가(원/kWh)": "150", "공급기한_구매": "2026-09-30", "계약기간(년)": "5", "수요기업 미확보": "TRUE", "구매 담당자": "박창옥"}, "error_cols": ["발전소ID"]}, {"cells": {"구매계약ID": "구매-P003-2026-01", "발전소ID": "P003", "구매계약용량(MW)": "8.0", "구매단가(원/kWh)": "138", "공급기한_구매": "2032-06-30", "계약기간(년)": "15", "수요기업 미확보": "TRUE", "구매 담당자": "최기철"}, "error_cols": [], "change": "added"}]}, {"key": "T_수요기업", "label": "수요기업", "pk": "수요기업ID", "columns": ["수요기업ID", "기업명"], "fk_columns": [], "fk": {}, "rows": [{"cells": {"수요기업ID": "D001", "기업명": "㈜그린전자"}, "error_cols": []}, {"cells": {"수요기업ID": "D002", "기업명": "한빛반도체㈜"}, "error_cols": []}]}, {"key": "T_판매계약", "label": "판매계약", "pk": "판매계약ID", "columns": ["판매계약ID", "수요기업ID", "판매계약용량(MW)", "계약일", "공급기한_판매", "계약유형", "판매단가(원/kWh)", "공급자원 미확보", "판매 담당자", "계약기간(년)", "Requirement", "MGA_Demand"], "fk_columns": ["수요기업ID"], "fk": {"수요기업ID": "T_수요기업"}, "rows": [{"cells": {"판매계약ID": "판매-D001-2024-01", "수요기업ID": "D001", "판매계약용량(MW)": "1.0", "계약일": "2024-01-01", "공급기한_판매": "2027-01-01", "계약유형": "D", "판매단가(원/kWh)": "160", "공급자원 미확보": "FALSE", "판매 담당자": "홍원정", "계약기간(년)": "10", "Requirement": "New", "MGA_Demand": "0.1"}, "error_cols": ["판매계약ID"]}, {"cells": {"판매계약ID": "판매-D001-2024-01", "수요기업ID": "D001", "판매계약용량(MW)": "1.2", "계약일": "2024-06-01", "공급기한_판매": "2027-06-01", "계약유형": "V", "판매단가(원/kWh)": "158", "공급자원 미확보": "FALSE", "판매 담당자": "홍원정", "계약기간(년)": "10", "Requirement": "New", "MGA_Demand": "0.1"}, "error_cols": ["판매계약ID"], "change": "changed", "changed_cols": ["판매계약용량(MW)", "계약일", "공급기한_판매", "계약유형", "판매단가(원/kWh)"], "prev": {"판매계약용량(MW)": "1.0", "계약일": "2024-01-01", "공급기한_판매": "2027-01-01", "계약유형": "D", "판매단가(원/kWh)": "160"}}, {"cells": {"판매계약ID": "판매-D002-2026-01", "수요기업ID": "D002", "판매계약용량(MW)": "4.0", "계약일": "2026-02-01", "공급기한_판매": "2026-11-30", "계약유형": "D", "판매단가(원/kWh)": "165", "공급자원 미확보": "TRUE", "판매 담당자": "김서연", "계약기간(년)": "8", "Requirement": "New", "MGA_Demand": "0.11"}, "error_cols": []}]}, {"key": "T_전기사용지", "label": "전기사용지", "pk": "전기사용지ID", "columns": ["전기사용지ID", "판매계약ID", "전기사용지명", "전기사용지계약용량(MW)"], "fk_columns": ["판매계약ID"], "fk": {"판매계약ID": "T_판매계약"}, "rows": [{"cells": {"전기사용지ID": "전기사용지-D001-2024-01", "판매계약ID": "판매-D001-2024-01", "전기사용지명": "그린전자 본사", "전기사용지계약용량(MW)": "1.0"}, "error_cols": []}, {"cells": {"전기사용지ID": "전기사용지-D002-2026-01", "판매계약ID": "판매-D002-2026-01", "전기사용지명": "한빛반도체 청주캠퍼스", "전기사용지계약용량(MW)": "4.0"}, "error_cols": []}]}, {"key": "T_수급매칭", "label": "수급매칭", "pk": "수급매칭ID", "columns": ["수급매칭ID", "전기사용지ID", "구매계약ID", "현황", "원인"], "fk_columns": ["전기사용지ID", "구매계약ID"], "fk": {"전기사용지ID": "T_전기사용지", "구매계약ID": "T_구매계약"}, "rows": [{"cells": {"수급매칭ID": "매칭-001", "전기사용지ID": "전기사용지-D001-2024-01", "구매계약ID": "구매-P001-2024-01", "현황": "1. 공급 중", "원인": ""}, "error_cols": ["구매계약ID", "전기사용지ID"]}, {"cells": {"수급매칭ID": "매칭-002", "전기사용지ID": "전기사용지-D001-2024-01", "구매계약ID": "구매-P001-2024-01", "현황": "1. 공급 중", "원인": ""}, "error_cols": ["구매계약ID", "전기사용지ID"]}, {"cells": {"수급매칭ID": "매칭-003", "전기사용지ID": "전기사용지-D002-2026-01", "구매계약ID": "구매-P003-2026-01", "현황": "3. 상업운전 개시", "원인": ""}, "error_cols": []}, {"cells": {"수급매칭ID": "매칭-004", "전기사용지ID": "전기사용지-D001-2024-01", "구매계약ID": "구매-BAD-2024-01", "현황": "4. 공사 중", "원인": ""}, "error_cols": []}, {"cells": {"수급매칭ID": "매칭-005", "전기사용지ID": "전기사용지-D002-2026-01", "구매계약ID": "구매-P001-2024-01", "현황": "5. 착공 전", "원인": ""}, "error_cols": []}, {"cells": {"수급매칭ID": "매칭-006", "전기사용지ID": "전기사용지-D001-2024-01", "구매계약ID": "구매-P003-2026-01", "현황": "6. 이슈 발생", "원인": "한전 이슈"}, "error_cols": []}, {"cells": {"수급매칭ID": "매칭-007", "전기사용지ID": "전기사용지-D002-2026-01", "구매계약ID": "구매-BAD-2024-01", "현황": "7. 미확보", "원인": ""}, "error_cols": []}]}], "validation": {"total_errors": 5, "by_table": {"T_구매계약": 1, "T_판매계약": 2, "T_수급매칭": 2}, "by_item": {"발전소ID 참조": 1, "PK 중복": 2, "조합중복": 2}, "errors": [{"table": "T_구매계약", "row_index": 1, "pk_value": "구매-BAD-2024-01", "error_item": "발전소ID 참조"}, {"table": "T_판매계약", "row_index": 0, "pk_value": "판매-D001-2024-01", "error_item": "PK 중복"}, {"table": "T_판매계약", "row_index": 1, "pk_value": "판매-D001-2024-01", "error_item": "PK 중복"}, {"table": "T_수급매칭", "row_index": 0, "pk_value": "매칭-001", "error_item": "조합중복"}, {"table": "T_수급매칭", "row_index": 1, "pk_value": "매칭-002", "error_item": "조합중복"}]}, "changes": {"has_prev": true, "prev_generated_at": "2026-08-26T11:01:33", "summary": {"T_발전소": {"added": 1, "removed": 0, "changed": 0}, "T_구매계약": {"added": 1, "removed": 0, "changed": 1}, "T_수요기업": {"added": 0, "removed": 1, "changed": 0}, "T_판매계약": {"added": 0, "removed": 0, "changed": 1}, "T_전기사용지": {"added": 0, "removed": 0, "changed": 0}, "T_수급매칭": {"added": 0, "removed": 0, "changed": 0}}, "total_added": 2, "total_removed": 1, "total_changed": 2, "removed_rows": {"T_발전소": [], "T_구매계약": [], "T_수요기업": [{"수요기업ID": "D009", "기업명": "종료된거래처㈜"}], "T_판매계약": [], "T_전기사용지": [], "T_수급매칭": []}, "details": [{"table": "T_구매계약", "pk": "구매-P001-2024-01", "col": "구매단가(원/kWh)", "old": "138", "new": "142"}, {"table": "T_구매계약", "pk": "구매-P001-2024-01", "col": "구매 담당자", "old": "박창옥", "new": "최기철"}, {"table": "T_판매계약", "pk": "판매-D001-2024-01", "col": "판매계약용량(MW)", "old": "1.0", "new": "1.2"}, {"table": "T_판매계약", "pk": "판매-D001-2024-01", "col": "계약일", "old": "2024-01-01", "new": "2024-06-01"}, {"table": "T_판매계약", "pk": "판매-D001-2024-01", "col": "공급기한_판매", "old": "2027-01-01", "new": "2027-06-01"}, {"table": "T_판매계약", "pk": "판매-D001-2024-01", "col": "계약유형", "old": "D", "new": "V"}, {"table": "T_판매계약", "pk": "판매-D001-2024-01", "col": "판매단가(원/kWh)", "old": "160", "new": "158"}], "truncated": false}, "changelog": [{"generated_at": "2026-08-30T11:01:33", "kind": "added", "table": "T_수요기업", "pk": "D002", "actor": "박창옥", "cells": {"수요기업ID": "D002", "기업명": "한빛반도체㈜"}}, {"generated_at": "2026-08-30T11:01:33", "kind": "changed", "table": "T_판매계약", "pk": "판매-D002-2026-01", "actor": "홍원정", "changed_cols": ["판매단가(원/kWh)"], "prev": {"판매단가(원/kWh)": "160"}, "cells": {"판매단가(원/kWh)": "165"}}, {"generated_at": "2026-09-02T11:01:33", "kind": "added", "table": "T_발전소", "pk": "P003", "actor": "최기철", "cells": {"발전소ID": "P003", "발전소명": "완도해상풍력", "발전법인명": "오션윈드(주)", "설비용량(MW)": "8.0", "발전원": "풍력", "Readiness": "Ready", "MGA_Supply": "0.12"}}, {"generated_at": "2026-09-02T11:01:33", "kind": "changed", "table": "T_구매계약", "pk": "구매-P001-2024-01", "actor": "최기철", "changed_cols": ["구매단가(원/kWh)", "구매 담당자"], "prev": {"구매단가(원/kWh)": "138", "구매 담당자": "박창옥"}, "cells": {"구매단가(원/kWh)": "142", "구매 담당자": "최기철"}}, {"generated_at": "2026-09-02T11:01:33", "kind": "added", "table": "T_구매계약", "pk": "구매-P003-2026-01", "actor": "최기철", "cells": {"구매계약ID": "구매-P003-2026-01", "발전소ID": "P003", "구매계약용량(MW)": "8.0", "구매단가(원/kWh)": "138", "공급기한_구매": "2032-06-30", "계약기간(년)": "15", "수요기업 미확보": "TRUE", "구매 담당자": "최기철"}}, {"generated_at": "2026-09-02T11:01:33", "kind": "changed", "table": "T_판매계약", "pk": "판매-D001-2024-01", "actor": "최기철", "changed_cols": ["판매계약용량(MW)", "계약일", "공급기한_판매", "계약유형", "판매단가(원/kWh)"], "prev": {"판매계약용량(MW)": "1.0", "계약일": "2024-01-01", "공급기한_판매": "2027-01-01", "계약유형": "D", "판매단가(원/kWh)": "160"}, "cells": {"판매계약용량(MW)": "1.2", "계약일": "2024-06-01", "공급기한_판매": "2027-06-01", "계약유형": "V", "판매단가(원/kWh)": "158"}}, {"generated_at": "2026-09-02T11:01:33", "kind": "removed", "table": "T_수요기업", "pk": "D009", "actor": "최기철", "cells": {"수요기업ID": "D009", "기업명": "종료된거래처㈜"}}], "unmatched_headers": {}};
 
 /* ── 색인: PK로 행 찾기, FK 관계 그래프 ─────────────────────────────────── */
 const byKey={};DATA.tables.forEach(t=>byKey[t.key]=t);
@@ -2340,8 +2340,8 @@ function buildCombinedTrendChart(keys,sourceSeries,matchedTotalValues,newVals,en
   });
   svg+='</svg>';
 
-  const tickStep=Math.max(1,Math.ceil(n/12));
-  const xticks=keys.map((k,i)=>`<span class="trendtick">${(i%tickStep===0||i===n-1)?esc(monthLabel(k)):''}</span>`).join('');
+  const shownIdx=new Set(tickIndices(n,12));
+  const xticks=keys.map((k,i)=>`<span class="trendtick">${shownIdx.has(i)?esc(monthLabel(k)):''}</span>`).join('');
   const legend=`<div class="trendlegend">
       <span style="cursor:pointer" onclick="state.tab='T_수급매칭';render()"><span class="trendlegendline" style="border-top-color:var(--teal)"></span>매칭된 계약 누적 용량: ${nf(lastMatched)} MW</span>
       ${layers.map(l=>`<span${l.action?` style="cursor:pointer" onclick="${l.action}"`:''}><span class="trendswatch" style="background:${l.color}"></span>${esc(l.label)}: ${nf(l.values[lastI]||0)} MW</span>`).join('')}
@@ -2409,6 +2409,22 @@ function niceTicks(max,integer){
   const top=Math.ceil(max/step)*step,out=[];
   for(let v=0;v<=top+1e-9;v+=step) out.push(Math.round(v*1000)/1000);
   return out;
+}
+/* X축에 라벨을 보여줄 인덱스를 고릅니다 - 일정 간격(targetCount 등분
+   근처)으로 고르되 마지막 값은 항상 포함합니다. 데이터 개수에 따라
+   "마지막 정기 눈금"과 "진짜 마지막 인덱스"가 한두 칸 차이로 가까워지면
+   두 라벨 글자가 겹쳐 보이는 문제가 있었는데(예: 총 112개월일 때 110번째
+   정기 눈금과 111번째 마지막 눈금), 그 경우 정기 눈금 쪽을 빼서 항상
+   마지막 라벨 하나만 남도록 합니다. */
+function tickIndices(n,targetCount){
+  if(n<=1) return [0];
+  const step=Math.max(1,Math.ceil(n/targetCount));
+  const idxs=[];
+  for(let i=0;i<n-1;i+=step) idxs.push(i);
+  const last=n-1;
+  if(idxs.length&&last-idxs[idxs.length-1]<=step/2) idxs.pop();
+  idxs.push(last);
+  return idxs;
 }
 /* 월별/일별 추이 공용 렌더러 — keys 순서대로 막대를 그리고, "보기 좋은"
    눈금의 격자선·왼쪽 축 라벨을 같이 그려서 값을 가늠하기 쉽게 합니다.
@@ -2486,10 +2502,10 @@ function buildTrendLineChart(cfg,m,unit,curKeys){
 
   /* 범위가 12개월을 넘거나 연도 경계를 넘나들면 "3월"만으론 헷갈리므로
      "'26.03" 형식(monthLabel)으로, 점 개수가 많을 때는 겹치지 않게
-     솎아서(tickStep) 보여줍니다. */
-  const tickStep=Math.max(1,Math.ceil(n/12));
+     솎아서(tickIndices) 보여줍니다. */
+  const shownIdx=new Set(tickIndices(n,12));
   const xticks=curKeys.map((k,i)=>{
-    const show=i%tickStep===0||i===n-1;
+    const show=shownIdx.has(i);
     const lbl=show?(n>12?monthLabel(k):Number(k.slice(5,7))+'월'):'';
     return `<span class="trendtick">${esc(lbl)}</span>`;
   }).join('');
@@ -2538,43 +2554,58 @@ function trendRangeToolsHtml(){
    월별 신규/종료 판매계약 용량(막대, 오른쪽 축)을 하나의 콤보 차트로
    합쳐서 보여줍니다. TREND_METRICS의 다른 5개 지표와 달리 단일 표·단일
    컬럼으로 표현되지 않는 합성 지표라 groupByMonth 경로를 타지 않고
-   이 함수에서 직접 집계합니다. 건수/용량 토글·기간 지정·일별 드릴다운은
-   이 지표에는 의미가 없어(용량 하나뿐, 2020년 이후 전체 추이가 핵심)
-   버튼 자체를 숨깁니다. */
+   이 함수에서 직접 집계합니다. 건수/용량 토글·일별 드릴다운은 이
+   지표에는 의미가 없어(용량 하나뿐, 일별 데이터 없음) 숨기지만, 조회
+   시작/종료 기간 지정은 다른 5개 지표와 동일하게 trendRangeKeys()를
+   그대로 재사용합니다.
+   주의: 누적 용량은 "2020년부터 지금까지 계속 쌓인 값"이라, 화면에
+   기간을 좁혀 보여준다고 해서 그 시작월의 누적값이 0으로 리셋되면
+   안 됩니다(예: 최근 12개월만 보더라도 그 첫 달의 값은 2020년부터
+   쌓여온 진짜 누적값이어야 함). 그래서 2020-01부터 화면에 보여줄
+   마지막 달까지 전체(fullKeys)로 먼저 누적 계산을 한 뒤, 실제 표시
+   구간(monthKeys)만큼만 뒤에서 잘라 씁니다. */
 function legacyTrendCombinedView(buttons){
   const heading=`<div class="trendsubtitle">지표별 상세 추이 (매칭된 계약 · 발전원별 누적 + 월별 신규/종료 판매계약, ${TREND_BASE_YEAR}년~)</div>`;
   const tools=trendToolsHtml(buttons,state.homeTrend.unit,false);
+  const rangeTools=trendRangeToolsHtml();
   const {totalM,bySource}=matchedCapacityByMonth();
   const {newM,endM}=saleDateMaps();
   const allKeys=[...Object.keys(totalM),...Object.values(bySource).flatMap(m=>Object.keys(m)),...Object.keys(newM),...Object.keys(endM)];
   if(!allKeys.length){
-    return `${heading}${tools}<div class="nocand">${TREND_BASE_YEAR}년 이후 매칭(수급매칭)·신규/종료 판매계약 데이터가 없습니다.</div>`;
+    return `${heading}${tools}${rangeTools}<div class="nocand">${TREND_BASE_YEAR}년 이후 매칭(수급매칭)·신규/종료 판매계약 데이터가 없습니다.</div>`;
   }
-  let maxI=-Infinity;
-  allKeys.forEach(k=>{const i=ymIdx(k);if(i>maxI)maxI=i;});
-  const {keys:monthKeys,clamped}=monthRangeFrom2020(maxI);
+
+  const windowKeysRaw=trendRangeKeys(); // 최근 12개월 기본, 지정 시 최대 36개월
+  const base=TREND_BASE_YEAR+'-01';
+  const windowEnd=windowKeysRaw[windowKeysRaw.length-1];
+  const {keys:fullKeys}=monthRangeFrom2020(Math.max(ymIdx(windowEnd),ymIdx(base)));
+  const displayStart=ymIdx(windowKeysRaw[0])<ymIdx(base)?base:windowKeysRaw[0];
+  const sliceFrom=ymIdx(displayStart)-ymIdx(base);
+  const monthKeys=fullKeys.slice(sliceFrom);
 
   const sourceTotals=Object.entries(bySource)
     .map(([g,m])=>[g,m,Object.values(m).reduce((s,v)=>s+v,0)])
     .sort((a,b)=>b[2]-a[2]);
   const topSources=sourceTotals.slice(0,4),restSources=sourceTotals.slice(4);
   const sourceSeries=topSources.map(([g,m],i)=>({label:g,color:CAT_COLORS[i%CAT_COLORS.length],
-    values:cumulativeSeries(m,monthKeys),action:`jumpToFilter('T_발전소','발전원','${jsq(g)}')`}));
+    values:cumulativeSeries(m,fullKeys).slice(sliceFrom),action:`jumpToFilter('T_발전소','발전원','${jsq(g)}')`}));
   if(restSources.length){
     const mergedMap={};
     restSources.forEach(([,m])=>Object.entries(m).forEach(([mk,v])=>{mergedMap[mk]=(mergedMap[mk]||0)+v;}));
     sourceSeries.push({label:`기타 ${restSources.length}종`,color:'var(--mute)',
-      values:cumulativeSeries(mergedMap,monthKeys),action:"state.tab='T_발전소';render()"});
+      values:cumulativeSeries(mergedMap,fullKeys).slice(sliceFrom),action:"state.tab='T_발전소';render()"});
   }
-  const matchedTotalValues=cumulativeSeries(totalM,monthKeys);
+  const matchedTotalValues=cumulativeSeries(totalM,fullKeys).slice(sliceFrom);
   const newVals=monthKeys.map(k=>newM[k]||0);
   const endVals=monthKeys.map(k=>endM[k]||0);
   const {chart,totalMatched,totalNew,totalEnd}=buildCombinedTrendChart(monthKeys,sourceSeries,matchedTotalValues,newVals,endVals);
-  const rangeDesc=`${monthLabel(monthKeys[0])} ~ ${monthLabel(monthKeys[monthKeys.length-1])} (${monthKeys.length}개월)`;
+  const isCustom=!!(state.homeTrend.rangeFrom&&state.homeTrend.rangeTo);
+  const rangeDesc=isCustom?`${monthLabel(monthKeys[0])} ~ ${monthLabel(monthKeys[monthKeys.length-1])} (${monthKeys.length}개월)`:'최근 12개월';
   return `${heading}
     ${tools}
+    ${rangeTools}
     ${chart}
-    <div class="trendfoot"><span>${esc(rangeDesc)}${clamped?' · 표시 범위가 넓어 최근 30년으로 제한됨':''}</span><span>매칭 누적 ${nf(totalMatched)} MW · 신규 합계 ${nf(totalNew)} MW · 종료 합계 ${nf(totalEnd)} MW</span></div>`;
+    <div class="trendfoot"><span>${esc(rangeDesc)}</span><span>이 구간 끝 기준 매칭 누적 ${nf(totalMatched)} MW · 신규 합계 ${nf(totalNew)} MW · 종료 합계 ${nf(totalEnd)} MW</span></div>`;
 }
 function legacyTrendSection(){
   const avail=Object.entries(TREND_METRICS).filter(([,c])=>byKey[c.tk]);

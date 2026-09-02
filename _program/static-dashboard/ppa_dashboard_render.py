@@ -2361,8 +2361,8 @@ function buildCombinedTrendChart(keys,sourceSeries,matchedTotalValues,newVals,en
   });
   svg+='</svg>';
 
-  const tickStep=Math.max(1,Math.ceil(n/12));
-  const xticks=keys.map((k,i)=>`<span class="trendtick">${(i%tickStep===0||i===n-1)?esc(monthLabel(k)):''}</span>`).join('');
+  const shownIdx=new Set(tickIndices(n,12));
+  const xticks=keys.map((k,i)=>`<span class="trendtick">${shownIdx.has(i)?esc(monthLabel(k)):''}</span>`).join('');
   const legend=`<div class="trendlegend">
       <span style="cursor:pointer" onclick="state.tab='T_수급매칭';render()"><span class="trendlegendline" style="border-top-color:var(--teal)"></span>매칭된 계약 누적 용량: ${nf(lastMatched)} MW</span>
       ${layers.map(l=>`<span${l.action?` style="cursor:pointer" onclick="${l.action}"`:''}><span class="trendswatch" style="background:${l.color}"></span>${esc(l.label)}: ${nf(l.values[lastI]||0)} MW</span>`).join('')}
@@ -2430,6 +2430,22 @@ function niceTicks(max,integer){
   const top=Math.ceil(max/step)*step,out=[];
   for(let v=0;v<=top+1e-9;v+=step) out.push(Math.round(v*1000)/1000);
   return out;
+}
+/* X축에 라벨을 보여줄 인덱스를 고릅니다 - 일정 간격(targetCount 등분
+   근처)으로 고르되 마지막 값은 항상 포함합니다. 데이터 개수에 따라
+   "마지막 정기 눈금"과 "진짜 마지막 인덱스"가 한두 칸 차이로 가까워지면
+   두 라벨 글자가 겹쳐 보이는 문제가 있었는데(예: 총 112개월일 때 110번째
+   정기 눈금과 111번째 마지막 눈금), 그 경우 정기 눈금 쪽을 빼서 항상
+   마지막 라벨 하나만 남도록 합니다. */
+function tickIndices(n,targetCount){
+  if(n<=1) return [0];
+  const step=Math.max(1,Math.ceil(n/targetCount));
+  const idxs=[];
+  for(let i=0;i<n-1;i+=step) idxs.push(i);
+  const last=n-1;
+  if(idxs.length&&last-idxs[idxs.length-1]<=step/2) idxs.pop();
+  idxs.push(last);
+  return idxs;
 }
 /* 월별/일별 추이 공용 렌더러 — keys 순서대로 막대를 그리고, "보기 좋은"
    눈금의 격자선·왼쪽 축 라벨을 같이 그려서 값을 가늠하기 쉽게 합니다.
@@ -2507,10 +2523,10 @@ function buildTrendLineChart(cfg,m,unit,curKeys){
 
   /* 범위가 12개월을 넘거나 연도 경계를 넘나들면 "3월"만으론 헷갈리므로
      "'26.03" 형식(monthLabel)으로, 점 개수가 많을 때는 겹치지 않게
-     솎아서(tickStep) 보여줍니다. */
-  const tickStep=Math.max(1,Math.ceil(n/12));
+     솎아서(tickIndices) 보여줍니다. */
+  const shownIdx=new Set(tickIndices(n,12));
   const xticks=curKeys.map((k,i)=>{
-    const show=i%tickStep===0||i===n-1;
+    const show=shownIdx.has(i);
     const lbl=show?(n>12?monthLabel(k):Number(k.slice(5,7))+'월'):'';
     return `<span class="trendtick">${esc(lbl)}</span>`;
   }).join('');
@@ -2559,43 +2575,58 @@ function trendRangeToolsHtml(){
    월별 신규/종료 판매계약 용량(막대, 오른쪽 축)을 하나의 콤보 차트로
    합쳐서 보여줍니다. TREND_METRICS의 다른 5개 지표와 달리 단일 표·단일
    컬럼으로 표현되지 않는 합성 지표라 groupByMonth 경로를 타지 않고
-   이 함수에서 직접 집계합니다. 건수/용량 토글·기간 지정·일별 드릴다운은
-   이 지표에는 의미가 없어(용량 하나뿐, 2020년 이후 전체 추이가 핵심)
-   버튼 자체를 숨깁니다. */
+   이 함수에서 직접 집계합니다. 건수/용량 토글·일별 드릴다운은 이
+   지표에는 의미가 없어(용량 하나뿐, 일별 데이터 없음) 숨기지만, 조회
+   시작/종료 기간 지정은 다른 5개 지표와 동일하게 trendRangeKeys()를
+   그대로 재사용합니다.
+   주의: 누적 용량은 "2020년부터 지금까지 계속 쌓인 값"이라, 화면에
+   기간을 좁혀 보여준다고 해서 그 시작월의 누적값이 0으로 리셋되면
+   안 됩니다(예: 최근 12개월만 보더라도 그 첫 달의 값은 2020년부터
+   쌓여온 진짜 누적값이어야 함). 그래서 2020-01부터 화면에 보여줄
+   마지막 달까지 전체(fullKeys)로 먼저 누적 계산을 한 뒤, 실제 표시
+   구간(monthKeys)만큼만 뒤에서 잘라 씁니다. */
 function legacyTrendCombinedView(buttons){
   const heading=`<div class="trendsubtitle">지표별 상세 추이 (매칭된 계약 · 발전원별 누적 + 월별 신규/종료 판매계약, ${TREND_BASE_YEAR}년~)</div>`;
   const tools=trendToolsHtml(buttons,state.homeTrend.unit,false);
+  const rangeTools=trendRangeToolsHtml();
   const {totalM,bySource}=matchedCapacityByMonth();
   const {newM,endM}=saleDateMaps();
   const allKeys=[...Object.keys(totalM),...Object.values(bySource).flatMap(m=>Object.keys(m)),...Object.keys(newM),...Object.keys(endM)];
   if(!allKeys.length){
-    return `${heading}${tools}<div class="nocand">${TREND_BASE_YEAR}년 이후 매칭(수급매칭)·신규/종료 판매계약 데이터가 없습니다.</div>`;
+    return `${heading}${tools}${rangeTools}<div class="nocand">${TREND_BASE_YEAR}년 이후 매칭(수급매칭)·신규/종료 판매계약 데이터가 없습니다.</div>`;
   }
-  let maxI=-Infinity;
-  allKeys.forEach(k=>{const i=ymIdx(k);if(i>maxI)maxI=i;});
-  const {keys:monthKeys,clamped}=monthRangeFrom2020(maxI);
+
+  const windowKeysRaw=trendRangeKeys(); // 최근 12개월 기본, 지정 시 최대 36개월
+  const base=TREND_BASE_YEAR+'-01';
+  const windowEnd=windowKeysRaw[windowKeysRaw.length-1];
+  const {keys:fullKeys}=monthRangeFrom2020(Math.max(ymIdx(windowEnd),ymIdx(base)));
+  const displayStart=ymIdx(windowKeysRaw[0])<ymIdx(base)?base:windowKeysRaw[0];
+  const sliceFrom=ymIdx(displayStart)-ymIdx(base);
+  const monthKeys=fullKeys.slice(sliceFrom);
 
   const sourceTotals=Object.entries(bySource)
     .map(([g,m])=>[g,m,Object.values(m).reduce((s,v)=>s+v,0)])
     .sort((a,b)=>b[2]-a[2]);
   const topSources=sourceTotals.slice(0,4),restSources=sourceTotals.slice(4);
   const sourceSeries=topSources.map(([g,m],i)=>({label:g,color:CAT_COLORS[i%CAT_COLORS.length],
-    values:cumulativeSeries(m,monthKeys),action:`jumpToFilter('T_발전소','발전원','${jsq(g)}')`}));
+    values:cumulativeSeries(m,fullKeys).slice(sliceFrom),action:`jumpToFilter('T_발전소','발전원','${jsq(g)}')`}));
   if(restSources.length){
     const mergedMap={};
     restSources.forEach(([,m])=>Object.entries(m).forEach(([mk,v])=>{mergedMap[mk]=(mergedMap[mk]||0)+v;}));
     sourceSeries.push({label:`기타 ${restSources.length}종`,color:'var(--mute)',
-      values:cumulativeSeries(mergedMap,monthKeys),action:"state.tab='T_발전소';render()"});
+      values:cumulativeSeries(mergedMap,fullKeys).slice(sliceFrom),action:"state.tab='T_발전소';render()"});
   }
-  const matchedTotalValues=cumulativeSeries(totalM,monthKeys);
+  const matchedTotalValues=cumulativeSeries(totalM,fullKeys).slice(sliceFrom);
   const newVals=monthKeys.map(k=>newM[k]||0);
   const endVals=monthKeys.map(k=>endM[k]||0);
   const {chart,totalMatched,totalNew,totalEnd}=buildCombinedTrendChart(monthKeys,sourceSeries,matchedTotalValues,newVals,endVals);
-  const rangeDesc=`${monthLabel(monthKeys[0])} ~ ${monthLabel(monthKeys[monthKeys.length-1])} (${monthKeys.length}개월)`;
+  const isCustom=!!(state.homeTrend.rangeFrom&&state.homeTrend.rangeTo);
+  const rangeDesc=isCustom?`${monthLabel(monthKeys[0])} ~ ${monthLabel(monthKeys[monthKeys.length-1])} (${monthKeys.length}개월)`:'최근 12개월';
   return `${heading}
     ${tools}
+    ${rangeTools}
     ${chart}
-    <div class="trendfoot"><span>${esc(rangeDesc)}${clamped?' · 표시 범위가 넓어 최근 30년으로 제한됨':''}</span><span>매칭 누적 ${nf(totalMatched)} MW · 신규 합계 ${nf(totalNew)} MW · 종료 합계 ${nf(totalEnd)} MW</span></div>`;
+    <div class="trendfoot"><span>${esc(rangeDesc)}</span><span>이 구간 끝 기준 매칭 누적 ${nf(totalMatched)} MW · 신규 합계 ${nf(totalNew)} MW · 종료 합계 ${nf(totalEnd)} MW</span></div>`;
 }
 function legacyTrendSection(){
   const avail=Object.entries(TREND_METRICS).filter(([,c])=>byKey[c.tk]);
