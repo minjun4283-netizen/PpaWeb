@@ -25,6 +25,7 @@ import datetime
 import os
 import queue
 import re
+import subprocess
 import threading
 from typing import Optional
 
@@ -34,10 +35,12 @@ from ppa_ids import ID_TABLE_KEYS, compute_id, find_row, id_dependents
 try:
     import pythoncom
     import win32com.client
+    import win32process
     _IMPORT_ERROR: Optional[Exception] = None
 except ImportError as exc:  # pywin32 미설치 환경에서도 모듈 자체는 import 가능해야 함
     pythoncom = None
     win32com = None
+    win32process = None
     _IMPORT_ERROR = exc
 
 
@@ -341,6 +344,18 @@ class ExcelBridge:
         if not os.path.exists(self.xlsm_path):
             raise ExcelComError(f"엑셀 파일을 찾을 수 없습니다: {self.xlsm_path}")
 
+        # 여기까지 왔다는 건 위의 모든 방법으로도 "이미 열려 있는 워크북"을
+        # 못 찾았다는 뜻인데, 서버가 이전에(정전/강제종료/충돌 등으로)
+        # 비정상 종료되면서 우리가 띄웠던 숨김 엑셀을 못 닫고 그대로 남긴
+        # 적이 있으면 - 그 좀비 프로세스가 OS 차원에서 파일을 계속 붙잡고
+        # 있어서, 위 검색으로는 안 잡혀도(등록이 끊겼거나 다른 인스턴스라)
+        # 실제로는 같은 파일이 이미 열려 있는 상태입니다. 이 경우 아래
+        # DispatchEx + Open이 "같은 이름의 통합 문서를 동시에 열 수
+        # 없습니다"로 실패합니다. 우리가 지난번에 직접 남겨둔 PID 마커가
+        # 있으면(=우리가 띄운 프로세스라는 게 확실하므로 사용자의 다른
+        # 엑셀을 건드릴 위험 없이) 미리 정리합니다.
+        self._kill_stale_hidden_excel()
+
         try:
             app = win32com.client.DispatchEx("Excel.Application")
             app.Visible = False
@@ -364,6 +379,7 @@ class ExcelBridge:
 
         self._app = app
         self._we_launched_app = True
+        self._write_pid_marker(app)
         return wb
 
     def _diagnose_open_failure(self) -> str:
@@ -466,8 +482,66 @@ class ExcelBridge:
                 self._app.Quit()
             except Exception:
                 pass
+            self._clear_pid_marker()
         self._app = None
         self._we_launched_app = False
+
+    # ---- 좀비 숨김 엑셀 방지 -------------------------------------------------
+    #
+    # 서버가 (정전, 강제종료, Task Manager로 python.exe만 죽임 등으로) 정상
+    # 종료 경로(_close_if_we_launched)를 못 타고 죽으면, DispatchEx로 띄웠던
+    # 숨김 엑셀 프로세스는 부모-자식 관계가 아니어서 같이 죽지 않고 그대로
+    # 남습니다. 다음 실행이 이 파일을 다시 열려고 하면, 눈에는 아무 엑셀
+    # 창도 안 보이는데도 "같은 이름의 통합 문서를 동시에 열 수 없습니다"
+    # 오류가 나는 원인이 됩니다. 우리가 스스로 띄운 프로세스의 PID를 파일로
+    # 남겨두면, 다음 실행에서 확실하게(사용자의 다른 엑셀을 건드릴 위험
+    # 없이) 정리할 수 있습니다.
+    def _pid_marker_path(self) -> str:
+        return self.xlsm_path + ".livepid"
+
+    def _write_pid_marker(self, app) -> None:
+        try:
+            pid = win32process.GetWindowThreadProcessId(app.Hwnd)[1]
+            with open(self._pid_marker_path(), "w", encoding="utf-8") as f:
+                f.write(str(pid))
+        except Exception:
+            pass  # 마커는 보조 안전장치일 뿐 - 못 남겨도 엑셀 열기 자체는 막지 않음
+
+    def _clear_pid_marker(self) -> None:
+        try:
+            os.remove(self._pid_marker_path())
+        except OSError:
+            pass
+
+    def _kill_stale_hidden_excel(self) -> None:
+        marker = self._pid_marker_path()
+        if not os.path.exists(marker):
+            return
+        try:
+            with open(marker, "r", encoding="utf-8") as f:
+                pid = int(f.read().strip())
+        except (OSError, ValueError):
+            self._clear_pid_marker()
+            return
+        try:
+            out = subprocess.check_output(
+                ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+                stderr=subprocess.DEVNULL,
+                text=True,
+            )
+            # 같은 PID가 다른 프로그램에 재사용됐을 수도 있으니, 정말
+            # EXCEL.EXE일 때만 종료합니다 - 엉뚱한 프로세스를 죽이지 않기
+            # 위한 마지막 안전장치입니다.
+            if "excel.exe" in out.lower():
+                subprocess.run(
+                    ["taskkill", "/F", "/PID", str(pid)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+        except Exception:
+            pass
+        finally:
+            self._clear_pid_marker()
 
     def _worksheet(self, wb, table_key: str):
         try:

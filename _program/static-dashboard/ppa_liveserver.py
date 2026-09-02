@@ -40,6 +40,22 @@ from ppa_schema import TABLE_BY_KEY, TABLES  # noqa: E402
 from ppa_archive import backup_now  # noqa: E402
 
 
+class _StrictPortHTTPServer(ThreadingHTTPServer):
+    """HTTPServer(ThreadingHTTPServer의 부모)는 allow_reuse_address=1이
+    기본값인데, Windows에서는 이게 "TIME_WAIT 상태인 내 예전 소켓 재사용"
+    수준을 넘어 "이미 다른 프로세스가 붙잡고 정상적으로 듣고 있는 포트에도
+    그냥 바인딩 성공"해버리는 것으로 동작합니다. [실시간 입력 서버 시작]
+    버튼을 사용자가 짧은 시간 안에 두 번 누르는 등으로 이 스크립트가 이미
+    떠 있는 상태에서 또 한 번 실행되면, 기본 설정으로는 두 번째 프로세스의
+    포트 바인딩이 조용히 "성공"해버려서 오류 없이 다음 단계(엑셀 COM으로
+    같은 파일을 또 염)까지 진행되고, 그 결과로 "같은 이름의 통합 문서를
+    동시에 열 수 없습니다"라는 엑셀 자체의 오류가 나게 됩니다. 이미 서버가
+    있는지 여부를 여기서 확실하게(포트 바인딩 단계에서) 판가름하기 위해
+    재사용을 끕니다 - 이미 떠 있으면 바로 OSError로 실패해서, 엑셀을 다시
+    열기 전에 이 프로세스가 스스로 멈춥니다."""
+    allow_reuse_address = False
+
+
 def find_first_xlsm(base_dir: Path) -> Path:
     files = sorted(base_dir.glob("*.xlsm"))
     if not files:
@@ -616,7 +632,27 @@ def main():
 
     _install_console_close_handler(app)
 
-    server = ThreadingHTTPServer((args.host, args.port), make_handler(app))
+    # App() 생성 자체는 엑셀을 아직 건드리지 않습니다(진짜 COM 연결은 아래
+    # _initial_rebuild 스레드가 시작해야 일어남) - 그 전에 포트부터 확실히
+    # 확보합니다. 이미 같은 파일로 서버가 떠 있는 상태에서 사용자가
+    # [실시간 입력 서버 시작]을 한 번 더 누르는 등으로 이 스크립트가 중복
+    # 실행되면, 기본 설정(allow_reuse_address=1)의 Windows에서는 포트
+    # 바인딩이 조용히 "성공"해버려 아무 오류 없이 다음 단계로 넘어가고,
+    # 그 결과 두 번째 프로세스가 같은 엑셀 파일을 또 열려다 "같은 이름의
+    # 통합 문서를 동시에 열 수 없습니다"라는 엑셀 자체의 오류가 났습니다.
+    # _StrictPortHTTPServer로 재사용을 꺼서, 중복 실행이면 여기서 바로
+    # OSError로 실패해 엑셀에 손대기 전에 이 프로세스가 스스로 멈춥니다.
+    try:
+        server = _StrictPortHTTPServer((args.host, args.port), make_handler(app))
+    except OSError:
+        sys.exit(
+            f"포트 {args.port}이(가) 이미 사용 중입니다 - 이 파일로 실시간 입력 서버가 "
+            "이미 실행 중일 가능성이 높습니다.\n"
+            f"→ 브라우저에서 http://{args.host}:{args.port} 탭이 이미 열려 있는지 먼저 "
+            "확인해주세요(열려 있다면 그 탭을 그대로 쓰면 됩니다).\n"
+            "→ 안 열려 있는데도 이 메시지가 반복된다면, static-dashboard\\stop_live_server.bat "
+            "를 실행해 기존 서버를 정리한 뒤 다시 시도해주세요."
+        )
     url = f"http://{args.host}:{args.port}"
     print(f"[OK] 서버 시작: {url}")
     print("[안내] 엑셀에서 파일을 닫거나 대시보드 탭을 닫으면 서버도 자동으로 함께 종료됩니다.")
