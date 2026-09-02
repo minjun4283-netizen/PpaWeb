@@ -411,6 +411,13 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 .trendlegend span{display:inline-flex;align-items:center;gap:6px}
 .trendlegendline{width:16px;height:0;border-top:2.5px solid var(--teal);display:inline-block}
 .trendlegendline.prev{border-top:2.5px dashed var(--mute)}
+.trendsubtitle{font-size:12.5px;font-weight:800;color:var(--sub);margin:2px 0 10px}
+.trendsplit{height:1px;background:var(--line);margin:20px 0}
+.trendcol2{display:flex;gap:2px;align-items:flex-end;justify-content:center;height:100%;width:100%}
+.trendminibar{flex:1;max-width:13px;border-radius:3px 3px 0 0;transition:opacity .12s}
+.trendminibar.new{background:var(--teal)}
+.trendminibar.end{background:var(--fail)}
+.trendminibar:hover{opacity:.75}
 
 /* 상세 모달 */
 .backdrop{position:fixed;inset:0;background:rgba(10,15,17,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px}
@@ -547,7 +554,6 @@ let state={
   lookup:null,lookupTable:DATA.tables[0].key,lookupQ:'',lookupDepth:Number(readLS('ppa_depth','2')),
   recent:[],pinned:[],modal:null,
   theme:readLS('ppa_theme','light'),
-  homeTrend:{metric:'new',unit:'cnt',drillYm:null,rangeFrom:null,rangeTo:null},
   clog:{q:'',kind:'',table:''},
 };
 /* dashboard_form.js(실시간 입력 서버가 붙어 있을 때만 로드됨)가 저장 후
@@ -2114,58 +2120,6 @@ function statusColor(v){
 
 /* 년월(YYYY-MM) 단위 집계 — 날짜 컬럼 하나를 기준으로 건수·용량 */
 function monthKey(v){const s=String(v||'');return /^\d{4}-\d{2}/.test(s)?s.slice(0,7):null;}
-function monthLabel(ym){const p=ym.split('-');return "'"+p[0].slice(2)+'.'+p[1];}
-function groupByMonth(tk,dateCol,capCol){
-  const t=byKey[tk];if(!t) return {};
-  const m={};
-  t.rows.forEach(r=>{
-    const ym=monthKey(r.cells[dateCol]);if(!ym) return;
-    if(!m[ym]) m[ym]={cnt:0,cap:0};
-    m[ym].cnt++;
-    const n=Number(r.cells[capCol]);m[ym].cap+=isNaN(n)?0:n;
-  });
-  return m;
-}
-function dayKey(v){const s=String(v||'');return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:null;}
-function dayLabel(d){return String(Number(d.slice(8,10)))+'일';}
-function groupByDay(tk,dateCol,capCol){
-  const t=byKey[tk];if(!t) return {};
-  const m={};
-  t.rows.forEach(r=>{
-    const d=dayKey(r.cells[dateCol]);if(!d) return;
-    if(!m[d]) m[d]={cnt:0,cap:0};
-    m[d].cnt++;
-    const n=Number(r.cells[capCol]);m[d].cap+=isNaN(n)?0:n;
-  });
-  return m;
-}
-function daysOfMonth(ym){
-  const p=ym.split('-').map(Number),last=new Date(p[0],p[1],0).getDate(),out=[];
-  for(let d=1;d<=last;d++) out.push(ym+'-'+String(d).padStart(2,'0'));
-  return out;
-}
-function monthRange(n){ // 이번 달을 포함해 최근 n개월의 YYYY-MM 목록 (과거→현재)
-  const out=[];const base=TODAY?new Date(TODAY):new Date();
-  for(let i=n-1;i>=0;i--){
-    const d=new Date(base.getFullYear(),base.getMonth()-i,1);
-    out.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
-  }
-  return out;
-}
-function jumpToMonth(tk,col,ym){
-  state.tab=tk;state.dateFilters[tk]=state.dateFilters[tk]||{};
-  const p=ym.split('-').map(Number);
-  const lastDay=new Date(p[0],p[1],0).getDate();
-  state.dateFilters[tk][col]={from:ym+'-01',to:ym+'-'+String(lastDay).padStart(2,'0')};
-  state.page[tk]=1;render();
-}
-function jumpToDay(tk,col,d){
-  state.tab=tk;state.dateFilters[tk]=state.dateFilters[tk]||{};
-  state.dateFilters[tk][col]={from:d,to:d};
-  state.page[tk]=1;render();
-}
-function drillMonth(ym){state.homeTrend.drillYm=ym;render();}
-function undrillMonth(){state.homeTrend.drillYm=null;render();}
 function schemaBox(tk){const t=byKey[tk];
   return `<button class="schemabox" onclick="state.tab='${jsq(tk)}';render()">${esc(t.label)}<span class="schemacount mono">${nf(t.rows.length,0)}</span></button>`;}
 function schemaDiagram(){
@@ -2210,35 +2164,42 @@ function statusPanel(){
      <div class="statustotal">전체 ${nf(total,0)}건 · 용량 합계 ${nf(totalCap)} MW</div>`);
 }
 
-/* ── 홈: 년월별 추이 ────────────────────────────────────────────────────── */
-function ymIdx(ym){const p=ym.split('-').map(Number);return p[0]*12+(p[1]-1);}
-function idxYm(i){const y=Math.floor(i/12),mo=i%12;return y+'-'+String(mo+1).padStart(2,'0');}
-/* 두 YYYY-MM 사이(포함) 월 목록 — 순서가 뒤바뀌어 입력돼도 알아서
-   맞바꾸고, 화면이 너무 넓어지지 않도록 한 번에 최대 36개월까지만. */
-function monthRangeBetween(fromYm,toYm){
-  let a=ymIdx(fromYm),b=ymIdx(toYm);
-  if(a>b){const t=a;a=b;b=t;}
-  if(b-a>35) b=a+35;
-  const out=[];for(let i=a;i<=b;i++) out.push(idxYm(i));
-  return out;
+/* ── 홈: 년월별 추이 (상단: 최초 계약 시점부터의 누적 용량 / 하단: 분기별
+   신규·종료 판매계약 용량 비교) ────────────────────────────────────────── */
+function quarterKeyFromDate(v){
+  const ym=monthKey(v);if(!ym) return null;
+  const y=Number(ym.slice(0,4)),mo=Number(ym.slice(5,7));
+  return y+'-Q'+(Math.floor((mo-1)/3)+1);
 }
-/* 조회 기간 필터가 설정돼 있으면 그 구간을, 아니면 기존 기본값(최근
-   12개월)을 돌려줍니다. */
-function trendRangeKeys(){
-  const {rangeFrom,rangeTo}=state.homeTrend;
-  if(rangeFrom&&rangeTo) return monthRangeBetween(rangeFrom,rangeTo);
-  return monthRange(12);
+function quarterIdx(qk){const p=qk.split('-Q');return Number(p[0])*4+(Number(p[1])-1);}
+function idxQuarter(i){const y=Math.floor(i/4),q=i%4;return y+'-Q'+(q+1);}
+function quarterLabel(qk){const p=qk.split('-Q');return "'"+p[0].slice(2)+' Q'+p[1];}
+/* 두 분기 인덱스 사이(포함) 분기 목록 — 데이터가 아주 오래전부터 있어도
+   화면이 끝없이 넓어지지 않도록 한 번에 최대 120개 분기(30년)까지만. */
+function quarterRangeByIdx(minI,maxI){
+  if(minI>maxI){const t=minI;minI=maxI;maxI=t;}
+  const clamped=(maxI-minI)>119;
+  if(clamped) maxI=minI+119;
+  const out=[];for(let i=minI;i<=maxI;i++) out.push(idxQuarter(i));
+  return {keys:out,clamped};
 }
-function resetHomeTrendRange(){state.homeTrend.rangeFrom=null;state.homeTrend.rangeTo=null;render();}
-const TREND_METRICS={
-  new:{label:'신규 판매계약',tk:'T_판매계약',col:'계약일',cap:'판매계약용량(MW)'},
-  buyexp:{label:'구매계약 공급기한',tk:'T_구매계약',col:'공급기한_구매',cap:'구매계약용량(MW)'},
-  saleexp:{label:'판매계약 공급기한',tk:'T_판매계약',col:'공급기한_판매',cap:'판매계약용량(MW)'},
-  buyend:{label:'구매계약 종료(공급기한+계약기간)',tk:'T_구매계약',col:CONTRACT_END_FIELD,cap:'구매계약용량(MW)'},
-  saleend:{label:'판매계약 종료(공급기한+계약기간)',tk:'T_판매계약',col:CONTRACT_END_FIELD,cap:'판매계약용량(MW)'},
-};
-function setHomeTrend(k,v){state.homeTrend[k]=v;render();}
-function fmtTick(v,unit){return unit==='cap'?nf(v):nf(v,0);}
+function quarterDateRange(qk){
+  const p=qk.split('-Q'),y=Number(p[0]),q=Number(p[1]);
+  const startMonth=(q-1)*3+1,endMonth=startMonth+2;
+  const last=new Date(y,endMonth,0).getDate();
+  return {from:y+'-'+String(startMonth).padStart(2,'0')+'-01',to:y+'-'+String(endMonth).padStart(2,'0')+'-'+String(last).padStart(2,'0')};
+}
+function jumpToQuarter(tk,col,qk){
+  state.tab=tk;state.dateFilters[tk]=state.dateFilters[tk]||{};
+  const {from,to}=quarterDateRange(qk);
+  state.dateFilters[tk][col]={from,to};
+  state.page[tk]=1;render();
+}
+function cumulativeSeries(perQuarterMap,quarterKeys){
+  let running=0;
+  return quarterKeys.map(qk=>{running+=(perQuarterMap[qk]||0);return running;});
+}
+function fmtTick(v){return nf(v);}
 /* "보기 좋은" 눈금 간격 — 4등분 근처에서 1/2/5×10ⁿ 중 하나를 고릅니다 */
 function niceStep(range,targetTicks){
   const raw=range/Math.max(1,targetTicks);
@@ -2249,183 +2210,160 @@ function niceStep(range,targetTicks){
   if(norm<1.5) step=1;else if(norm<3) step=2;else if(norm<7) step=5;else step=10;
   return step*mag;
 }
-function niceTicks(max,integer){
+function niceTicks(max){
   if(max<=0) return [0,1];
-  let step=niceStep(max,4);
-  if(integer) step=Math.max(1,Math.round(step)); /* 건수처럼 정수만 뜻이 있는 값은 0.2 같은 눈금이 안 나오게 */
+  const step=niceStep(max,4);
   const top=Math.ceil(max/step)*step,out=[];
   for(let v=0;v<=top+1e-9;v+=step) out.push(Math.round(v*1000)/1000);
   return out;
 }
-/* 월별/일별 추이 공용 렌더러 — keys 순서대로 막대를 그리고, "보기 좋은"
-   눈금의 격자선·왼쪽 축 라벨을 같이 그려서 값을 가늠하기 쉽게 합니다.
-   onclickFn(key)가 null을 돌려주면 그 막대는 클릭 비활성. */
-function buildTrendChart(keys,m,unit,labelFn,onclickFn,titleFn){
-  const vals=keys.map(k=>{const b=m[k];return b?(unit==='cap'?b.cap:b.cnt):0;});
-  const rawMax=Math.max(0,...vals);
-  const ticks=niceTicks(rawMax,unit==='cnt');
-  const scaleTop=ticks[ticks.length-1]||1;
-  const peakV=Math.max(0,...vals);
-  const axis=ticks.map(t=>`<span class="trendaxistick" style="bottom:${t/scaleTop*100}%">${fmtTick(t,unit)}</span>`).join('');
-  const grid=ticks.map(t=>`<div class="trendgridline" style="bottom:${t/scaleTop*100}%"></div>`).join('');
-  const bars=keys.map((k,i)=>{
-    const v=vals[i];
-    const h=v>0?Math.max(3,v/scaleTop*100):0;
-    const isPeak=v>0&&v===peakV;
-    const act=onclickFn(k);
-    const label=isPeak?`<span class="trendlabel">${fmtTick(v,unit)}</span>`:'';
-    return `<div class="trendcol${isPeak?' peak':''}"${act?` onclick="${act}"`:''} title="${esc(titleFn(k))}">${label}<div class="trendbar" style="height:${h}%"></div></div>`;
-  }).join('');
-  const tickStep=Math.max(1,Math.ceil(keys.length/9));
-  const xticks=keys.map((k,i)=>`<span class="trendtick">${i%tickStep===0?esc(labelFn(k)):''}</span>`).join('');
-  const totalCnt=keys.reduce((s,k)=>s+(m[k]?m[k].cnt:0),0);
-  const totalCap=keys.reduce((s,k)=>s+(m[k]?m[k].cap:0),0);
-  const chart=`<div class="trendplot">
-      <div class="trendaxis">${axis}</div>
-      <div class="trendarea"><div class="trendgrid">${grid}</div><div class="trendchart">${bars}</div></div>
-    </div>
-    <div class="trendxrow"><div class="trendaxisspacer"></div><div class="trendticks">${xticks}</div></div>`;
-  return {chart,totalCnt,totalCap};
+/* 판매계약 신규/종료 발생 시점을 분기 단위로 미리 합산 — 상단(누적)의
+   판매계약 선과 하단(분기별 막대)이 같은 원본 맵을 그대로 재사용합니다.
+   "신규"는 계약일(비어 있으면 공급기한_판매)을, "종료"는 이미 계산된
+   합성 필드 계약종료일(공급기한_판매+계약기간)을 기준으로 삼습니다. */
+function saleDateMaps(){
+  const S=byKey['T_판매계약'];const newM={},endM={};
+  if(!S) return {newM,endM};
+  S.rows.forEach(r=>{
+    const n=Number(r.cells['판매계약용량(MW)']);if(isNaN(n)) return;
+    const newQk=quarterKeyFromDate(r.cells['계약일']||r.cells['공급기한_판매']);
+    if(newQk) newM[newQk]=(newM[newQk]||0)+n;
+    const endQk=quarterKeyFromDate(r.cells[CONTRACT_END_FIELD]);
+    if(endQk) endM[endQk]=(endM[endQk]||0)+n;
+  });
+  return {newM,endM};
 }
-/* 월별 추이 — 선/영역 차트. 최근 12개월(실선, 채워진 영역) 위에 정확히
-   1년 전 같은 12개월(점선, 무채색)을 겹쳐서 전년 동기와 비교합니다.
-   작년 구간에 데이터가 하나도 없으면(워크북 역사가 짧은 경우) 비교선은
-   조용히 숨기고 이번 구간만 보여줍니다 — 텅 빈 선을 그리지 않습니다. */
-function buildTrendLineChart(cfg,m,unit,curKeys){
-  const prevKeys=curKeys.map(ym=>idxYm(ymIdx(ym)-12));
-  const valOf=k=>{const b=m[k];return b?(unit==='cap'?b.cap:b.cnt):0;};
-  const curVals=curKeys.map(valOf);
-  const prevVals=prevKeys.map(valOf);
-  const hasPrev=prevVals.some(v=>v>0);
-  const rawMax=Math.max(0,...curVals,...(hasPrev?prevVals:[]));
-  const ticks=niceTicks(rawMax,unit==='cnt');
+/* 발전원별 누적 용량 — 발전소 자체엔 날짜가 없어 "언제 포트폴리오에
+   편입됐는지"를 알 수 없으므로, 그 발전소를 연결한 구매계약의
+   공급기한_구매를 기준 시점으로 삼아 구매계약용량(MW)을 발전원별로
+   분기 누적합니다. */
+function purchaseByQuarterAndSource(){
+  const B=byKey['T_구매계약'],P=byKey['T_발전소'];
+  const bySource={};
+  if(!B||!P) return bySource;
+  const plantSource={};
+  P.rows.forEach(r=>{plantSource[r.cells['발전소ID']]=String(r.cells['발전원']||'').trim()||'기타';});
+  B.rows.forEach(r=>{
+    const src=plantSource[r.cells['발전소ID']];if(!src) return;
+    const qk=quarterKeyFromDate(r.cells['공급기한_구매']);if(!qk) return;
+    const n=Number(r.cells['구매계약용량(MW)']);if(isNaN(n)) return;
+    (bySource[src]=bySource[src]||{})[qk]=(bySource[src][qk]||0)+n;
+  });
+  return bySource;
+}
+/* 상단: 다계열 누적 선 차트 — 판매계약 1개 + 발전원별(최대 4개, 넘치면
+   "기타"로 합침) 선을 같은 분기 축 위에 겹쳐 그립니다. 범례를 누르면 그
+   계열의 근거 자료로 이동합니다(판매계약 표 / 발전소 표를 그 발전원으로
+   필터링). */
+function buildCumulativeLineChart(quarterKeys,series){
+  const n=quarterKeys.length;
+  const rawMax=Math.max(0,...series.flatMap(s=>s.values));
+  const ticks=niceTicks(rawMax);
   const scaleTop=ticks[ticks.length-1]||1;
-  const axis=ticks.map(t=>`<span class="trendaxistick" style="bottom:${t/scaleTop*100}%">${fmtTick(t,unit)}</span>`).join('');
+  const axis=ticks.map(t=>`<span class="trendaxistick" style="bottom:${t/scaleTop*100}%">${fmtTick(t)}</span>`).join('');
   const grid=ticks.map(t=>`<div class="trendgridline" style="bottom:${t/scaleTop*100}%"></div>`).join('');
-
-  const W=1200,H=180,padX=16,n=curKeys.length;
+  const W=1200,H=180,padX=16;
   const xAt=i=>n>1?padX+i*((W-2*padX)/(n-1)):W/2;
   const yAt=v=>H-(scaleTop>0?Math.min(1,v/scaleTop)*H:0);
   const linePath=vals=>vals.map((v,i)=>(i===0?'M':'L')+xAt(i).toFixed(1)+','+yAt(v).toFixed(1)).join(' ');
-  const areaPath=vals=>linePath(vals)+` L${xAt(n-1).toFixed(1)},${H} L${xAt(0).toFixed(1)},${H} Z`;
-  const dots=(vals,keysArr,color,clickable)=>vals.map((v,i)=>{
-    const cx=xAt(i).toFixed(1),cy=yAt(v).toFixed(1),k=keysArr[i];
-    const b=m[k]||{cnt:0,cap:0};
-    const title=monthLabel(k)+' · '+nf(b.cnt,0)+'건 · '+nf(b.cap)+'MW'+(clickable?' · 눌러서 일별 보기':'');
-    const act=(clickable&&b.cnt>0)?` style="cursor:pointer" onclick="drillMonth('${jsq(k)}')"`:'';
-    return `<circle cx="${cx}" cy="${cy}" r="10" fill="transparent"${act}><title>${esc(title)}</title></circle>
-      <circle cx="${cx}" cy="${cy}" r="4" fill="${color}" stroke="var(--panel)" stroke-width="2" style="pointer-events:none"/>`;
-  }).join('');
-  const curEnd=curVals[n-1],curEndY=yAt(curEnd);
-  const endLabel=`<text class="trendendlabel" x="${xAt(n-1).toFixed(1)}" y="${Math.max(11,curEndY-10).toFixed(1)}" text-anchor="end">${esc(fmtTick(curEnd,unit))}</text>`;
-
   let svg=`<svg class="trendsvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">`;
-  if(hasPrev){
-    svg+=`<path d="${areaPath(prevVals)}" fill="var(--mute)" opacity=".10" stroke="none"/>`;
-    svg+=`<path d="${linePath(prevVals)}" fill="none" stroke="var(--mute)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>`;
-  }
-  svg+=`<path d="${areaPath(curVals)}" fill="var(--teal)" opacity=".14" stroke="none"/>`;
-  svg+=`<path d="${linePath(curVals)}" fill="none" stroke="var(--teal)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
-  if(hasPrev) svg+=dots(prevVals,prevKeys,'var(--mute)',false);
-  svg+=dots(curVals,curKeys,'var(--teal)',true);
-  svg+=endLabel;
+  series.forEach(s=>{
+    svg+=`<path d="${linePath(s.values)}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
+  });
+  series.forEach(s=>{
+    const last=s.values[n-1]||0;
+    const cx=xAt(n-1).toFixed(1),cy=yAt(last).toFixed(1);
+    svg+=`<circle cx="${cx}" cy="${cy}" r="4" fill="${s.color}" stroke="var(--panel)" stroke-width="2"><title>${esc(s.label)} · ${nf(last)} MW</title></circle>`;
+  });
   svg+='</svg>';
-
-  /* 범위가 12개월을 넘거나 연도 경계를 넘나들면 "3월"만으론 헷갈리므로
-     "'26.03" 형식(monthLabel)으로, 점 개수가 많을 때는 겹치지 않게
-     솎아서(tickStep) 보여줍니다. */
   const tickStep=Math.max(1,Math.ceil(n/12));
-  const xticks=curKeys.map((k,i)=>{
-    const show=i%tickStep===0||i===n-1;
-    const lbl=show?(n>12?monthLabel(k):Number(k.slice(5,7))+'월'):'';
-    return `<span class="trendtick">${esc(lbl)}</span>`;
-  }).join('');
-  const rangeLabel=n===12&&!(state.homeTrend.rangeFrom&&state.homeTrend.rangeTo)?'최근 12개월':`${monthLabel(curKeys[0])} ~ ${monthLabel(curKeys[n-1])}`;
-  const legend=hasPrev?`<div class="trendlegend">
-      <span><span class="trendlegendline"></span>${esc(rangeLabel)}</span>
-      <span><span class="trendlegendline prev"></span>전년 동기</span>
-    </div>`:'';
-  const chart=`<div class="trendplot">
+  const xticks=quarterKeys.map((qk,i)=>`<span class="trendtick">${(i%tickStep===0||i===n-1)?esc(quarterLabel(qk)):''}</span>`).join('');
+  const legend=`<div class="trendlegend">${series.map(s=>
+    `<span${s.action?` style="cursor:pointer" onclick="${s.action}"`:''}><span class="trendlegendline" style="border-top-color:${s.color}"></span>${esc(s.label)}: ${nf(s.values[n-1]||0)} MW</span>`).join('')}</div>`;
+  return `<div class="trendplot">
       <div class="trendaxis">${axis}</div>
       <div class="trendarea"><div class="trendgrid">${grid}</div>${svg}</div>
     </div>
     <div class="trendxrow"><div class="trendaxisspacer"></div><div class="trendticks">${xticks}</div></div>
     ${legend}`;
-  const totalCnt=curKeys.reduce((s,k)=>s+(m[k]?m[k].cnt:0),0);
-  const totalCap=curKeys.reduce((s,k)=>s+(m[k]?m[k].cap:0),0);
-  const prevTotalCnt=prevKeys.reduce((s,k)=>s+(m[k]?m[k].cnt:0),0);
-  return {chart,totalCnt,totalCap,hasPrev,prevTotalCnt};
 }
-function trendToolsHtml(avail,unit){
-  return `<div class="trendtools">
-      <div class="segtoggle">${avail.map(([k,c])=>
-        `<button class="${state.homeTrend.metric===k?'on':''}" onclick="setHomeTrend('metric','${k}')">${esc(c.label)}</button>`).join('')}</div>
-      <div class="segtoggle">
-        <button class="${unit==='cnt'?'on':''}" onclick="setHomeTrend('unit','cnt')">건수</button>
-        <button class="${unit==='cap'?'on':''}" onclick="setHomeTrend('unit','cap')">용량(MW)</button>
-      </div>
+/* 하단: 분기별 신규 vs 종료 판매계약 용량 막대 비교. 막대를 누르면 그
+   분기에 해당하는 판매계약 행만 표에서 봅니다. */
+function buildQuarterCompareBarChart(quarterKeys,newVals,endVals){
+  const rawMax=Math.max(0,...newVals,...endVals);
+  const ticks=niceTicks(rawMax);
+  const scaleTop=ticks[ticks.length-1]||1;
+  const axis=ticks.map(t=>`<span class="trendaxistick" style="bottom:${t/scaleTop*100}%">${fmtTick(t)}</span>`).join('');
+  const grid=ticks.map(t=>`<div class="trendgridline" style="bottom:${t/scaleTop*100}%"></div>`).join('');
+  const bars=quarterKeys.map((qk,i)=>{
+    const nv=newVals[i],ev=endVals[i];
+    const nh=nv>0?Math.max(3,nv/scaleTop*100):0;
+    const eh=ev>0?Math.max(3,ev/scaleTop*100):0;
+    const nAct=nv>0?`jumpToQuarter('T_판매계약','계약일','${jsq(qk)}')`:'';
+    const eAct=ev>0?`jumpToQuarter('T_판매계약','${jsq(CONTRACT_END_FIELD)}','${jsq(qk)}')`:'';
+    return `<div class="trendcol"><div class="trendcol2">
+        <div class="trendminibar new"${nAct?` style="height:${nh}%;cursor:pointer" onclick="${nAct}"`:` style="height:${nh}%"`} title="${esc(quarterLabel(qk))} 신규 · ${nf(nv)} MW"></div>
+        <div class="trendminibar end"${eAct?` style="height:${eh}%;cursor:pointer" onclick="${eAct}"`:` style="height:${eh}%"`} title="${esc(quarterLabel(qk))} 종료 · ${nf(ev)} MW"></div>
+      </div></div>`;
+  }).join('');
+  const tickStep=Math.max(1,Math.ceil(quarterKeys.length/9));
+  const xticks=quarterKeys.map((qk,i)=>`<span class="trendtick">${i%tickStep===0?esc(quarterLabel(qk)):''}</span>`).join('');
+  const totalNew=newVals.reduce((s,v)=>s+v,0),totalEnd=endVals.reduce((s,v)=>s+v,0);
+  const chart=`<div class="trendplot">
+      <div class="trendaxis">${axis}</div>
+      <div class="trendarea"><div class="trendgrid">${grid}</div><div class="trendchart">${bars}</div></div>
+    </div>
+    <div class="trendxrow"><div class="trendaxisspacer"></div><div class="trendticks">${xticks}</div></div>
+    <div class="trendlegend">
+      <span><span class="trendlegendline" style="border-top-color:var(--teal)"></span>신규 판매계약: ${nf(totalNew)} MW</span>
+      <span><span class="trendlegendline" style="border-top-color:var(--fail)"></span>종료 판매계약: ${nf(totalEnd)} MW</span>
     </div>`;
-}
-/* 조회 시작/종료 년월 필터 — <input type=month>는 브라우저 기본 달력
-   선택기와 직접 타이핑을 동시에 지원합니다(공급기한 입력과 동일한 이유로
-   선택). 값이 바뀌면 즉시 다시 그립니다. */
-function trendRangeToolsHtml(){
-  const {rangeFrom,rangeTo}=state.homeTrend;
-  const custom=!!(rangeFrom&&rangeTo);
-  const clamped=custom&&(Math.abs(ymIdx(rangeTo)-ymIdx(rangeFrom))>35);
-  return `<div class="trendrange">
-      <label>조회 시작<input type="month" class="trendrangeinput" value="${esc(rangeFrom||'')}" onchange="setHomeTrend('rangeFrom',this.value)"></label>
-      <span class="trendrangesep">~</span>
-      <label>조회 종료<input type="month" class="trendrangeinput" value="${esc(rangeTo||'')}" onchange="setHomeTrend('rangeTo',this.value)"></label>
-      ${custom?`<button class="btn" onclick="resetHomeTrendRange()">최근 12개월로</button>`:''}
-      ${clamped?`<span class="trendrangenote">한 번에 최대 36개월까지 표시됩니다</span>`:''}
-    </div>`;
+  return {chart,totalNew,totalEnd};
 }
 function trendPanel(){
-  const avail=Object.entries(TREND_METRICS).filter(([,c])=>byKey[c.tk]);
-  if(!avail.length) return '';
-  if(!byKey[TREND_METRICS[state.homeTrend.metric]?.tk]) state.homeTrend.metric=avail[0][0];
-  const cfg=TREND_METRICS[state.homeTrend.metric];
-  const unit=state.homeTrend.unit;
-  const tools=trendToolsHtml(avail,unit);
+  const S=byKey['T_판매계약'],B=byKey['T_구매계약'];
+  if(!S&&!B) return '';
+  const {newM,endM}=saleDateMaps();
+  const bySource=purchaseByQuarterAndSource();
 
-  if(state.homeTrend.drillYm){
-    const ym=state.homeTrend.drillYm;
-    const m=groupByDay(cfg.tk,cfg.col,cfg.cap);
-    const days=daysOfMonth(ym);
-    const {chart,totalCnt,totalCap}=buildTrendChart(days,m,unit,
-      d=>dayLabel(d),
-      d=>(m[d]&&m[d].cnt>0)?`jumpToDay('${jsq(cfg.tk)}','${jsq(cfg.col)}','${jsq(d)}')`:null,
-      d=>{const b=m[d]||{cnt:0,cap:0};return d+' · '+nf(b.cnt,0)+'건 · '+nf(b.cap)+'MW';});
-    const ymLabel=ym.slice(0,4)+'년 '+Number(ym.slice(5,7))+'월';
-    return panel('년월별 추이','일별 막대를 누르면 그 날짜만 보기로 이동합니다',`
-      ${tools}
-      <div class="trendbreadcrumb">
-        <button class="trendback" onclick="undrillMonth()">← 월별로</button>
-        <span class="trendcrumbnow">${esc(ymLabel)} · 일별 (${esc(cfg.label)})</span>
-        <button class="btn" style="margin-left:auto" onclick="jumpToMonth('${jsq(cfg.tk)}','${jsq(cfg.col)}','${jsq(ym)}')">이 달 전체를 표에서 보기</button>
-      </div>
-      ${chart}
-      <div class="trendfoot"><span>${esc(ymLabel)} · ${days.length}일</span><span>합계 ${nf(totalCnt,0)}건 · ${nf(totalCap)} MW</span></div>`);
+  const allKeys=[...Object.keys(newM),...Object.keys(endM),...Object.values(bySource).flatMap(m=>Object.keys(m))];
+  if(!allKeys.length) return panel('년월별 추이','',
+    '<div class="nocand">계약일·공급기한이 입력된 판매계약/구매계약 데이터가 없습니다.</div>');
+  let minI=Infinity,maxI=-Infinity;
+  allKeys.forEach(k=>{const i=quarterIdx(k);if(i<minI)minI=i;if(i>maxI)maxI=i;});
+  const {keys:quarterKeys,clamped}=quarterRangeByIdx(minI,maxI);
+
+  /* 상단: 판매계약 누적 + 발전원별 누적(상위 4개 + 기타) */
+  const saleSeries={label:'판매계약 누적 용량',color:'var(--teal)',
+    values:cumulativeSeries(newM,quarterKeys),action:"state.tab='T_판매계약';render()"};
+  const sourceTotals=Object.entries(bySource)
+    .map(([g,m])=>[g,m,Object.values(m).reduce((s,v)=>s+v,0)])
+    .sort((a,b)=>b[2]-a[2]);
+  const topSources=sourceTotals.slice(0,4),restSources=sourceTotals.slice(4);
+  const sourceSeries=topSources.map(([g,m],i)=>({label:g,color:CAT_COLORS[i%CAT_COLORS.length],
+    values:cumulativeSeries(m,quarterKeys),action:`jumpToFilter('T_발전소','발전원','${jsq(g)}')`}));
+  if(restSources.length){
+    const mergedMap={};
+    restSources.forEach(([,m])=>Object.entries(m).forEach(([qk,v])=>{mergedMap[qk]=(mergedMap[qk]||0)+v;}));
+    sourceSeries.push({label:`기타 ${restSources.length}종`,color:'var(--mute)',
+      values:cumulativeSeries(mergedMap,quarterKeys),action:"state.tab='T_발전소';render()"});
   }
+  const cumChart=buildCumulativeLineChart(quarterKeys,[saleSeries,...sourceSeries]);
 
-  const m=groupByMonth(cfg.tk,cfg.col,cfg.cap);
-  const keys=Object.keys(m);
-  const rangeTools=trendRangeToolsHtml();
-  if(!keys.length) return panel('년월별 추이','',`<div class="nocand">${esc(cfg.label)} 항목에 날짜가 입력된 데이터가 없습니다.</div>
-    <div style="margin-top:10px">${tools}</div>`);
-  const curKeys=trendRangeKeys();
-  const {chart,totalCnt,totalCap,hasPrev,prevTotalCnt}=buildTrendLineChart(cfg,m,unit,curKeys);
-  const isCustom=!!(state.homeTrend.rangeFrom&&state.homeTrend.rangeTo);
-  const rangeDesc=isCustom?`${monthLabel(curKeys[0])} ~ ${monthLabel(curKeys[curKeys.length-1])} (${curKeys.length}개월)`:'최근 12개월';
-  const yoy=hasPrev
-    ?(prevTotalCnt>0?` · 전년 동기 대비 ${(totalCnt-prevTotalCnt)>=0?'+':''}${nf(totalCnt-prevTotalCnt,0)}건`:'')
-    :' · 전년 동기 데이터 없음';
-  return panel('년월별 추이','선 위의 점을 누르면 그 달의 일별 추이를 볼 수 있습니다',`
-    ${tools}
-    ${rangeTools}
-    ${chart}
-    <div class="trendfoot"><span>${esc(rangeDesc)}${esc(yoy)}</span><span>합계 ${nf(totalCnt,0)}건 · ${nf(totalCap)} MW</span></div>`);
+  /* 하단: 분기별 신규 vs 종료 판매계약 용량 */
+  const newVals=quarterKeys.map(qk=>newM[qk]||0);
+  const endVals=quarterKeys.map(qk=>endM[qk]||0);
+  const {chart:barChart,totalNew,totalEnd}=buildQuarterCompareBarChart(quarterKeys,newVals,endVals);
+
+  const rangeDesc=`${quarterLabel(quarterKeys[0])} ~ ${quarterLabel(quarterKeys[quarterKeys.length-1])} (${quarterKeys.length}개 분기)`;
+  return panel('년월별 추이','상단: 최초 계약 시점부터의 누적 용량 · 하단: 분기별 신규/종료 판매계약 용량 비교 (선·막대·범례를 누르면 근거 자료로 이동)',`
+    <div class="trendsubtitle">판매계약 · 발전원별 누적 용량</div>
+    ${cumChart}
+    <div class="trendfoot"><span>${esc(rangeDesc)}${clamped?' · 표시 범위가 넓어 최근 30년으로 제한됨':''}</span><span>판매계약 누적 ${nf(saleSeries.values[saleSeries.values.length-1]||0)} MW</span></div>
+    <div class="trendsplit"></div>
+    <div class="trendsubtitle">분기별 신규 · 종료 판매계약 용량</div>
+    ${barChart}
+    <div class="trendfoot"><span>${esc(rangeDesc)}</span><span>신규 합계 ${nf(totalNew)} MW · 종료 합계 ${nf(totalEnd)} MW</span></div>`);
 }
 
 /* 발전원별 설비용량 비중을 12박스 그리드 한 칸에 들어가는 압축 범례로
@@ -3010,7 +2948,7 @@ function navSnapshot(){
     tab:state.tab,lookupTable:state.lookupTable,lookup:state.lookup,
     filters:state.filters,dateFilters:state.dateFilters,
     onlyErr:state.onlyErr,onlyChg:state.onlyChg,
-    modal:state.modal,homeTrend:state.homeTrend,
+    modal:state.modal,
     explore:state.explore?{base:state.explore.base,tables:state.explore.tables,
       cols:state.explore.cols,missing:state.explore.missing}:null,
   };
@@ -3020,7 +2958,7 @@ function applyNavSnapshot(s){
   state.tab=s.tab;state.lookupTable=s.lookupTable;state.lookup=s.lookup;
   state.filters=s.filters||{};state.dateFilters=s.dateFilters||{};
   state.onlyErr=s.onlyErr||{};state.onlyChg=s.onlyChg||{};
-  state.modal=s.modal;state.homeTrend=s.homeTrend||state.homeTrend;
+  state.modal=s.modal;
   if(s.explore){
     if(!state.explore) initExplore(s.explore.base);
     Object.assign(state.explore,s.explore);
