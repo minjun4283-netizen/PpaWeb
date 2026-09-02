@@ -4,22 +4,22 @@
 
 FROM node:20-slim AS frontend-build
 WORKDIR /app/frontend
-COPY frontend/package*.json ./
+COPY _program/frontend/package*.json ./
 RUN npm install
-COPY frontend/ ./
+COPY _program/frontend/ ./
 RUN npm run build
 
 FROM node:20-slim AS backend-build
 WORKDIR /app/backend
-COPY backend/package*.json ./
+COPY _program/backend/package*.json ./
 RUN npm install
-COPY backend/ ./
+COPY _program/backend/ ./
 RUN npm run build
 
 FROM node:20-slim
 WORKDIR /app
 ENV NODE_ENV=production
-COPY backend/package*.json ./
+COPY _program/backend/package*.json ./
 RUN npm install --omit=dev
 COPY --from=backend-build /app/backend/dist ./dist
 COPY --from=frontend-build /app/frontend/dist ./dist/public

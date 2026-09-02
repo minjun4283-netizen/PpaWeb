@@ -3,7 +3,7 @@ dist/
 build/
 *.log
 *.tsbuildinfo
-backend/data/
+_program/backend/data/
 .env
 .env.local
 __pycache__/
