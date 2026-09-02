@@ -391,6 +391,8 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 .trendplot{display:flex;gap:8px}
 .trendaxis{position:relative;width:34px;height:150px;flex-shrink:0}
 .trendaxistick{position:absolute;right:4px;left:0;text-align:right;transform:translateY(50%);font-size:9.5px;color:var(--sub);white-space:nowrap;line-height:1}
+.trendaxis.right .trendaxistick{right:auto;left:4px;text-align:left}
+.trendaxisnote{font-size:11px;color:var(--sub);margin:0 0 8px 42px}
 .trendarea{position:relative;flex:1;min-width:0;height:150px}
 .trendgrid{position:absolute;inset:0;pointer-events:none}
 .trendgridline{position:absolute;left:0;right:0;border-top:1px solid var(--line)}
@@ -411,13 +413,8 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 .trendlegend span{display:inline-flex;align-items:center;gap:6px}
 .trendlegendline{width:16px;height:0;border-top:2.5px solid var(--teal);display:inline-block}
 .trendlegendline.prev{border-top:2.5px dashed var(--mute)}
+.trendswatch{width:10px;height:10px;border-radius:2px;display:inline-block}
 .trendsubtitle{font-size:12.5px;font-weight:800;color:var(--sub);margin:2px 0 10px}
-.trendsplit{height:1px;background:var(--line);margin:20px 0}
-.trendcol2{display:flex;gap:2px;align-items:flex-end;justify-content:center;height:100%;width:100%}
-.trendminibar{flex:1;max-width:13px;border-radius:3px 3px 0 0;transition:opacity .12s}
-.trendminibar.new{background:var(--teal)}
-.trendminibar.end{background:var(--fail)}
-.trendminibar:hover{opacity:.75}
 
 /* 상세 모달 */
 .backdrop{position:fixed;inset:0;background:rgba(10,15,17,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px}
@@ -2227,36 +2224,6 @@ function statusPanel(){
    구역은 그대로 보입니다 - 한쪽이 비어 있다고 패널 전체가 사라지지 않음. */
 const TREND_BASE_YEAR=2020;
 function isYmFromBaseYear(ym){return !!ym&&Number(ym.slice(0,4))>=TREND_BASE_YEAR;}
-function isQkFromBaseYear(qk){return !!qk&&Number(qk.slice(0,4))>=TREND_BASE_YEAR;}
-function quarterKeyFromDate(v){
-  const ym=monthKey(v);if(!ym) return null;
-  const y=Number(ym.slice(0,4)),mo=Number(ym.slice(5,7));
-  return y+'-Q'+(Math.floor((mo-1)/3)+1);
-}
-function quarterIdx(qk){const p=qk.split('-Q');return Number(p[0])*4+(Number(p[1])-1);}
-function idxQuarter(i){const y=Math.floor(i/4),q=i%4;return y+'-Q'+(q+1);}
-function quarterLabel(qk){const p=qk.split('-Q');return "'"+p[0].slice(2)+' Q'+p[1];}
-/* 두 분기 인덱스 사이(포함) 분기 목록 — 데이터가 아주 오래전부터 있어도
-   화면이 끝없이 넓어지지 않도록 한 번에 최대 120개 분기(30년)까지만. */
-function quarterRangeByIdx(minI,maxI){
-  if(minI>maxI){const t=minI;minI=maxI;maxI=t;}
-  const clamped=(maxI-minI)>119;
-  if(clamped) maxI=minI+119;
-  const out=[];for(let i=minI;i<=maxI;i++) out.push(idxQuarter(i));
-  return {keys:out,clamped};
-}
-function quarterDateRange(qk){
-  const p=qk.split('-Q'),y=Number(p[0]),q=Number(p[1]);
-  const startMonth=(q-1)*3+1,endMonth=startMonth+2;
-  const last=new Date(y,endMonth,0).getDate();
-  return {from:y+'-'+String(startMonth).padStart(2,'0')+'-01',to:y+'-'+String(endMonth).padStart(2,'0')+'-'+String(last).padStart(2,'0')};
-}
-function jumpToQuarter(tk,col,qk){
-  state.tab=tk;state.dateFilters[tk]=state.dateFilters[tk]||{};
-  const {from,to}=quarterDateRange(qk);
-  state.dateFilters[tk][col]={from,to};
-  state.page[tk]=1;render();
-}
 /* 2020-01부터 시작하는 월 목록 - 실제 데이터가 2020년 이전에도 있더라도
    그 이전 값은 집계에서 아예 제외하고(호출부에서 걸러줌), 화면도 항상
    2020-01부터 시작합니다. 최대 360개월(30년)까지만 - 아주 먼 미래 계약
@@ -2273,7 +2240,7 @@ function cumulativeSeries(perKeyMap,keys){
   let running=0;
   return keys.map(k=>{running+=(perKeyMap[k]||0);return running;});
 }
-/* 판매계약 신규/종료 발생 시점을 분기 단위로 미리 합산합니다. "신규"는
+/* 판매계약 신규/종료 발생 시점을 월 단위로 미리 합산합니다. "신규"는
    계약일(비어 있으면 공급기한_판매)을, "종료"는 이미 계산된 합성 필드
    계약종료일(공급기한_판매+계약기간)을 기준으로 삼습니다. 기준 연도
    (2020년) 이전 값은 여기서 걸러냅니다. */
@@ -2282,10 +2249,10 @@ function saleDateMaps(){
   if(!S) return {newM,endM};
   S.rows.forEach(r=>{
     const n=Number(r.cells['판매계약용량(MW)']);if(isNaN(n)) return;
-    const newQk=quarterKeyFromDate(r.cells['계약일']||r.cells['공급기한_판매']);
-    if(newQk&&isQkFromBaseYear(newQk)) newM[newQk]=(newM[newQk]||0)+n;
-    const endQk=quarterKeyFromDate(r.cells[CONTRACT_END_FIELD]);
-    if(endQk&&isQkFromBaseYear(endQk)) endM[endQk]=(endM[endQk]||0)+n;
+    const newYm=monthKey(r.cells['계약일']||r.cells['공급기한_판매']);
+    if(newYm&&isYmFromBaseYear(newYm)) newM[newYm]=(newM[newYm]||0)+n;
+    const endYm=monthKey(r.cells[CONTRACT_END_FIELD]);
+    if(endYm&&isYmFromBaseYear(endYm)) endM[endYm]=(endM[endYm]||0)+n;
   });
   return {newM,endM};
 }
@@ -2337,72 +2304,81 @@ function matchedCapacityByMonth(){
 }
 /* 다계열 누적 선 차트 — 계열 여러 개(매칭 총합 1개 + 발전원별 최대 4개,
    넘치면 "기타"로 합침)를 같은 시간축 위에 겹쳐 그립니다. 범례를 누르면
-   그 계열의 근거 자료로 이동합니다. keys는 월(YYYY-MM)·분기(YYYY-Qn)
-   아무 문자열 배열이나 그대로 씁니다(라벨 변환 함수만 다르게 주입). */
-function buildCumulativeLineChart(keys,series,labelFn){
+   그 계열의 근거 자료로 이동합니다. */
+/* 매칭된 계약(발전원별 스택 누적 영역, 왼쪽 축)과 월별 신규/종료
+   판매계약 용량(막대쌍, 오른쪽 축)을 같은 월 축 위에 겹쳐 그리는 통합
+   콤보 차트입니다. 스택의 맨 위 경계선이 곧 매칭된 계약 누적 총합이라
+   총합 선을 따로 그리지 않고, 그 경계선 위에 굵은 선 + 끝점 원 하나만
+   덧그려 강조합니다(발전원별 조각의 합이 항상 총합과 같아야 함). 두
+   지표의 단위(누적 vs 월별 증감)가 달라 눈금이 서로를 짓누르지 않도록
+   왼쪽/오른쪽 축을 완전히 독립적으로 스케일링합니다. */
+function buildCombinedTrendChart(keys,sourceSeries,matchedTotalValues,newVals,endVals){
   const n=keys.length;
-  const rawMax=Math.max(0,...series.flatMap(s=>s.values));
-  const ticks=niceTicks(rawMax,false);
-  const scaleTop=ticks[ticks.length-1]||1;
-  const axis=ticks.map(t=>`<span class="trendaxistick" style="bottom:${t/scaleTop*100}%">${fmtTick(t,'cap')}</span>`).join('');
-  const grid=ticks.map(t=>`<div class="trendgridline" style="bottom:${t/scaleTop*100}%"></div>`).join('');
+  let running=new Array(n).fill(0);
+  const layers=sourceSeries.map(s=>{
+    const bottom=running.slice();
+    running=s.values.map((v,i)=>running[i]+v);
+    return {...s,bottom,top:running.slice()};
+  });
+  const leftMax=Math.max(0,...running,...matchedTotalValues);
+  const rightMax=Math.max(0,...newVals,...endVals);
+  const leftTicks=niceTicks(leftMax,false);
+  const rightTicks=niceTicks(rightMax,false);
+  const leftTop=leftTicks[leftTicks.length-1]||1;
+  const rightTop=rightTicks[rightTicks.length-1]||1;
+  const leftAxis=leftTicks.map(t=>`<span class="trendaxistick" style="bottom:${t/leftTop*100}%">${fmtTick(t,'cap')}</span>`).join('');
+  const rightAxis=rightTicks.map(t=>`<span class="trendaxistick" style="bottom:${t/rightTop*100}%">${fmtTick(t,'cap')}</span>`).join('');
+  const grid=leftTicks.map(t=>`<div class="trendgridline" style="bottom:${t/leftTop*100}%"></div>`).join('');
+
   const W=1200,H=180,padX=16;
   const xAt=i=>n>1?padX+i*((W-2*padX)/(n-1)):W/2;
-  const yAt=v=>H-(scaleTop>0?Math.min(1,v/scaleTop)*H:0);
-  const linePath=vals=>vals.map((v,i)=>(i===0?'M':'L')+xAt(i).toFixed(1)+','+yAt(v).toFixed(1)).join(' ');
+  const yLeft=v=>H-(leftTop>0?Math.min(1,v/leftTop)*H:0);
+  const yRight=v=>H-(rightTop>0?Math.min(1,v/rightTop)*H:0);
+
   let svg=`<svg class="trendsvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">`;
-  series.forEach(s=>{
-    svg+=`<path d="${linePath(s.values)}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
+  layers.forEach(l=>{
+    const top=l.top.map((v,i)=>xAt(i).toFixed(1)+','+yLeft(v).toFixed(1));
+    const bot=l.bottom.map((v,i)=>xAt(i).toFixed(1)+','+yLeft(v).toFixed(1)).reverse();
+    svg+=`<path d="M${top.join(' L')} L${bot.join(' L')} Z" fill="${l.color}" opacity=".55" stroke="none"/>`;
   });
-  series.forEach(s=>{
-    const last=s.values[n-1]||0;
-    const cx=xAt(n-1).toFixed(1),cy=yAt(last).toFixed(1);
-    svg+=`<circle cx="${cx}" cy="${cy}" r="4" fill="${s.color}" stroke="var(--panel)" stroke-width="2"><title>${esc(s.label)} · ${nf(last)} MW</title></circle>`;
+  const totalPath=matchedTotalValues.map((v,i)=>(i===0?'M':'L')+xAt(i).toFixed(1)+','+yLeft(v).toFixed(1)).join(' ');
+  svg+=`<path d="${totalPath}" fill="none" stroke="var(--teal)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
+  const lastI=n-1,lastMatched=matchedTotalValues[lastI]||0;
+  svg+=`<circle cx="${xAt(lastI).toFixed(1)}" cy="${yLeft(lastMatched).toFixed(1)}" r="4" fill="var(--teal)" stroke="var(--panel)" stroke-width="2"><title>매칭된 계약 누적 용량 · ${nf(lastMatched)} MW</title></circle>`;
+
+  const barW=Math.max(2,Math.min(11,((W-2*padX)/n)*0.32));
+  keys.forEach((k,i)=>{
+    const cx=xAt(i);
+    const nv=newVals[i],ev=endVals[i];
+    if(nv>0){
+      const y=yRight(nv);
+      svg+=`<rect x="${(cx-barW-1).toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${(H-y).toFixed(1)}" fill="var(--teal)" style="cursor:pointer" onclick="jumpToMonth('T_판매계약','계약일','${jsq(k)}')"><title>${esc(monthLabel(k))} 신규 · ${nf(nv)} MW</title></rect>`;
+    }
+    if(ev>0){
+      const y=yRight(ev);
+      svg+=`<rect x="${(cx+1).toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${(H-y).toFixed(1)}" fill="var(--fail)" style="cursor:pointer" onclick="jumpToMonth('T_판매계약','${jsq(CONTRACT_END_FIELD)}','${jsq(k)}')"><title>${esc(monthLabel(k))} 종료 · ${nf(ev)} MW</title></rect>`;
+    }
   });
   svg+='</svg>';
+
   const tickStep=Math.max(1,Math.ceil(n/12));
-  const xticks=keys.map((k,i)=>`<span class="trendtick">${(i%tickStep===0||i===n-1)?esc(labelFn(k)):''}</span>`).join('');
-  const legend=`<div class="trendlegend">${series.map(s=>
-    `<span${s.action?` style="cursor:pointer" onclick="${s.action}"`:''}><span class="trendlegendline" style="border-top-color:${s.color}"></span>${esc(s.label)}: ${nf(s.values[n-1]||0)} MW</span>`).join('')}</div>`;
-  return `<div class="trendplot">
-      <div class="trendaxis">${axis}</div>
-      <div class="trendarea"><div class="trendgrid">${grid}</div>${svg}</div>
-    </div>
-    <div class="trendxrow"><div class="trendaxisspacer"></div><div class="trendticks">${xticks}</div></div>
-    ${legend}`;
-}
-/* 분기별 신규 vs 종료 판매계약 용량 막대 비교. 막대를 누르면 그 분기에
-   해당하는 판매계약 행만 표에서 봅니다. */
-function buildQuarterCompareBarChart(quarterKeys,newVals,endVals){
-  const rawMax=Math.max(0,...newVals,...endVals);
-  const ticks=niceTicks(rawMax,false);
-  const scaleTop=ticks[ticks.length-1]||1;
-  const axis=ticks.map(t=>`<span class="trendaxistick" style="bottom:${t/scaleTop*100}%">${fmtTick(t,'cap')}</span>`).join('');
-  const grid=ticks.map(t=>`<div class="trendgridline" style="bottom:${t/scaleTop*100}%"></div>`).join('');
-  const bars=quarterKeys.map((qk,i)=>{
-    const nv=newVals[i],ev=endVals[i];
-    const nh=nv>0?Math.max(3,nv/scaleTop*100):0;
-    const eh=ev>0?Math.max(3,ev/scaleTop*100):0;
-    const nAct=nv>0?`jumpToQuarter('T_판매계약','계약일','${jsq(qk)}')`:'';
-    const eAct=ev>0?`jumpToQuarter('T_판매계약','${jsq(CONTRACT_END_FIELD)}','${jsq(qk)}')`:'';
-    return `<div class="trendcol"><div class="trendcol2">
-        <div class="trendminibar new"${nAct?` style="height:${nh}%;cursor:pointer" onclick="${nAct}"`:` style="height:${nh}%"`} title="${esc(quarterLabel(qk))} 신규 · ${nf(nv)} MW"></div>
-        <div class="trendminibar end"${eAct?` style="height:${eh}%;cursor:pointer" onclick="${eAct}"`:` style="height:${eh}%"`} title="${esc(quarterLabel(qk))} 종료 · ${nf(ev)} MW"></div>
-      </div></div>`;
-  }).join('');
-  const tickStep=Math.max(1,Math.ceil(quarterKeys.length/9));
-  const xticks=quarterKeys.map((qk,i)=>`<span class="trendtick">${i%tickStep===0?esc(quarterLabel(qk)):''}</span>`).join('');
-  const totalNew=newVals.reduce((s,v)=>s+v,0),totalEnd=endVals.reduce((s,v)=>s+v,0);
-  const chart=`<div class="trendplot">
-      <div class="trendaxis">${axis}</div>
-      <div class="trendarea"><div class="trendgrid">${grid}</div><div class="trendchart">${bars}</div></div>
-    </div>
-    <div class="trendxrow"><div class="trendaxisspacer"></div><div class="trendticks">${xticks}</div></div>
-    <div class="trendlegend">
-      <span><span class="trendlegendline" style="border-top-color:var(--teal)"></span>신규 판매계약: ${nf(totalNew)} MW</span>
-      <span><span class="trendlegendline" style="border-top-color:var(--fail)"></span>종료 판매계약: ${nf(totalEnd)} MW</span>
+  const xticks=keys.map((k,i)=>`<span class="trendtick">${(i%tickStep===0||i===n-1)?esc(monthLabel(k)):''}</span>`).join('');
+  const legend=`<div class="trendlegend">
+      <span style="cursor:pointer" onclick="state.tab='T_수급매칭';render()"><span class="trendlegendline" style="border-top-color:var(--teal)"></span>매칭된 계약 누적 용량: ${nf(lastMatched)} MW</span>
+      ${layers.map(l=>`<span${l.action?` style="cursor:pointer" onclick="${l.action}"`:''}><span class="trendswatch" style="background:${l.color}"></span>${esc(l.label)}: ${nf(l.values[lastI]||0)} MW</span>`).join('')}
+      <span><span class="trendswatch" style="background:var(--teal)"></span>신규 판매계약(월별)</span>
+      <span><span class="trendswatch" style="background:var(--fail)"></span>종료 판매계약(월별)</span>
     </div>`;
-  return {chart,totalNew,totalEnd};
+  const totalNew=newVals.reduce((s,v)=>s+v,0),totalEnd=endVals.reduce((s,v)=>s+v,0);
+  const chart=`<div class="trendaxisnote">좌측 축: 매칭된 계약 · 발전원별 누적 용량(MW, 영역) · 우측 축: 월별 신규/종료 판매계약 용량(MW, 막대)</div>
+    <div class="trendplot">
+      <div class="trendaxis">${leftAxis}</div>
+      <div class="trendarea"><div class="trendgrid">${grid}</div>${svg}</div>
+      <div class="trendaxis right">${rightAxis}</div>
+    </div>
+    <div class="trendxrow"><div class="trendaxisspacer"></div><div class="trendticks">${xticks}</div><div class="trendaxisspacer"></div></div>
+    ${legend}`;
+  return {chart,totalMatched:lastMatched,totalNew,totalEnd};
 }
 
 /* 예전부터 있던 지표별 상세 추이(5개 지표 선택 + 건수/용량 전환 + 기간
@@ -2554,14 +2530,14 @@ function buildTrendLineChart(cfg,m,unit,curKeys){
   const prevTotalCnt=prevKeys.reduce((s,k)=>s+(m[k]?m[k].cnt:0),0);
   return {chart,totalCnt,totalCap,hasPrev,prevTotalCnt};
 }
-function trendToolsHtml(avail,unit){
+function trendToolsHtml(buttons,unit,showUnit){
   return `<div class="trendtools">
-      <div class="segtoggle">${avail.map(([k,c])=>
-        `<button class="${state.homeTrend.metric===k?'on':''}" onclick="setHomeTrend('metric','${k}')">${esc(c.label)}</button>`).join('')}</div>
-      <div class="segtoggle">
+      <div class="segtoggle">${buttons.map(([k,label])=>
+        `<button class="${state.homeTrend.metric===k?'on':''}" onclick="setHomeTrend('metric','${k}')">${esc(label)}</button>`).join('')}</div>
+      ${showUnit?`<div class="segtoggle">
         <button class="${unit==='cnt'?'on':''}" onclick="setHomeTrend('unit','cnt')">건수</button>
         <button class="${unit==='cap'?'on':''}" onclick="setHomeTrend('unit','cap')">용량(MW)</button>
-      </div>
+      </div>`:''}
     </div>`;
 }
 /* 조회 시작/종료 년월 필터 — <input type=month>는 브라우저 기본 달력
@@ -2579,14 +2555,61 @@ function trendRangeToolsHtml(){
       ${clamped?`<span class="trendrangenote">한 번에 최대 36개월까지 표시됩니다</span>`:''}
     </div>`;
 }
+/* '누적 현황' 지표 - 매칭된 계약·발전원별 누적 용량(영역, 왼쪽 축)과
+   월별 신규/종료 판매계약 용량(막대, 오른쪽 축)을 하나의 콤보 차트로
+   합쳐서 보여줍니다. TREND_METRICS의 다른 5개 지표와 달리 단일 표·단일
+   컬럼으로 표현되지 않는 합성 지표라 groupByMonth 경로를 타지 않고
+   이 함수에서 직접 집계합니다. 건수/용량 토글·기간 지정·일별 드릴다운은
+   이 지표에는 의미가 없어(용량 하나뿐, 2020년 이후 전체 추이가 핵심)
+   버튼 자체를 숨깁니다. */
+function legacyTrendCombinedView(buttons){
+  const heading=`<div class="trendsubtitle">지표별 상세 추이 (매칭된 계약 · 발전원별 누적 + 월별 신규/종료 판매계약, ${TREND_BASE_YEAR}년~)</div>`;
+  const tools=trendToolsHtml(buttons,state.homeTrend.unit,false);
+  const {totalM,bySource}=matchedCapacityByMonth();
+  const {newM,endM}=saleDateMaps();
+  const allKeys=[...Object.keys(totalM),...Object.values(bySource).flatMap(m=>Object.keys(m)),...Object.keys(newM),...Object.keys(endM)];
+  if(!allKeys.length){
+    return `${heading}${tools}<div class="nocand">${TREND_BASE_YEAR}년 이후 매칭(수급매칭)·신규/종료 판매계약 데이터가 없습니다.</div>`;
+  }
+  let maxI=-Infinity;
+  allKeys.forEach(k=>{const i=ymIdx(k);if(i>maxI)maxI=i;});
+  const {keys:monthKeys,clamped}=monthRangeFrom2020(maxI);
+
+  const sourceTotals=Object.entries(bySource)
+    .map(([g,m])=>[g,m,Object.values(m).reduce((s,v)=>s+v,0)])
+    .sort((a,b)=>b[2]-a[2]);
+  const topSources=sourceTotals.slice(0,4),restSources=sourceTotals.slice(4);
+  const sourceSeries=topSources.map(([g,m],i)=>({label:g,color:CAT_COLORS[i%CAT_COLORS.length],
+    values:cumulativeSeries(m,monthKeys),action:`jumpToFilter('T_발전소','발전원','${jsq(g)}')`}));
+  if(restSources.length){
+    const mergedMap={};
+    restSources.forEach(([,m])=>Object.entries(m).forEach(([mk,v])=>{mergedMap[mk]=(mergedMap[mk]||0)+v;}));
+    sourceSeries.push({label:`기타 ${restSources.length}종`,color:'var(--mute)',
+      values:cumulativeSeries(mergedMap,monthKeys),action:"state.tab='T_발전소';render()"});
+  }
+  const matchedTotalValues=cumulativeSeries(totalM,monthKeys);
+  const newVals=monthKeys.map(k=>newM[k]||0);
+  const endVals=monthKeys.map(k=>endM[k]||0);
+  const {chart,totalMatched,totalNew,totalEnd}=buildCombinedTrendChart(monthKeys,sourceSeries,matchedTotalValues,newVals,endVals);
+  const rangeDesc=`${monthLabel(monthKeys[0])} ~ ${monthLabel(monthKeys[monthKeys.length-1])} (${monthKeys.length}개월)`;
+  return `${heading}
+    ${tools}
+    ${chart}
+    <div class="trendfoot"><span>${esc(rangeDesc)}${clamped?' · 표시 범위가 넓어 최근 30년으로 제한됨':''}</span><span>매칭 누적 ${nf(totalMatched)} MW · 신규 합계 ${nf(totalNew)} MW · 종료 합계 ${nf(totalEnd)} MW</span></div>`;
+}
 function legacyTrendSection(){
   const avail=Object.entries(TREND_METRICS).filter(([,c])=>byKey[c.tk]);
-  if(!avail.length) return '';
+  const combinedOk=!!(byKey['T_수급매칭']&&byKey['T_구매계약']&&byKey['T_전기사용지']&&byKey['T_판매계약']);
+  const buttons=[...avail.map(([k,c])=>[k,c.label]),...(combinedOk?[['combined','누적 현황(매칭+신규/종료)']]:[])];
+  if(!buttons.length) return '';
+  const curOk=state.homeTrend.metric==='combined'?combinedOk:!!byKey[TREND_METRICS[state.homeTrend.metric]?.tk];
+  if(!curOk) state.homeTrend.metric=buttons[0][0];
+  if(state.homeTrend.metric==='combined') return legacyTrendCombinedView(buttons);
+
   const heading='<div class="trendsubtitle">지표별 상세 추이 (건수/용량 전환 · 기간 지정 · 일별 드릴다운)</div>';
-  if(!byKey[TREND_METRICS[state.homeTrend.metric]?.tk]) state.homeTrend.metric=avail[0][0];
   const cfg=TREND_METRICS[state.homeTrend.metric];
   const unit=state.homeTrend.unit;
-  const tools=trendToolsHtml(avail,unit);
+  const tools=trendToolsHtml(buttons,unit,true);
 
   if(state.homeTrend.drillYm){
     const ym=state.homeTrend.drillYm;
@@ -2628,73 +2651,17 @@ function legacyTrendSection(){
     <div class="trendfoot"><span>${esc(rangeDesc)}${esc(yoy)}</span><span>합계 ${nf(totalCnt,0)}건 · ${nf(totalCap)} MW</span></div>`;
 }
 
+/* 매칭된 계약·발전원별 누적 용량과 분기별(→월별) 신규/종료 판매계약
+   용량은 원래 별도 두 구역이었으나, 사용자 요청으로 서로 분리하지 않고
+   기존 "지표별 상세 추이" 안의 선택 가능한 지표 하나('누적 현황')로
+   합쳤습니다 - legacyTrendSection()이 그 통합까지 전부 담당하므로
+   이 패널은 그 결과물만 감싸면 됩니다. */
 function trendPanel(){
-  const S=byKey['T_판매계약'],B=byKey['T_구매계약'],M=byKey['T_수급매칭'],E=byKey['T_전기사용지'];
-
-  /* 1) 매칭된 계약·발전원별 누적 용량 (월별, 2020년~) */
-  let topHtml='';
-  if(M&&B&&E&&S){
-    const {totalM,bySource}=matchedCapacityByMonth();
-    const allMonthKeys=[...Object.keys(totalM),...Object.values(bySource).flatMap(m=>Object.keys(m))];
-    if(!allMonthKeys.length){
-      topHtml=`<div class="trendsubtitle">매칭된 계약 · 발전원별 누적 용량 (${TREND_BASE_YEAR}년~)</div>
-        <div class="nocand">${TREND_BASE_YEAR}년 이후로 매칭(수급매칭)이 성립된 판매계약이 없습니다.</div>`;
-    }else{
-      let maxI=-Infinity;
-      allMonthKeys.forEach(k=>{const i=ymIdx(k);if(i>maxI)maxI=i;});
-      const {keys:monthKeys,clamped}=monthRangeFrom2020(maxI);
-      const matchedSeries={label:'매칭된 계약 누적 용량',color:'var(--teal)',
-        values:cumulativeSeries(totalM,monthKeys),action:"state.tab='T_수급매칭';render()"};
-      const sourceTotals=Object.entries(bySource)
-        .map(([g,m])=>[g,m,Object.values(m).reduce((s,v)=>s+v,0)])
-        .sort((a,b)=>b[2]-a[2]);
-      const topSources=sourceTotals.slice(0,4),restSources=sourceTotals.slice(4);
-      const sourceSeries=topSources.map(([g,m],i)=>({label:g,color:CAT_COLORS[i%CAT_COLORS.length],
-        values:cumulativeSeries(m,monthKeys),action:`jumpToFilter('T_발전소','발전원','${jsq(g)}')`}));
-      if(restSources.length){
-        const mergedMap={};
-        restSources.forEach(([,m])=>Object.entries(m).forEach(([mk,v])=>{mergedMap[mk]=(mergedMap[mk]||0)+v;}));
-        sourceSeries.push({label:`기타 ${restSources.length}종`,color:'var(--mute)',
-          values:cumulativeSeries(mergedMap,monthKeys),action:"state.tab='T_발전소';render()"});
-      }
-      const cumChart=buildCumulativeLineChart(monthKeys,[matchedSeries,...sourceSeries],monthLabel);
-      const rangeDesc=`${monthLabel(monthKeys[0])} ~ ${monthLabel(monthKeys[monthKeys.length-1])} (${monthKeys.length}개월)`;
-      topHtml=`<div class="trendsubtitle">매칭된 계약 · 발전원별 누적 용량 (${TREND_BASE_YEAR}년~)</div>
-        ${cumChart}
-        <div class="trendfoot"><span>${esc(rangeDesc)}${clamped?' · 표시 범위가 넓어 최근 30년으로 제한됨':''}</span><span>매칭된 계약 누적 ${nf(matchedSeries.values[matchedSeries.values.length-1]||0)} MW</span></div>`;
-    }
-  }
-
-  /* 2) 분기별 신규·종료 판매계약 용량 (2020년~) */
-  let bottomHtml='';
-  if(S){
-    const {newM,endM}=saleDateMaps();
-    const allQKeys=[...Object.keys(newM),...Object.keys(endM)];
-    if(!allQKeys.length){
-      bottomHtml=`<div class="trendsubtitle">분기별 신규 · 종료 판매계약 용량 (${TREND_BASE_YEAR}년~)</div>
-        <div class="nocand">${TREND_BASE_YEAR}년 이후 계약일/계약종료일이 입력된 판매계약이 없습니다.</div>`;
-    }else{
-      let minI=Infinity,maxI=-Infinity;
-      allQKeys.forEach(k=>{const i=quarterIdx(k);if(i<minI)minI=i;if(i>maxI)maxI=i;});
-      const {keys:quarterKeys,clamped}=quarterRangeByIdx(minI,maxI);
-      const newVals=quarterKeys.map(qk=>newM[qk]||0);
-      const endVals=quarterKeys.map(qk=>endM[qk]||0);
-      const {chart:barChart,totalNew,totalEnd}=buildQuarterCompareBarChart(quarterKeys,newVals,endVals);
-      const rangeDesc=`${quarterLabel(quarterKeys[0])} ~ ${quarterLabel(quarterKeys[quarterKeys.length-1])} (${quarterKeys.length}개 분기)`;
-      bottomHtml=`<div class="trendsubtitle">분기별 신규 · 종료 판매계약 용량 (${TREND_BASE_YEAR}년~)</div>
-        ${barChart}
-        <div class="trendfoot"><span>${esc(rangeDesc)}${clamped?' · 표시 범위가 넓어 최근 30년으로 제한됨':''}</span><span>신규 합계 ${nf(totalNew)} MW · 종료 합계 ${nf(totalEnd)} MW</span></div>`;
-    }
-  }
-
-  /* 3) 복구된 기존 기능 - 지표별 상세 추이 */
-  const legacyHtml=legacyTrendSection();
-
-  const sections=[topHtml,bottomHtml,legacyHtml].filter(Boolean);
-  if(!sections.length) return '';
+  const body=legacyTrendSection();
+  if(!body) return '';
   return panel('년월별 추이',
-    '① 매칭된 계약·발전원별 누적 용량 ② 분기별 신규/종료 판매계약 용량 ③ 지표별 상세 추이 - 그래프·막대·범례를 누르면 근거 자료로 이동합니다',
-    sections.join('<div class="trendsplit"></div>'));
+    '지표를 선택해 추세를 확인하세요 - 영역·막대·범례를 누르면 근거 자료로 이동합니다',
+    body);
 }
 
 /* 발전원별 설비용량 비중을 12박스 그리드 한 칸에 들어가는 압축 범례로
