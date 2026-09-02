@@ -51,7 +51,7 @@ TABLES: list[TableSchema] = [
     ),
     TableSchema(
         key="T_수급매칭", label="수급매칭", pk="수급매칭ID",
-        columns=["수급매칭ID", "전기사용지ID", "구매계약ID", "현황"],
+        columns=["수급매칭ID", "전기사용지ID", "구매계약ID", "현황", "원인"],
         fk={"전기사용지ID": "T_전기사용지", "구매계약ID": "T_구매계약"},
         unique_groups=[["전기사용지ID", "구매계약ID"]],
     ),

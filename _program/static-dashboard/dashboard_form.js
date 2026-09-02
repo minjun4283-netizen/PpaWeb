@@ -261,6 +261,17 @@
       return ENUM_COLUMNS[name] || null;
     }
 
+    // "원인"(수급매칭의 "현황"이 "6. 이슈 발생"일 때 함께 기록하는 사유)은
+    // 자주 쓰는 값은 목록에서 고르되, 목록에 없는 사유는 자유롭게 직접
+    // 입력할 수 있어야 합니다 - <select>(강제 선택)가 아니라
+    // <input list=datalist>(콤보박스)로 둡니다.
+    var COMBO_COLUMNS = {
+      "원인": ["민원 발생", "선로 부족", "한전 이슈", "전력거래소 이슈"]
+    };
+    function comboOptionsFor(name) {
+      return COMBO_COLUMNS[name] || null;
+    }
+
     // MGA_Supply/MGA_Demand는 "=n/24" 수식으로 관리되던 값입니다 - 사용자가
     // 최종 소수값 대신 n만 입력하면 n/24를 계산해 그 결과를 저장합니다.
     function isFormula24Column(name) {
@@ -391,6 +402,18 @@
         input.appendChild(el("option", { value: opt.value }, [opt.label]));
       });
       return input;
+    }
+
+    // 콤보박스(자유 입력 + 목록에서 선택 둘 다 가능) - <select>와 달리 목록에
+    // 없는 값도 그대로 타이핑해서 저장할 수 있어야 하는 "원인" 같은 컬럼에 씀.
+    function buildComboInput(fieldName, options) {
+      var listId = fieldName + "_dl";
+      var input = el("input", {
+        class: "ppaf-input", type: "text", "data-name": fieldName, list: listId, autocomplete: "off"
+      });
+      var datalist = el("datalist", { id: listId });
+      (options || []).forEach(function (v) { datalist.appendChild(el("option", { value: v })); });
+      return { input: input, datalist: datalist };
     }
 
     // ---------------------------------------------------------------------
@@ -611,13 +634,19 @@
       var label = el("label", { class: labelClass }, [columnName]);
       var fieldName = "fld_" + columnName;
       var input;
+      var comboDatalist = null;
 
       var lookupTable = getLookupTable(tableName, columnName);
       var enumOptions = enumOptionsFor(columnName);
+      var comboOptions = comboOptionsFor(columnName);
       if (lookupTable && (optionCache[lookupTable] || []).length > 0) {
         input = buildSelect(fieldName, optionCache[lookupTable] || []);
       } else if (enumOptions) {
         input = buildSelect(fieldName, enumOptions.map(function (v) { return { value: v, label: v }; }));
+      } else if (comboOptions) {
+        var combo = buildComboInput(fieldName, comboOptions);
+        input = combo.input;
+        comboDatalist = combo.datalist;
       } else if (isTextareaColumn(columnName)) {
         input = el("textarea", { class: "ppaf-textarea", "data-name": fieldName });
       } else if (isDateColumn(columnName)) {
@@ -630,6 +659,7 @@
 
       wrap.appendChild(label);
       wrap.appendChild(input);
+      if (comboDatalist) wrap.appendChild(comboDatalist);
 
       var onLiveCheck = function () { validateFieldLive(tableName, columnName, wrap, input, !!formState.loadedPk); };
       input.addEventListener("blur", onLiveCheck);
