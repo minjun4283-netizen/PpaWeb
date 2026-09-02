@@ -14,4 +14,7 @@ _program/archive/
 _program/python-embed/
 *.xlsm
 /PPA현황.html
-/PPA현황_snapshot.json
+_program/*_snapshot.json
+_program/*_lastbuild.json
+_program/*_changelog.json
+*.xlsm.livepid

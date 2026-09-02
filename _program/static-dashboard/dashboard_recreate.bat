@@ -62,10 +62,12 @@ if errorlevel 1 (
 rem --- 3. 항상 같은 출력 파일명 -----------------------------------------
 rem     매번 파일명이 같아야 비교 대상 스냅샷도 매번 같은 파일을 가리켜서
 rem     지난번 실행 대비 변경사항이 계속 누적 비교됩니다. 절대 바꾸지 마세요.
-rem     최상위(작업폴더)에 생성되도록 이 폴더(_program\static-dashboard)
-rem     기준으로 두 단계 위 경로를 씁니다.
+rem     html은 최상위(작업폴더)에 생성되도록 이 폴더(_program\static-dashboard)
+rem     기준으로 두 단계 위 경로를, 스냅샷은 최상위를 깨끗하게 유지하려고
+rem     _program 폴더 안(build_dashboard.py의 program_meta_dir()와 같은
+rem     위치, 한 단계 위)을 가리키도록 여기 표시도 맞춰둡니다.
 set "OUT=..\..\PPA현황.html"
-set "SNAP=..\..\PPA현황_snapshot.json"
+set "SNAP=..\PPA현황_snapshot.json"
 
 if exist "%SNAP%" (
   echo 비교 대상 스냅샷: %SNAP% - 있음, 지난번 대비 변경사항이 표시됩니다.

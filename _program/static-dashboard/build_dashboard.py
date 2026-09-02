@@ -11,10 +11,11 @@
 그 파일을 팀원들과 공유(사내망 공유폴더, 메일, Teams 등)하면 됩니다. 편집은
 여전히 엑셀에서 하고, 바뀐 내용을 반영하려면 이 스크립트를 다시 실행하세요.
 
-실행할 때마다 데이터 스냅샷(<출력파일>_snapshot.json)을 같은 폴더에 남깁니다.
-다음번에 실행하면 그 스냅샷과 비교해서 "지난번 대비 추가/삭제/수정된 항목"이
-대시보드의 [변경] 탭과 표 화면에 자동으로 표시됩니다. 별도 설정은 필요 없고,
-끄고 싶으면 --no-snapshot 을 붙이면 됩니다.
+실행할 때마다 데이터 스냅샷(<출력파일>_snapshot.json)을 _program 폴더 안에
+남깁니다(최상위는 xlsm+html만 남도록 깨끗하게 유지). 다음번에 실행하면 그
+스냅샷과 비교해서 "지난번 대비 추가/삭제/수정된 항목"이 대시보드의 [변경]
+탭과 표 화면에 자동으로 표시됩니다. 별도 설정은 필요 없고, 끄고 싶으면
+--no-snapshot 을 붙이면 됩니다.
 """
 import argparse
 import datetime
@@ -84,9 +85,20 @@ def diagnose_xlsm_open_failure(path: str) -> str:
     return "\n".join(lines)
 
 
+def program_meta_dir(out_path: str) -> str:
+    """스냅샷/변경이력 등 대시보드 부속 파일을 둘 폴더. 최상위 작업폴더(xlsm+html만
+    두는 곳)를 깨끗하게 유지하기 위해, html이 있는 폴더 바로 아래의 _program
+    폴더 안에 넣습니다. 이미 있어야 정상(이 스크립트 자체가 그 안에 있음)이지만,
+    혹시 없더라도 막히지 않도록 없으면 만듭니다."""
+    top_dir = os.path.dirname(os.path.abspath(out_path))
+    d = os.path.join(top_dir, "_program")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
 def default_snapshot_path(out_path: str) -> str:
-    stem, _ = os.path.splitext(out_path)
-    return stem + "_snapshot.json"
+    stem = os.path.splitext(os.path.basename(out_path))[0]
+    return os.path.join(program_meta_dir(out_path), stem + "_snapshot.json")
 
 
 def build_payload(

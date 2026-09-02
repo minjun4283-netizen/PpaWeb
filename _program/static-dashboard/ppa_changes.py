@@ -151,9 +151,20 @@ def compute_changes(tables_data: dict[str, list[dict]], prev: Optional[dict]) ->
     return changes, marks
 
 
+def _program_meta_dir(out_path: str) -> str:
+    """build_dashboard.program_meta_dir()와 같은 규칙 - 최상위 작업폴더(xlsm+html만
+    두는 곳)를 깨끗하게 유지하려고, 스냅샷/변경이력류 부속 파일은 html이 있는
+    폴더 바로 아래의 _program 폴더 안에 둡니다. 순환 import를 피하려고 여기서도
+    똑같은 계산을 자체적으로 합니다(build_dashboard.py가 이 모듈을 import함)."""
+    top_dir = os.path.dirname(os.path.abspath(out_path))
+    d = os.path.join(top_dir, "_program")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
 def default_changelog_path(out_path: str) -> str:
-    stem, _ = os.path.splitext(out_path)
-    return stem + "_changelog.json"
+    stem = os.path.splitext(os.path.basename(out_path))[0]
+    return os.path.join(_program_meta_dir(out_path), stem + "_changelog.json")
 
 
 def default_lastbuild_path(out_path: str) -> str:
@@ -163,8 +174,8 @@ def default_lastbuild_path(out_path: str) -> str:
     전체 diff를 통째로 다시 적으면 같은 항목이 실행마다 중복으로 쌓이므로,
     changelog에는 이번 한 번의 실행에서 실제로 바뀐 것만 넣어야 합니다 - 그
     계산에 쓰는, 매 실행마다 갱신되는 별도의 "직전 실행" 스냅샷입니다."""
-    stem, _ = os.path.splitext(out_path)
-    return stem + "_lastbuild.json"
+    stem = os.path.splitext(os.path.basename(out_path))[0]
+    return os.path.join(_program_meta_dir(out_path), stem + "_lastbuild.json")
 
 
 def load_changelog(path: str) -> list[dict]:
