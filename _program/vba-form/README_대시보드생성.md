@@ -65,8 +65,10 @@
 📁 (작업 폴더)\
    PPA파일.xlsm              ← 이 통합문서 (입력폼·탐색·대시보드생성 매크로 포함)
    PPA현황.html              ← 생성 결과 (자동으로 열림, 최상위에 생성됨)
-   PPA현황_snapshot.json     ← 자동 갱신 - 지우지 마세요
    📁 _program\
+      PPA현황_snapshot.json   ← 자동 생성/갱신 - 지우지 마세요
+      PPA현황_lastbuild.json  ← 자동 생성/갱신 - 지우지 마세요
+      PPA현황_changelog.json  ← 자동 생성/갱신 - 지우지 마세요
       📁 archive\             ← 저장/생성/서버 종료 시 자동 백업(아래 절 참고)
       📁 python-embed\        ← python 미설치 환경만 필요
       📁 static-dashboard\
