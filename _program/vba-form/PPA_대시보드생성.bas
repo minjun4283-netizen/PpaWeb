@@ -145,6 +145,97 @@ Private Function OneDrive_루트목록() As Collection
     Set OneDrive_루트목록 = col
 End Function
 
+'==============================================================================
+' 경로가 OneDrive 동기화 폴더(사용자 로컬 OneDrive 루트 중 하나) 아래에
+' 있는지만 판정합니다. 'Files On-Demand' 로 인해 탐색기에는 파일이 보여도
+' 실제로는 이 컴퓨터에 내려받아지지 않은 상태(구름 아이콘)일 수 있는데,
+' 이 경우 Dir$() 로도 존재를 확인하지 못하는 경우가 있어 경로진단() 에서
+' 안내 문구를 붙일지 판단하는 데만 사용합니다.
+'==============================================================================
+Private Function OneDrive_안인지(ByVal 경로 As String) As Boolean
+    Dim roots As Collection, root As Variant
+    Dim 경로소문자 As String, 루트소문자 As String
+
+    On Error Resume Next
+    경로소문자 = LCase$(경로)
+    Set roots = OneDrive_루트목록()
+    For Each root In roots
+        루트소문자 = LCase$(CStr(root))
+        If Len(루트소문자) > 0 Then
+            If Left$(경로소문자, Len(루트소문자)) = 루트소문자 Then
+                OneDrive_안인지 = True
+                Exit Function
+            End If
+        End If
+    Next root
+    OneDrive_안인지 = False
+End Function
+
+'==============================================================================
+' 배치/실행 파일을 못 찾았을 때, 단순히 '찾은 경로: ...' 한 줄만 보여주는
+' 대신 작업폴더부터 상대경로를 한 단계씩 따라가며 정확히 어느 폴더/파일
+' 단계에서 끊기는지 짚어주고, 흔한 원인(경로 길이 제한, OneDrive 온라인
+' 전용 파일, 백신 격리, ZIP 안에서 직접 열기/예전 '최근 항목')을 함께
+' 안내하는 진단 메시지를 만듭니다. 실제 Dir$() 판정 로직 자체는 바꾸지
+' 않고, 실패했을 때 보여줄 메시지만 더 자세하게 만드는 용도입니다.
+'==============================================================================
+Private Function 경로진단(ByVal 작업폴더 As String, ByVal 상대경로 As String) As String
+    Dim 조각() As String
+    Dim 현재경로 As String, i As Long
+    Dim 메시지 As String, 전체경로 As String
+
+    전체경로 = 작업폴더 & 상대경로
+    조각 = Split(상대경로, "\")
+
+    현재경로 = 작업폴더
+    For i = LBound(조각) To UBound(조각)
+        If Len(조각(i)) > 0 Then
+            현재경로 = 현재경로 & "\" & 조각(i)
+            If i < UBound(조각) Then
+                If Len(Dir$(현재경로, vbDirectory)) = 0 Then
+                    메시지 = "다음 폴더를 찾을 수 없습니다:" & vbCrLf & 현재경로
+                    Exit For
+                End If
+            Else
+                If Len(Dir$(현재경로)) = 0 Then
+                    메시지 = "다음 파일을 찾을 수 없습니다:" & vbCrLf & 현재경로
+                    Exit For
+                End If
+            End If
+        End If
+    Next i
+
+    If Len(메시지) = 0 Then
+        메시지 = "경로상 모든 폴더/파일이 확인되었습니다(원인 불명):" & vbCrLf & 전체경로
+    End If
+
+    메시지 = 메시지 & vbCrLf & vbCrLf & "찾은 전체 경로: " & 전체경로
+
+    If Len(전체경로) > 250 Then
+        메시지 = 메시지 & vbCrLf & vbCrLf & _
+            "참고: 경로 길이가 " & Len(전체경로) & "자로 깁니다. Windows는 260자 " & _
+            "안팎의 제한이 있을 수 있어, 폴더 이름을 줄이거나 더 상위 위치로 " & _
+            "옮기면 해결될 수 있습니다."
+    End If
+
+    If OneDrive_안인지(작업폴더) Then
+        메시지 = 메시지 & vbCrLf & vbCrLf & _
+            "참고: 이 폴더는 OneDrive 동기화 폴더 안에 있습니다. 탐색기에 파일이 " & _
+            "보여도 구름 아이콘(온라인 전용)이면 실제로는 이 컴퓨터에 내려받아지지 " & _
+            "않은 상태일 수 있습니다. 탐색기에서 _program 폴더를 우클릭한 뒤 " & _
+            "'항상 이 디바이스에 유지'를 선택해 완전히 내려받고 나서 다시 시도해보세요."
+    End If
+
+    메시지 = 메시지 & vbCrLf & vbCrLf & _
+        "그 밖의 흔한 원인: 최근에 받은 .bat/.vbs 파일을 백신 프로그램이 " & _
+        "격리했을 수 있고(백신 알림/격리함을 확인해보세요), 또는 이 통합문서를 " & _
+        "압축(zip) 파일 안에서 바로 열었거나 '최근 항목'에 남은 예전 위치를 " & _
+        "열었을 수 있습니다 - 파일 탐색기에서 xlsm 파일이 실제로 있는 폴더로 " & _
+        "이동해 그 폴더 안의 파일을 직접 더블클릭해서 열어보세요."
+
+    경로진단 = 메시지
+End Function
+
 Private Function OneDrive_에서_찾기(ByVal fileName As String) As String
     Dim roots As Collection
     Dim root As Variant
@@ -346,9 +437,8 @@ Public Sub 대시보드_생성()
     found = Dir$(batPath)
     If Len(found) = 0 Then
         MsgBox "dashboard_recreate.bat 를 찾을 수 없습니다." & vbCrLf & vbCrLf & _
-               "찾은 경로: " & batPath & vbCrLf & vbCrLf & _
-               "이 통합문서 옆에 _program\static-dashboard 폴더가 있고 그 안에 " & _
-               "dashboard_recreate.bat 가 있는지 확인해주세요.", vbExclamation, "대시보드 생성"
+               경로진단(작업폴더, "\_program\static-dashboard\dashboard_recreate.bat"), _
+               vbExclamation, "대시보드 생성"
         상태쓰기 "배치파일을 찾지 못해 중단됨", True, 7
         Exit Sub
     End If
@@ -489,8 +579,9 @@ Public Sub 웹서버_시작()
     found = Dir$(batPath)
     If Len(found) = 0 Then
         MsgBox "run_live_server_hidden.vbs 도 run_live_server.bat 도 찾을 수 없습니다." & vbCrLf & vbCrLf & _
-               "이 통합문서 옆에 _program\static-dashboard 폴더가 있고 그 안에 실행 파일이 " & _
-               "있는지 확인해주세요(최신 버전으로 폴더를 통째로 다시 받아보세요).", vbExclamation, "실시간 입력 서버"
+               경로진단(작업폴더, "\_program\static-dashboard\run_live_server.bat") & vbCrLf & vbCrLf & _
+               "(최신 버전으로 폴더를 통째로 다시 받아보는 것도 방법입니다.)", _
+               vbExclamation, "실시간 입력 서버"
         상태쓰기 "실행 파일을 찾지 못해 중단됨", True, 15
         Exit Sub
     End If
