@@ -284,7 +284,7 @@
     var FIELD_HELP = {
       "수요기업 미확보": "False = 확보",
       "공급자원 미확보": "False = 확보",
-      "발전소ID": "KPX 발전기ID 원칙 · 미발급 시 발전소명·법인명(4자 이내)+구분숫자"
+      "발전소ID": "KPX 발전기ID 원칙\n미발급 시 발전소명·법인명(4자 이내)+구분숫자"
     };
     function buildFieldHelp(columnName) {
       var msg = FIELD_HELP[columnName];
@@ -2059,7 +2059,7 @@
         ".ppaf-btn.danger:hover:not(:disabled){background:var(--ppaf-danger-bg)}" +
         ".ppaf-required::after{content:' *';color:var(--ppaf-danger);font-weight:800}" +
         ".ppaf-formula24-display{font-size:11px;color:var(--ppaf-sub);margin-top:1px}" +
-        ".ppaf-fieldhelp{font-size:11px;color:var(--ppaf-sub);margin-top:3px;line-height:1.4}" +
+        ".ppaf-fieldhelp{font-size:11px;color:var(--ppaf-sub);margin-top:3px;line-height:1.4;white-space:pre-line}" +
         ".ppaf-idpreview-display{font-size:13px;font-weight:700;padding:10px 11px;border:1.5px dashed var(--ppaf-line);border-radius:9px;background:rgba(11,133,119,.05);color:var(--ppaf-teal-d)}" +
         ".ppaf-idpreview-display.ppaf-idpreview-error{color:var(--ppaf-danger);border-color:var(--ppaf-danger);background:var(--ppaf-danger-bg);font-weight:600}" +
         ".ppaf-tempcheck{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ppaf-sub);cursor:pointer;margin-top:2px}" +
