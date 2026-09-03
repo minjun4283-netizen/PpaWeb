@@ -1005,6 +1005,58 @@ class ExcelBridge:
             if op.get("action") == "delete"
         }
 
+        # ---- ID 자동 채번 + 그룹 내부 FK 연결 해석 (실제로 쓰기 전에, 검증
+        # 전에 먼저 record를 최종 값으로 확정합니다) ----
+        # 그룹A/B(마스터+자식[+손자])는 자식/손자가 구매계약/판매계약/전기사용지/
+        # 수급매칭이면 PK를 사람이 입력하지 않습니다 - 여기서 단일 저장
+        # (_save_record)과 똑같이 compute_id()로 계산합니다. 손자의 FK 컬럼은
+        # (그 부모인 자식의 PK가 이 시점엔 아직 모를 수 있으므로) 문자열 값
+        # 대신 그 자식 op가 넘겨준 "ref" 키를 통해 연결합니다(op["ref"] ->
+        # op["fk_ref"] = {컬럼명: ref}) - operations 배열은 항상 부모가 자식보다
+        # 앞에 오므로(dashboard_form.js가 그렇게 만듦) 한 번의 순차 패스로
+        # 전부 해석됩니다. tables_data는 이 배치 안에서 계속 갱신해가며 써서,
+        # 같은 표에 여러 신규 행을 연달아 추가할 때도 순번이 겹치지 않게 합니다.
+        tables_data = self._read_all_tables()
+        ref_map: dict[str, str] = {}
+        id_changes: list[tuple[str, str, str]] = []
+        for idx, op in enumerate(operations, start=1):
+            if op.get("action") != "save":
+                continue
+            table = op.get("table")
+            schema = TABLE_BY_KEY.get(table)
+            if not schema:
+                continue
+            record = op.get("record") or {}
+
+            for col, ref in (op.get("fk_ref") or {}).items():
+                if ref not in ref_map:
+                    raise ExcelComError(
+                        f"{idx}번째 작업({schema.label}): 연결된 상위 항목({ref})을 찾을 수 없습니다 - "
+                        "저장 순서를 확인해주세요."
+                    )
+                record[col] = ref_map[ref]
+
+            original_pk = str(op.get("original_pk") or "").strip() or None
+            if table in ID_TABLE_KEYS:
+                id_result = compute_id(table, record, tables_data, current_pk=original_pk)
+                if not id_result["ok"]:
+                    raise ExcelComError(f"{idx}번째 작업({schema.label}): {id_result['reason']}")
+                record[schema.pk] = id_result["id"]
+                if original_pk and id_result["changed"]:
+                    id_changes.append((table, original_pk, id_result["id"]))
+
+                row_copy = dict(record)
+                existing_row = find_row(tables_data, table, schema.pk, original_pk) if original_pk else None
+                if existing_row is not None:
+                    existing_row.clear()
+                    existing_row.update(row_copy)
+                else:
+                    tables_data.setdefault(table, []).append(row_copy)
+
+            ref = op.get("ref")
+            if ref:
+                ref_map[ref] = record.get(schema.pk) or ""
+
         # 배치 안에서 "이번에 새로 같이 생기는" PK들 - 아직 저장 전이라도
         # 부모+자식을 한 번에 새로 만들 때 FK 검증을 통과시키기 위함.
         batch_new_pks: dict[str, set] = {}
@@ -1056,12 +1108,24 @@ class ExcelBridge:
         results = []
         for op in operations:
             if op.get("action") == "save":
-                results.append(self._write_row(wb, op["table"], op.get("record") or {}))
+                # original_pk가 있으면(기존 행 편집) 그 값으로 행을 찾아 고쳐 씁니다 -
+                # record 자신의 PK 값(ID 자동 채번으로 위에서 바뀌었을 수 있음)으로
+                # 찾으면 옛 행을 못 찾아 "새 행 추가"로 오인해 중복 행이 생깁니다.
+                results.append(
+                    self._write_row(wb, op["table"], op.get("record") or {}, locate_pk=op.get("original_pk"))
+                )
             else:
                 results.append(self._delete_row(wb, op["table"], str(op.get("pk") or "").strip()))
 
+        cascaded: list[dict] = []
+        for table, old_pk, new_pk in id_changes:
+            cascaded.extend(self._cascade_rename(wb, table, old_pk, new_pk, tables_data))
+
         wb.Save()
-        return {"results": results}
+        result = {"results": results}
+        if cascaded:
+            result["cascaded"] = cascaded
+        return result
 
     def _append_row_target(self, ws, start_row: int, used_row_count: int) -> int:
         """새 행을 추가할 위치. 시트에 표(ListObject)가 있으면 표를 확장해서

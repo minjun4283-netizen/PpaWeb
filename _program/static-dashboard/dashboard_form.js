@@ -250,7 +250,11 @@
     }
     function isRequiredColumn(tableName, name) {
       var schema = SCHEMA_BY_KEY[tableName];
-      return !!(schema && (name === schema.pk || (schema.fk && Object.prototype.hasOwnProperty.call(schema.fk, name))));
+      if (!schema) return false;
+      // 자동 채번 4개 표의 PK는 사람이 채우는 값이 아니라 서버가 계산하므로
+      // "필수 입력" 검사에서 제외합니다(그룹 저장 시 미리 값이 없어도 됨).
+      if (name === schema.pk && isAutoIdTable(tableName)) return false;
+      return !!(name === schema.pk || (schema.fk && Object.prototype.hasOwnProperty.call(schema.fk, name)));
     }
 
     // 자유 텍스트가 아니라 정해진 값 중에서만 고르게 하는 컬럼 - 컬럼 이름만
@@ -497,10 +501,12 @@
 
     // 필수 컬럼이 채워져 있는지만 확인하는 가벼운 버전 - 그룹 저장 직전에
     // DOM이 아니라 in-memory record 객체 자체를 검사할 때 씁니다.
-    function validateRecordRequired(tableName, record) {
+    function validateRecordRequired(tableName, record, skipCols) {
       var schema = SCHEMA_BY_KEY[tableName];
+      var skip = skipCols || [];
       var errs = [];
       (schema ? schema.columns : []).forEach(function (col) {
+        if (skip.indexOf(col) !== -1) return;
         if (isRequiredColumn(tableName, col) && !(record[col] || "").toString().trim()) {
           errs.push(col + "는 필수입니다.");
         }
@@ -686,12 +692,31 @@
     // data-name 기반 collectRecord() 를 쓰지 않고, 입력값을 바로 넘겨받은
     // record 객체에 반영합니다(카드가 여러 개 동시에 떠 있으므로).
     // ---------------------------------------------------------------------
+    // 그룹 입력(A/B)의 자식/손자 카드에서 쓰는 ID 자동 채번 안내 행 - 값을
+    // 실시간으로 다시 계산해 보여주진 않지만(카드 간 상호 의존이 복잡해
+    // 단순화함), 저장 시 서버가 관련 필드로부터 자동 계산한다는 것과
+    // (편집 중이면) 지금 값을 알려줍니다.
+    function buildGroupIdNoticeRow(pkName, currentVal) {
+      var wrap = el("div", { class: "ppaf-row ppaf-idpreview" });
+      wrap.appendChild(el("label", { class: "ppaf-label" }, [pkName]));
+      wrap.appendChild(el("div", { class: "ppaf-idpreview-display" }, [
+        currentVal
+          ? ("현재 ID: " + currentVal + " (근거 항목을 바꾸면 저장 시 자동으로 다시 계산됩니다.)")
+          : "저장 시 관련 항목으로부터 자동으로 계산됩니다."
+      ]));
+      return wrap;
+    }
+
     function buildFieldsGrid(tableName, record, opts) {
       opts = opts || {};
-      var exclude = opts.exclude || [];
+      var exclude = (opts.exclude || []).slice();
       var alreadyLoaded = !!opts.alreadyLoaded;
       var grid = el("div", { class: "ppaf-fields" });
       var schema = SCHEMA_BY_KEY[tableName];
+      if (schema && isAutoIdTable(tableName)) {
+        exclude.push(schema.pk);
+        grid.appendChild(buildGroupIdNoticeRow(schema.pk, record[schema.pk]));
+      }
       var columns = (schema && schema.columns) || [];
       columns.forEach(function (col) {
         if (exclude.indexOf(col) !== -1) return;
@@ -1460,6 +1485,11 @@
         errors.push(groupLabel(def.master) + ": " + m);
       });
 
+      // 구매계약/판매계약/전기사용지/수급매칭은 PK를 사람이 입력하지 않고
+      // 서버가 계산합니다 - 손자 표(전기사용지)의 FK(판매계약ID)는 그 부모인
+      // 자식(판매계약)의 PK가 저장 시점에야 확정되므로, 여기서는 값을 직접
+      // 채우지 못하고 아래 operations를 만들 때 "ref"로 연결합니다.
+      var childIsAuto = isAutoIdTable(childDef.table);
       var activeChildren = groupState.children.filter(function (c) { return !c.deleted; });
       activeChildren.forEach(function (c, i) {
         c.record[childDef.fk] = masterPkVal;
@@ -1467,11 +1497,13 @@
           errors.push(groupLabel(childDef.table) + " #" + (i + 1) + ": " + m);
         });
         if (gdef) {
-          var childPkVal = (c.record[childSchema.pk] || "").toString().trim();
           var activeGrand = (c.grand || []).filter(function (g) { return !g.deleted; });
+          var grandSkip = childIsAuto ? [gdef.fk] : [];
           activeGrand.forEach(function (g, gi) {
-            g.record[gdef.fk] = childPkVal;
-            validateRecordRequired(gdef.table, g.record).forEach(function (m) {
+            if (!childIsAuto) {
+              g.record[gdef.fk] = (c.record[childSchema.pk] || "").toString().trim();
+            }
+            validateRecordRequired(gdef.table, g.record, grandSkip).forEach(function (m) {
               errors.push(groupLabel(gdef.table) + " #" + (i + 1) + "-" + (gi + 1) + ": " + m);
             });
           });
@@ -1484,11 +1516,26 @@
       }
 
       var operations = [{ table: def.master, action: "save", record: groupState.master.record }];
+      var refSeq = 0;
       activeChildren.forEach(function (c) {
-        operations.push({ table: childDef.table, action: "save", record: c.record });
+        var childOp = { table: childDef.table, action: "save", record: c.record };
+        if (childIsAuto) {
+          if (c.existing) childOp.original_pk = c.record[childSchema.pk];
+          c._ref = "r" + (refSeq++);
+          childOp.ref = c._ref;
+        }
+        operations.push(childOp);
         if (gdef) {
           (c.grand || []).filter(function (g) { return !g.deleted; }).forEach(function (g) {
-            operations.push({ table: gdef.table, action: "save", record: g.record });
+            var gOp = { table: gdef.table, action: "save", record: g.record };
+            if (isAutoIdTable(gdef.table) && g.existing) {
+              gOp.original_pk = g.record[SCHEMA_BY_KEY[gdef.table].pk];
+            }
+            if (childIsAuto) {
+              gOp.fk_ref = {};
+              gOp.fk_ref[gdef.fk] = c._ref;
+            }
+            operations.push(gOp);
           });
         }
       });
