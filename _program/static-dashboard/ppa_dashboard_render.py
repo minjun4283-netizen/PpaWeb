@@ -362,6 +362,16 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 .unsectext{flex:1 1 auto;min-width:0;white-space:normal;word-break:keep-all;font-weight:600}
 .unsecval{flex:0 0 auto;font-size:12px;color:var(--sub);font-weight:700;white-space:nowrap}
 
+/* 계약 리스크 스코어카드 - 위 unsecrow(카테고리 집계)와 달리 개별 계약
+   한 건씩을 점수 순으로 나열하는 워치리스트 행. */
+.riskrow{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:var(--paper);cursor:pointer;font-size:13px;margin-bottom:6px;transition:background .12s,box-shadow .12s}
+.riskrow:last-child{margin-bottom:0}
+.riskrow:hover{background:var(--panel);box-shadow:var(--shadow-sm)}
+.riskscore{flex-shrink:0;min-width:30px;text-align:center}
+.riskmain{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}
+.risktype{font-size:11.5px;color:var(--sub);font-weight:600}
+.riskreasons{flex:0 0 auto;font-size:11.5px;color:var(--sub);text-align:right;max-width:280px}
+
 /* 우선순위 조치 필요 항목 — 카테고리별 그룹핑 */
 .actionsummary{display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 16px}
 .actioncat+.actioncat{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
@@ -2177,6 +2187,70 @@ function actionItemsPanel(){
     +actionCategory('데이터 정합성 이상치','🧩',catC));
 }
 
+/* ── 계약 리스크 스코어카드(통합 워치리스트) ────────────────────────────
+   위 "우선순위 조치 필요 항목"은 조건별 집계(몇 건)를 보여주는 반면,
+   이 카드는 "지금 어떤 계약부터 확인해야 하는가"에 개별 계약 단위로
+   답합니다. 미확보·D-90 계약종료 임박·수급매칭 이슈 발생 세 신호를
+   가중치로 합산해 점수가 높은 순으로 나열합니다(하나의 계약이 여러
+   신호에 동시에 해당하면 그만큼 점수가 쌓임). */
+const RISK_WEIGHTS={unsecured:35,endSoon:40,issue:25};
+function contractRiskRows(){
+  const B=byKey['T_구매계약'],S=byKey['T_판매계약'],M=byKey['T_수급매칭'],E=byKey['T_전기사용지'];
+  const rows=[];
+  const issueBuyIds=new Set(),issueSaleIds=new Set();
+  if(M){
+    const siteToSale={};
+    if(E) E.rows.forEach(r=>{siteToSale[String(r.cells['전기사용지ID']||'')]=String(r.cells['판매계약ID']||'');});
+    M.rows.forEach(r=>{
+      if(String(r.cells['현황']||'')!=='이슈 발생') return;
+      const buyId=String(r.cells['구매계약ID']||'');if(buyId) issueBuyIds.add(buyId);
+      const saleId=siteToSale[String(r.cells['전기사용지ID']||'')];
+      if(saleId) issueSaleIds.add(saleId);
+    });
+  }
+  /* 리스크 신호 3종을 계산해 점수 0보다 큰 계약만 담는 공용 루프 —
+     구매/판매 두 표의 컬럼명만 다르고 로직은 완전히 같습니다. */
+  const scan=(t,tk,capCol,unsecCol,endCol,issueIds,typeLabel)=>{
+    if(!t||!TODAY) return;
+    t.rows.forEach(r=>{
+      const pk=String(r.cells[t.pk]||'');if(!pk) return;
+      const unsecured=r.cells[unsecCol]==='TRUE';
+      const end=addYears(String(r.cells[endCol]||''),r.cells[CONTRACT_END_YEARS_COL]);
+      const dLeft=end?daysBetween(TODAY,end):null;
+      const endSoon=dLeft!==null&&dLeft>=0&&dLeft<=CONTRACT_END_SOON_DAYS;
+      const issue=issueIds.has(pk);
+      let score=0;const reasons=[];
+      if(unsecured){score+=RISK_WEIGHTS.unsecured;reasons.push(unsecCol);}
+      if(endSoon){score+=Math.round(RISK_WEIGHTS.endSoon*(1-dLeft/CONTRACT_END_SOON_DAYS*0.5));reasons.push(`계약종료 D-${dLeft}`);}
+      if(issue){score+=RISK_WEIGHTS.issue;reasons.push('수급매칭 이슈 발생');}
+      if(score<=0) return;
+      const cap=Number(r.cells[capCol]);
+      rows.push({type:typeLabel,tk,pk,cap:isNaN(cap)?0:cap,score,reasons});
+    });
+  };
+  scan(B,'T_구매계약','구매계약용량(MW)','수요기업 미확보','공급기한_구매',issueBuyIds,'구매계약');
+  scan(S,'T_판매계약','판매계약용량(MW)','공급자원 미확보','공급기한_판매',issueSaleIds,'판매계약');
+  rows.sort((a,b)=>b.score-a.score);
+  return rows;
+}
+function riskScorecardPanel(){
+  const rows=contractRiskRows();
+  if(!rows.length) return '';
+  const TOP_N=10;
+  const top=rows.slice(0,TOP_N);
+  const body=top.map(r=>{
+    const sevCls=r.score>=70?'no':(r.score>=40?'warn':'info');
+    return `<div class="riskrow" onclick="jumpTo('${jsq(r.tk)}','${jsq(r.pk)}')">
+      <span class="riskscore badge ${sevCls}">${nf(r.score,0)}</span>
+      <span class="riskmain"><b>${esc(r.pk)}</b><span class="risktype">${esc(r.type)} · ${nf(r.cap)}MW</span></span>
+      <span class="riskreasons">${r.reasons.map(x=>esc(x)).join(' · ')}</span>
+    </div>`;
+  }).join('');
+  return panel('계약 리스크 스코어카드'+infoTip('미확보·D-90 계약종료 임박·수급매칭 이슈 발생 세 신호를 가중치(각 35·40·25점)로 합산한 점수 순 워치리스트입니다. 여러 신호가 겹치면 점수가 더해집니다. 점수가 높을수록 먼저 확인이 필요합니다.'),
+    `위험 신호가 있는 계약 총 ${nf(rows.length,0)}건 중 상위 ${nf(top.length,0)}건 · 클릭하면 상세로 이동`,
+    body);
+}
+
 /* "수급매칭 — 현황별 비율·용량" 패널 전용 색상 - 심각도(cls)가 아니라
    STATUS_META에 나열된 순서(1.공급 중 → 99.공급종료) 그대로 초록→빨강
    그라데이션을 매깁니다. 표/모달의 배지 색(statusMeta().cls)은 이 색과
@@ -3063,6 +3137,7 @@ function tHome(){
     </div>
     ${statusPanel()}
     ${actionItemsPanel()}
+    ${riskScorecardPanel()}
     ${capacityGapPanel()}
     ${schemaDiagram()?panel('표 관계 구조','박스를 누르면 해당 표로 이동합니다',schemaDiagram()):''}</section>`;
 }
