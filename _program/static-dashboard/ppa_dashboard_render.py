@@ -62,6 +62,9 @@ _CSS = r"""
   --pass:#15803D;--pass-w:#E7F5EC;--fail:#B91C1C;--fail-w:#FBEAEA;
   --info:#1D4ED8;--info-w:#E7EEFC;--mute:#C3D0CB;
   --s1:#1baf7a;--s2:#eb6834;--s3:#4a3aa7;--s4:#e87ba4; /* 차트 계열: 아쿠아·오렌지·바이올렛·마젠타 */
+  --s5:#2a78d6;--s6:#eda100;--s7:#008300;--s8:#e34948; /* 5~8번째 계열: 블루·옐로우·그린·레드 -
+    dataviz 팔레트 validate_palette.js로 검증(8개 전체 인접쌍 하드게이트 통과,
+    CVD 분리는 6~8 플로어 대역이라 범례 직접 라벨과 함께 써야 안전) */
   /* 수급매칭 현황 8단계(1.공급 중 → 99.공급종료) 초록→빨강 그라데이션 -
      statusColor()가 STATUS_META 순서상 인덱스로 이 중 하나를 고릅니다. */
   --st1:#27A555;--st2:#27A52C;--st3:#4BA527;--st4:#74A527;
@@ -76,6 +79,7 @@ _CSS = r"""
   --pass:#4ADE80;--pass-w:#123420;--fail:#F87171;--fail-w:#3A1414;
   --info:#60A5FA;--info-w:#142440;--mute:#48534E;
   --s1:#199e70;--s2:#d95926;--s3:#9085e9;--s4:#d55181;
+  --s5:#3987e5;--s6:#c98500;--s7:#008300;--s8:#e66767;
   --st1:#5AD888;--st2:#5AD85F;--st3:#7ED85A;--st4:#A7D85A;
   --st5:#D0D85A;--st6:#D8B75A;--st7:#D88E5A;--st8:#D8645A;
 }
@@ -1770,10 +1774,12 @@ function tExplore(){
 
 /* ── 홈 (보고용 요약) ───────────────────────────────────────────────────── */
 /* 발전원처럼 순수 명목형(nominal) 카테고리를 색으로 구분할 때 쓰는
-   4색 계열 — dataviz 팔레트 검증(밝기대역/채도/CVD분리/대비)을 통과한
-   고정 순서. 5개 넘게 나오면 그냥 돌려씀(발전원 종류가 실제로 4개를
-   넘는 경우는 드묾) */
-const CAT_COLORS=['var(--s1)','var(--s2)','var(--s3)','var(--s4)'];
+   8색 계열 — dataviz 팔레트 검증(밝기대역/채도/CVD분리/대비)을 통과한
+   고정 순서(scripts/validate_palette.js 라이트/다크 모드 모두 ALL CHECKS
+   PASS 확인, 6~8번째는 CVD 분리가 플로어 대역이라 범례 직접 라벨과
+   함께 써야 안전). 9개 넘게 나오면 그냥 돌려씀(발전원 종류가 실제로
+   8개를 넘는 경우는 드묾) */
+const CAT_COLORS=['var(--s1)','var(--s2)','var(--s3)','var(--s4)','var(--s5)','var(--s6)','var(--s7)','var(--s8)'];
 function sumCol(tk,col){const t=byKey[tk];if(!t) return 0;
   return t.rows.reduce((s,r)=>{const n=Number(r.cells[col]);return s+(isNaN(n)?0:n);},0);}
 function countWhere(tk,col,val){const t=byKey[tk];if(!t) return 0;
@@ -2429,7 +2435,16 @@ function niceTicks(max,integer){
   if(integer) step=Math.max(1,Math.round(step)); /* 건수처럼 정수만 뜻이 있는 값은 0.2 같은 눈금이 안 나오게 */
   const top=Math.ceil(max/step)*step,out=[];
   for(let v=0;v<=top+1e-9;v+=step) out.push(Math.round(v*1000)/1000);
-  return out;
+  return thinTicks(out,7); /* 극단적인 값(예: 정수 스텝이 1로 강제되는 큰 max)에서
+    눈금이 지나치게 많아져 라벨이 겹치지 않도록 하는 안전장치 - 평소엔
+    niceStep이 이미 4~7개 선에서 끊어주므로 대부분 그대로 통과함 */
+}
+/* 배열 길이가 maxCount를 넘으면 X축의 tickIndices와 같은 방식(0번과
+   마지막은 항상 유지, 나머지는 등간격)으로 솎아냅니다. Y축 눈금뿐 아니라
+   길이가 긴 어떤 눈금/라벨 배열에도 재사용 가능한 공용 헬퍼입니다. */
+function thinTicks(arr,maxCount){
+  if(arr.length<=maxCount) return arr;
+  return tickIndices(arr.length,maxCount).map(i=>arr[i]);
 }
 /* X축에 라벨을 보여줄 인덱스를 고릅니다 - 일정 간격(targetCount 등분
    근처)으로 고르되 마지막 값은 항상 포함합니다. 데이터 개수에 따라
@@ -2607,7 +2622,7 @@ function legacyTrendCombinedView(buttons){
   const sourceTotals=Object.entries(bySource)
     .map(([g,m])=>[g,m,Object.values(m).reduce((s,v)=>s+v,0)])
     .sort((a,b)=>b[2]-a[2]);
-  const topSources=sourceTotals.slice(0,4),restSources=sourceTotals.slice(4);
+  const topSources=sourceTotals.slice(0,CAT_COLORS.length),restSources=sourceTotals.slice(CAT_COLORS.length);
   const sourceSeries=topSources.map(([g,m],i)=>({label:g,color:CAT_COLORS[i%CAT_COLORS.length],
     values:cumulativeSeries(m,fullKeys).slice(sliceFrom),action:`jumpToFilter('T_발전소','발전원','${jsq(g)}')`}));
   if(restSources.length){
