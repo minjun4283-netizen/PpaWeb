@@ -63,6 +63,16 @@
     var appMode = "single";
     var groupState = null;
 
+    // singleModeRendered: 개별입력(single) 화면에서 renderMode()가 한 번이라도
+    // 실행됐는지. <select id=modeSel>은 옵션을 채우면 브라우저가 자동으로
+    // 첫 번째 옵션(항상 발전소 - TABLES 목록의 첫 표)을 선택해버리는데,
+    // externalSelectTable()가 "modeSel.value가 이미 tableKey와 같으니 다시
+    // 그릴 필요 없다"고 착각하면 표/탭에서 "수정"으로 처음 여는 표가 하필
+    // 발전소일 때 필드가 하나도 렌더링되지 않는 버그가 났었습니다. 이 값이
+    // false면(=아직 한 번도 안 그려짐) modeSel.value 비교와 무관하게 무조건
+    // 한 번은 렌더링하도록 강제합니다.
+    var singleModeRendered = false;
+
     // 저장하지 않은 편집 내용이 있는지 - 있으면 화면 전환/닫기 전에 한 번
     // 물어봐서 실수로 입력한 내용이 사라지는 일을 막습니다.
     var formDirty = false;
@@ -1566,6 +1576,7 @@
       renderToolbar(tableName, autofocusPicker);
       renderFields(tableName);
       updateDeleteButtonState();
+      singleModeRendered = true;
     }
 
     async function ensureSchema() {
@@ -2190,7 +2201,7 @@
         return false;
       }
 
-      if (modeSel.value !== tableKey) {
+      if (modeSel.value !== tableKey || !singleModeRendered) {
         modeSel.value = tableKey;
         await renderMode(true, false);
       }
