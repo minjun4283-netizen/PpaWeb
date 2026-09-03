@@ -454,6 +454,21 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);font-size:13px;font-weight:600;padding:10px 18px;border-radius:8px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:80}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
+/* 차트 위 요소를 마우스로 가리켰을 때 쓰는 공용 리치 툴팁 - 브라우저
+   기본 title 속성(줄바꿈·서식 없이 지연 후 딱딱하게 뜨는 것) 대신, 값을
+   굵게 강조하고 여러 줄 breakdown을 즉시 보여주기 위한 것입니다. 마우스
+   좌표를 따라다니며(moveTip) 화면 밖으로 나가지 않게 스스로 위치를
+   보정합니다. */
+.richtip{position:fixed;z-index:90;pointer-events:none;background:var(--ink);color:var(--paper);
+  font-size:11.5px;line-height:1.6;padding:8px 11px;border-radius:9px;box-shadow:var(--shadow);
+  opacity:0;transform:translateY(4px);transition:opacity .1s,transform .1s;max-width:260px;
+  white-space:normal}
+.richtip.show{opacity:1;transform:translateY(0)}
+.richtip b{font-weight:800}
+.richtip .rtrow{display:flex;justify-content:space-between;gap:14px;white-space:nowrap}
+.richtip .rtmute{opacity:.72;font-size:10.5px}
+.richtip .rtswatch{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
+
 footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-size:11.5px;color:var(--sub);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
 .printhead{display:none}
 
@@ -572,6 +587,34 @@ window.PPA_DASHBOARD_STATE=state;
 /* ── 문자열 유틸 ────────────────────────────────────────────────────────── */
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function jsq(s){return String(s??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
+/* 차트 위 리치 툴팁 공용 헬퍼 — html은 이미 esc()로 이스케이프된 조각들만
+   조립한 신뢰 가능한 마크업이어야 합니다(호출부에서 사용자 데이터는
+   전부 esc() 통과 후 넣음). 마우스 좌표를 따라 이동하면서 화면 오른쪽/
+   아래로 넘치면 반대쪽으로 뒤집어 붙입니다. */
+function richTip(html,evt){
+  const el=document.getElementById('richtip');
+  if(!el) return;
+  el.innerHTML=html;
+  el.classList.add('show');
+  positionRichTip(evt);
+}
+function moveTip(evt){
+  const el=document.getElementById('richtip');
+  if(el&&el.classList.contains('show')) positionRichTip(evt);
+}
+function positionRichTip(evt){
+  const el=document.getElementById('richtip');
+  const pad=14;
+  let x=evt.clientX+pad,y=evt.clientY+pad;
+  const w=el.offsetWidth||220,h=el.offsetHeight||50;
+  if(x+w>window.innerWidth-8) x=evt.clientX-w-pad;
+  if(y+h>window.innerHeight-8) y=evt.clientY-h-pad;
+  el.style.left=Math.max(4,x)+'px';el.style.top=Math.max(4,y)+'px';
+}
+function hideTip(){
+  const el=document.getElementById('richtip');
+  if(el) el.classList.remove('show');
+}
 function nf(n,d){return Number(n).toLocaleString('ko-KR',{maximumFractionDigits:d===undefined?1:d});}
 
 /* ── 셀 표현: 숫자 서식, 불린 배지, 상태 색, 기한 경고, FK 이름 ─────────── */
@@ -2355,7 +2398,11 @@ function buildCombinedTrendChart(keys,sourceSeries,matchedTotalValues,newVals,en
   const totalPath=matchedTotalValues.map((v,i)=>(i===0?'M':'L')+xAt(i).toFixed(1)+','+yLeft(v).toFixed(1)).join(' ');
   svg+=`<path d="${totalPath}" fill="none" stroke="var(--teal)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
   const lastI=n-1,lastMatched=matchedTotalValues[lastI]||0;
-  svg+=`<circle cx="${xAt(lastI).toFixed(1)}" cy="${yLeft(lastMatched).toFixed(1)}" r="4" fill="var(--teal)" stroke="var(--panel)" stroke-width="2"><title>매칭된 계약 누적 용량 · ${nf(lastMatched)} MW</title></circle>`;
+  const lastRich=`<b>매칭된 계약 누적 용량</b>`
+    +`<div class='rtrow'><span>합계</span><b>${nf(lastMatched)}MW</b></div>`
+    +layers.map(l=>`<div class='rtrow rtmute'><span><span class='rtswatch' style='background:${l.color}'></span>${esc(l.label)}</span><span>${nf(l.values[lastI]||0)}MW</span></div>`).join('');
+  svg+=`<circle cx="${xAt(lastI).toFixed(1)}" cy="${yLeft(lastMatched).toFixed(1)}" r="4" fill="var(--teal)" stroke="var(--panel)" stroke-width="2"
+    onmouseenter="richTip('${jsq(lastRich)}',event)" onmousemove="moveTip(event)" onmouseleave="hideTip()"/>`;
 
   const barW=Math.max(2,Math.min(11,((W-2*padX)/n)*0.32));
   keys.forEach((k,i)=>{
@@ -2363,11 +2410,15 @@ function buildCombinedTrendChart(keys,sourceSeries,matchedTotalValues,newVals,en
     const nv=newVals[i],ev=endVals[i];
     if(nv>0){
       const y=yRight(nv);
-      svg+=`<rect x="${(cx-barW-1).toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${(H-y).toFixed(1)}" fill="var(--teal)" style="cursor:pointer" onclick="jumpToMonth('T_판매계약','계약일','${jsq(k)}')"><title>${esc(monthLabel(k))} 신규 · ${nf(nv)} MW</title></rect>`;
+      const rich=`<b>${esc(monthLabel(k))}</b><div class='rtrow'><span>신규 판매계약</span><b>${nf(nv)}MW</b></div><div class='rtmute'>눌러서 표에서 보기</div>`;
+      svg+=`<rect x="${(cx-barW-1).toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${(H-y).toFixed(1)}" fill="var(--teal)" style="cursor:pointer" onclick="jumpToMonth('T_판매계약','계약일','${jsq(k)}')"
+        onmouseenter="richTip('${jsq(rich)}',event)" onmousemove="moveTip(event)" onmouseleave="hideTip()"/>`;
     }
     if(ev>0){
       const y=yRight(ev);
-      svg+=`<rect x="${(cx+1).toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${(H-y).toFixed(1)}" fill="var(--fail)" style="cursor:pointer" onclick="jumpToMonth('T_판매계약','${jsq(CONTRACT_END_FIELD)}','${jsq(k)}')"><title>${esc(monthLabel(k))} 종료 · ${nf(ev)} MW</title></rect>`;
+      const rich=`<b>${esc(monthLabel(k))}</b><div class='rtrow'><span>종료 판매계약</span><b>${nf(ev)}MW</b></div><div class='rtmute'>눌러서 표에서 보기</div>`;
+      svg+=`<rect x="${(cx+1).toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${(H-y).toFixed(1)}" fill="var(--fail)" style="cursor:pointer" onclick="jumpToMonth('T_판매계약','${jsq(CONTRACT_END_FIELD)}','${jsq(k)}')"
+        onmouseenter="richTip('${jsq(rich)}',event)" onmousemove="moveTip(event)" onmouseleave="hideTip()"/>`;
     }
   });
   svg+='</svg>';
@@ -2484,7 +2535,12 @@ function buildTrendChart(keys,m,unit,labelFn,onclickFn,titleFn){
     const isPeak=v>0&&v===peakV;
     const act=onclickFn(k);
     const label=isPeak?`<span class="trendlabel">${fmtTick(v,unit)}</span>`:'';
-    return `<div class="trendcol${isPeak?' peak':''}"${act?` onclick="${act}"`:''} title="${esc(titleFn(k))}">${label}<div class="trendbar" style="height:${h}%"></div></div>`;
+    const b=m[k]||{cnt:0,cap:0};
+    const rich=`<b>${esc(labelFn(k))}</b>`
+      +`<div class='rtrow'><span>건수</span><b>${nf(b.cnt,0)}건</b></div>`
+      +`<div class='rtrow'><span>용량</span><b>${nf(b.cap)}MW</b></div>`;
+    return `<div class="trendcol${isPeak?' peak':''}"${act?` onclick="${act}"`:''} aria-label="${esc(titleFn(k))}"
+      onmouseenter="richTip('${jsq(rich)}',event)" onmousemove="moveTip(event)" onmouseleave="hideTip()">${label}<div class="trendbar" style="height:${h}%"></div></div>`;
   }).join('');
   const tickStep=Math.max(1,Math.ceil(keys.length/9));
   const xticks=keys.map((k,i)=>`<span class="trendtick">${i%tickStep===0?esc(labelFn(k)):''}</span>`).join('');
@@ -2536,9 +2592,17 @@ function buildTrendLineChart(cfg,m,unit,curKeys){
     if(i<from) return '';
     const cx=xAt(i).toFixed(1),cy=yAt(v).toFixed(1),k=keysArr[i];
     const b=m[k]||{cnt:0,cap:0};
-    const title=monthLabel(k)+' · '+nf(b.cnt,0)+'건 · '+nf(b.cap)+'MW'+(clickable?' · 눌러서 일별 보기':'');
+    let rich=`<b>${esc(monthLabel(k))}</b>`
+      +`<div class='rtrow'><span>건수</span><b>${nf(b.cnt,0)}건</b></div>`
+      +`<div class='rtrow'><span>용량</span><b>${nf(b.cap)}MW</b></div>`;
+    if(clickable&&hasPrev){
+      const pv=prevVals[i],delta=v-pv,dfmt=unit==='cnt'?0:undefined;
+      rich+=`<div class='rtrow rtmute'><span>전년 동기</span><span>${nf(pv,dfmt)}${unit==='cnt'?'건':'MW'} (${delta>=0?'+':''}${nf(delta,dfmt)})</span></div>`;
+    }
+    if(clickable&&b.cnt>0) rich+=`<div class='rtmute'>눌러서 일별 보기</div>`;
     const act=(clickable&&b.cnt>0)?` style="cursor:pointer" onclick="drillMonth('${jsq(k)}')"`:'';
-    return `<circle cx="${cx}" cy="${cy}" r="10" fill="transparent"${act}><title>${esc(title)}</title></circle>
+    return `<circle cx="${cx}" cy="${cy}" r="10" fill="transparent"${act}
+      onmouseenter="richTip('${jsq(rich)}',event)" onmousemove="moveTip(event)" onmouseleave="hideTip()"/>
       <circle cx="${cx}" cy="${cy}" r="4" fill="${color}" stroke="var(--panel)" stroke-width="2" style="pointer-events:none"/>`;
   }).join('');
   const curEnd=curVals[n-1],curEndY=yAt(curEnd);
@@ -2753,7 +2817,11 @@ function mixBox(mix){
   const rest=mix.length>CAP+1?mix.slice(CAP):[];
   const row=(label,v,col,action)=>{
     const pct=total>0?v/total*100:0;
-    return `<div class="mixminirow" onclick="${action}" title="${esc(label)} · ${nf(v)}MW (${nf(pct,0)}%)">
+    const rich=`<b>${esc(label)}</b>`
+      +`<div class='rtrow'><span>설비용량</span><b>${nf(v)}MW</b></div>`
+      +`<div class='rtrow'><span>비중</span><b>${nf(pct,0)}%</b></div>`;
+    return `<div class="mixminirow" onclick="${action}"
+      onmouseenter="richTip('${jsq(rich)}',event)" onmousemove="moveTip(event)" onmouseleave="hideTip()">
       <span class="mixminidot" style="background:${col}"></span>
       <span class="mixminilabel">${esc(label)}</span>
       <span class="mixminibar"><span style="width:${pct}%;background:${col}"></span></span>
@@ -3560,7 +3628,7 @@ _HTML = r"""<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
       <footer><span>생성 {{NOW}}</span><span id="foot-src"></span></footer></div>
   </div>
 </div>
-<div id="modalHost"></div><div id="toast"></div>
+<div id="modalHost"></div><div id="toast"></div><div id="richtip" class="richtip" role="tooltip"></div>
 <script>/*__JS__*/</script></body></html>"""
 
 TEMPLATE = _HTML.replace("/*__CSS__*/", _CSS).replace("/*__JS__*/", _JS)
