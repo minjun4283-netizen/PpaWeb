@@ -2396,11 +2396,11 @@ function setHomeTrend(k,v){state.homeTrend[k]=v;render();}
 function ymIdx(ym){const p=ym.split('-').map(Number);return p[0]*12+(p[1]-1);}
 function idxYm(i){const y=Math.floor(i/12),mo=i%12;return y+'-'+String(mo+1).padStart(2,'0');}
 /* 두 YYYY-MM 사이(포함) 월 목록 — 순서가 뒤바뀌어 입력돼도 알아서
-   맞바꾸고, 화면이 너무 넓어지지 않도록 한 번에 최대 36개월까지만. */
+   맞바꾸고, 화면이 너무 넓어지지 않도록 한 번에 최대 10년(120개월)까지만. */
 function monthRangeBetween(fromYm,toYm){
   let a=ymIdx(fromYm),b=ymIdx(toYm);
   if(a>b){const t=a;a=b;b=t;}
-  if(b-a>35) b=a+35;
+  if(b-a>119) b=a+119;
   const out=[];for(let i=a;i<=b;i++) out.push(idxYm(i));
   return out;
 }
@@ -2562,13 +2562,13 @@ function trendToolsHtml(buttons,unit,showUnit){
 function trendRangeToolsHtml(){
   const {rangeFrom,rangeTo}=state.homeTrend;
   const custom=!!(rangeFrom&&rangeTo);
-  const clamped=custom&&(Math.abs(ymIdx(rangeTo)-ymIdx(rangeFrom))>35);
+  const clamped=custom&&(Math.abs(ymIdx(rangeTo)-ymIdx(rangeFrom))>119);
   return `<div class="trendrange">
       <label>조회 시작<input type="month" class="trendrangeinput" value="${esc(rangeFrom||'')}" onchange="setHomeTrend('rangeFrom',this.value)"></label>
       <span class="trendrangesep">~</span>
       <label>조회 종료<input type="month" class="trendrangeinput" value="${esc(rangeTo||'')}" onchange="setHomeTrend('rangeTo',this.value)"></label>
       ${custom?`<button class="btn" onclick="resetHomeTrendRange()">최근 12개월로</button>`:''}
-      ${clamped?`<span class="trendrangenote">한 번에 최대 36개월까지 표시됩니다</span>`:''}
+      ${clamped?`<span class="trendrangenote">한 번에 최대 10년(120개월)까지 표시됩니다</span>`:''}
     </div>`;
 }
 /* '누적 현황' 지표 - 매칭된 계약·발전원별 누적 용량(영역, 왼쪽 축)과
@@ -2596,7 +2596,7 @@ function legacyTrendCombinedView(buttons){
     return `${heading}${tools}${rangeTools}<div class="nocand">${TREND_BASE_YEAR}년 이후 매칭(수급매칭)·신규/종료 판매계약 데이터가 없습니다.</div>`;
   }
 
-  const windowKeysRaw=trendRangeKeys(); // 최근 12개월 기본, 지정 시 최대 36개월
+  const windowKeysRaw=trendRangeKeys(); // 최근 12개월 기본, 지정 시 최대 10년(120개월)
   const base=TREND_BASE_YEAR+'-01';
   const windowEnd=windowKeysRaw[windowKeysRaw.length-1];
   const {keys:fullKeys}=monthRangeFrom2020(Math.max(ymIdx(windowEnd),ymIdx(base)));
