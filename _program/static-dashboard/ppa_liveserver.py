@@ -320,6 +320,20 @@ class App:
             "validation_errors": payload["validation"]["total_errors"],
         }
 
+    def migrate_ids_and_rebuild(self, actor: str | None = None) -> dict:
+        """구매계약/판매계약/전기사용지/수급매칭 4개 표에 이미 있던 PK를
+        전부 지금 채번 규칙대로 재계산해서 실제로 반영(연쇄 갱신 포함)합니다.
+        미리보기는 이 메서드가 아니라 bridge.preview_migrate_ids()를 직접
+        쓰므로(아무것도 안 바뀌니 rebuild/backup이 필요 없음) 여기서는
+        실제 반영 경로만 다룹니다."""
+        result = self.bridge.migrate_ids()
+        payload = self.rebuild(actor=actor)
+        self._backup()
+        return {
+            "migrate": result,
+            "validation_errors": payload["validation"]["total_errors"],
+        }
+
 
 def make_handler(app: App):
     class Handler(BaseHTTPRequestHandler):
@@ -481,6 +495,29 @@ def make_handler(app: App):
                 try:
                     result = app.delete_and_rebuild(table, pk, actor=actor)
                     self._send_json({"ok": True, **result, "message": "엑셀에서 삭제하고 대시보드를 갱신했습니다."})
+                except ExcelComError as e:
+                    self._send_json({"ok": False, "error": str(e)})
+                except Exception as e:
+                    self._send_json({"ok": False, "error": f"예상하지 못한 오류: {e}"})
+                return
+
+            if path == "/api/migrate_ids_preview":
+                try:
+                    result = app.bridge.preview_migrate_ids()
+                    self._send_json({"ok": True, **result})
+                except ExcelComError as e:
+                    self._send_json({"ok": False, "error": str(e)})
+                except Exception as e:
+                    self._send_json({"ok": False, "error": f"예상하지 못한 오류: {e}"})
+                return
+
+            if path == "/api/migrate_ids":
+                actor = (str(payload.get("actor") or "").strip() or None)
+                if actor:
+                    actor = actor[:60]
+                try:
+                    result = app.migrate_ids_and_rebuild(actor=actor)
+                    self._send_json({"ok": True, **result, "message": "기존 ID를 규칙대로 재계산해 엑셀에 반영했습니다."})
                 except ExcelComError as e:
                     self._send_json({"ok": False, "error": str(e)})
                 except Exception as e:

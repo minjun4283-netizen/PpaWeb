@@ -178,6 +178,17 @@ class ExcelBridge:
         간편입력 폼이 저장 전 확인창에 보여줄 값을 구하는 용도."""
         return self._call(self._preview_id, table_key, record, original_pk)
 
+    def preview_migrate_ids(self) -> dict:
+        """엑셀에 이미 있던 4개 표 전체를 지금 채번 규칙대로 다시 계산했을 때
+        무엇이 바뀔지 - 아무것도 쓰지 않고 - 미리 보여줍니다."""
+        return self._call(self._migrate_ids, True)
+
+    def migrate_ids(self) -> dict:
+        """엑셀에 이미 있던 4개 표(구매계약/판매계약/전기사용지/수급매칭)의
+        기존 PK를 전부 지금 채번 규칙대로 재계산해서 실제로 반영합니다 -
+        새 저장/편집 흐름과 똑같이 연쇄 갱신(FK·파생 ID)까지 함께 적용."""
+        return self._call(self._migrate_ids, False)
+
     def get_references(self, table_key: str, pk_value: str) -> list[dict]:
         return self._call(self._referencing_records, table_key, pk_value)
 
@@ -759,12 +770,16 @@ class ExcelBridge:
         tables_data = self._read_all_tables()
         return compute_id(table_key, record, tables_data, current_pk=original_pk)
 
-    def _cascade_rename(self, wb, table_key: str, old_pk: str, new_pk: str, tables_data: dict) -> list[dict]:
+    def _cascade_rename(
+        self, wb, table_key: str, old_pk: str, new_pk: str, tables_data: dict, dry_run: bool = False
+    ) -> list[dict]:
         """table_key의 PK가 old_pk -> new_pk로 바뀔 때 참조하는 자식 표의 FK
         컬럼을 전부 새 값으로 다시 쓰고, 그 자식의 ID 자체가 이 부모 데이터
         에서 파생되는 표(id_dependents)면 자식 ID도 재계산해 재귀적으로
         반영합니다. tables_data는 이번 저장 안에서 계속 갱신해가며 씁니다 -
-        자식이 조회할 때 방금 바뀐 부모 값을 보도록 하기 위함입니다."""
+        자식이 조회할 때 방금 바뀐 부모 값을 보도록 하기 위함입니다.
+        dry_run=True면 tables_data(메모리)만 갱신하고 실제 엑셀 셀에는 아무
+        것도 쓰지 않습니다 - 일괄 마이그레이션의 "미리보기"가 이 경로를 씁니다."""
         changed: list[dict] = []
         dependents = set(id_dependents(table_key))
 
@@ -779,18 +794,57 @@ class ExcelBridge:
                     child_old_pk = str(child.get(child_schema.pk) or "").strip()
 
                     child[fk_col] = new_pk
-                    self._write_row(wb, t.key, {child_schema.pk: child_old_pk, fk_col: new_pk}, locate_pk=child_old_pk)
+                    if not dry_run:
+                        self._write_row(wb, t.key, {child_schema.pk: child_old_pk, fk_col: new_pk}, locate_pk=child_old_pk)
 
                     if t.key in dependents:
                         id_result = compute_id(t.key, child, tables_data, current_pk=child_old_pk)
                         if id_result["ok"] and id_result["changed"]:
                             child_new_pk = id_result["id"]
                             child[child_schema.pk] = child_new_pk
-                            self._write_row(wb, t.key, {child_schema.pk: child_new_pk}, locate_pk=child_old_pk)
+                            if not dry_run:
+                                self._write_row(wb, t.key, {child_schema.pk: child_new_pk}, locate_pk=child_old_pk)
                             changed.append({"table": t.key, "old_pk": child_old_pk, "new_pk": child_new_pk})
-                            changed.extend(self._cascade_rename(wb, t.key, child_old_pk, child_new_pk, tables_data))
+                            changed.extend(
+                                self._cascade_rename(wb, t.key, child_old_pk, child_new_pk, tables_data, dry_run=dry_run)
+                            )
 
         return changed
+
+    def _migrate_ids(self, dry_run: bool = False) -> dict:
+        """엑셀에 이미 들어있던 4개 표 전체를 지금 채번 규칙대로 다시
+        계산합니다. ID_TABLE_KEYS 순서(구매계약 -> 판매계약 -> 전기사용지 ->
+        수급매칭)가 곧 파생 순서라, 이 순서대로 훑으면서 바뀐 건만
+        _cascade_rename으로 아래쪽에 반영합니다(예: 판매계약을 여기서
+        고치면 그 아래 전기사용지/수급매칭도 같이 갱신되므로, 그 다음
+        전기사용지/수급매칭 차례에서는 이미 최신 상태를 보고 대부분
+        no-op가 됩니다 - 그 표 자신의 근거 필드는 그대로인데 표시 규칙만
+        바뀐 것처럼 위쪽 연쇄로는 안 걸리는 개별 건만 여기서 마저 잡힙니다).
+        하나라도 바뀐 게 있으면 전부 모아 한 번의 wb.Save()로 커밋합니다
+        (중간 실패 시 부분 반영을 막기 위함)."""
+        wb = self._ensure_workbook() if not dry_run else None
+        tables_data = self._read_all_tables()
+        changed: list[dict] = []
+
+        for table_key in ID_TABLE_KEYS:
+            schema = TABLE_BY_KEY[table_key]
+            for row in list(tables_data.get(table_key, [])):
+                old_pk = str(row.get(schema.pk) or "").strip()
+                if not old_pk:
+                    continue
+                id_result = compute_id(table_key, row, tables_data, current_pk=old_pk)
+                if not id_result["ok"] or not id_result["changed"]:
+                    continue
+                new_pk = id_result["id"]
+                row[schema.pk] = new_pk
+                if not dry_run:
+                    self._write_row(wb, table_key, {schema.pk: new_pk}, locate_pk=old_pk)
+                changed.append({"table": table_key, "old_pk": old_pk, "new_pk": new_pk})
+                changed.extend(self._cascade_rename(wb, table_key, old_pk, new_pk, tables_data, dry_run=dry_run))
+
+        if changed and not dry_run:
+            wb.Save()
+        return {"changed": changed, "count": len(changed)}
 
     # ---- 쓰기 ----
     def _save_record(self, table_key: str, record: dict, original_pk: str | None = None) -> dict:

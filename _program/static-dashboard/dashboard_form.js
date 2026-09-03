@@ -1662,6 +1662,55 @@
       }
     }
 
+    // 이미 엑셀에 있던 구매계약/판매계약/전기사용지/수급매칭 ID를 지금
+    // 채번 규칙대로 한 번에 재계산합니다(참조 FK·파생 ID까지 연쇄 갱신).
+    // 새로 저장/편집할 때만 자동 적용되던 규칙을, 자동화 이전부터 있던
+    // 기존 데이터에도 그대로 소급 적용하고 싶을 때 한 번 눌러주는
+    // 관리자용 일회성 작업입니다 - 먼저 아무것도 바꾸지 않고 무엇이
+    // 바뀔지 미리 보여준 뒤에만 실제로 반영합니다.
+    async function migrateIds() {
+      var preview;
+      try {
+        preview = await withBusy(migrateIdsBtn, "확인 중...", function () {
+          return apiPostRaw("/api/migrate_ids_preview", {});
+        });
+      } catch (e) {
+        showToast("확인 실패: " + (e.message || e), "error");
+        return;
+      }
+      if (!preview.ok) {
+        showToast("확인 실패: " + (preview.error || "알 수 없는 오류"), "error");
+        return;
+      }
+      var changed = preview.changed || [];
+      if (!changed.length) {
+        showToast("이미 모든 ID가 지금 규칙과 일치합니다 - 바꿀 것이 없습니다.", "success");
+        return;
+      }
+      var lines = changed.slice(0, 20).map(function (c) {
+        var label = (TABLE_META[c.table] && TABLE_META[c.table].label) || c.table;
+        return label + ": " + c.old_pk + " → " + c.new_pk;
+      });
+      var more = changed.length > 20 ? "\n... 외 " + (changed.length - 20) + "건" : "";
+      var confirmed = window.confirm(
+        "기존 ID " + changed.length + "건이 지금 채번 규칙과 맞지 않아 다음과 같이 바뀝니다 " +
+        "(참조하는 다른 표의 FK·파생 ID도 함께 갱신됩니다):\n\n" + lines.join("\n") + more +
+        "\n\n엑셀 파일을 직접 수정하며 되돌릴 수 없는 작업입니다(저장 시 자동 백업은 남습니다). 계속할까요?"
+      );
+      if (!confirmed) return;
+      try {
+        var data = await withBusy(migrateIdsBtn, "일괄 재계산 중...", function () {
+          return apiPost("/api/migrate_ids", {});
+        });
+        var count = (data.migrate && data.migrate.count) || 0;
+        showToast(data.message || ("ID " + count + "건을 재계산했습니다."), "success");
+        rememberDashboardTab();
+        setTimeout(function () { location.reload(); }, 700);
+      } catch (e) {
+        showToast("일괄 재계산 실패: " + (e.message || e), "error");
+      }
+    }
+
     async function saveCurrentTable() {
       var tableName = currentTable();
       var record = collectRecord();
@@ -2024,6 +2073,10 @@
       title: "다른 사람이 방금 저장한 내용이 안 보일 때 눌러주세요 - 그래도 안 보이면 엑셀 파일을 직접 닫았다 다시 열어야 확실합니다."
     }, ["대시보드 새로고침"]);
     var resetBaselineBtn = el("button", { class: "ppaf-btn", type: "button", title: "[변경] 탭의 비교 기준점을 지금 시점으로 리셋합니다" }, ["변경 비교 기준 리셋"]);
+    var migrateIdsBtn = el("button", {
+      class: "ppaf-btn", type: "button",
+      title: "구매계약/판매계약/전기사용지/수급매칭의 기존 ID를 지금 채번 규칙대로 한 번에 재계산합니다(참조 FK도 함께 갱신)."
+    }, ["기존 ID 일괄 재계산"]);
     var deleteBtn = el("button", { class: "ppaf-btn danger", type: "button", disabled: "disabled" }, ["삭제"]);
     var saveBtn = el("button", { class: "ppaf-btn primary", type: "button" }, ["엑셀에 저장"]);
 
@@ -2065,7 +2118,7 @@
     bodyWrap.appendChild(singleWrap);
     bodyWrap.appendChild(groupWrap);
     modal.appendChild(bodyWrap);
-    modal.appendChild(el("div", { class: "ppaf-foot" }, [clearBtn, deleteBtn, resetBaselineBtn, rebuildBtn, saveBtn]));
+    modal.appendChild(el("div", { class: "ppaf-foot" }, [clearBtn, deleteBtn, resetBaselineBtn, migrateIdsBtn, rebuildBtn, saveBtn]));
 
     // 삭제 2차 확인 모달
     var confirmBackdrop = el("div", { class: "ppaf-confirm-backdrop" });
@@ -2118,6 +2171,7 @@
     });
     rebuildBtn.addEventListener("click", function () { rebuildDashboard().catch(console.error); });
     resetBaselineBtn.addEventListener("click", function () { resetChangeBaseline().catch(console.error); });
+    migrateIdsBtn.addEventListener("click", function () { migrateIds().catch(console.error); });
     saveBtn.addEventListener("click", function () {
       if (appMode === "single") saveCurrentTable().catch(console.error);
       else saveGroup().catch(console.error);
@@ -2233,6 +2287,9 @@
       },
       resetBaseline: function () {
         return resetChangeBaseline();
+      },
+      migrateIds: function () {
+        return migrateIds();
       }
     };
 
