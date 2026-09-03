@@ -2330,6 +2330,84 @@ function contractEndPipelinePanel(){
   return panel(heading,`향후 12개월 내 종료 예정 ${nf(totalN,0)}건 · 합계 ${nf(totalCap)}MW`,chart);
 }
 
+/* ── 수요기업 파레토(집중도) 분석 ─────────────────────────────────────────
+   판매계약 용량을 수요기업별로 내림차순 정렬한 막대와, 누적 비중(%)
+   선을 겹쳐 그리는 표준 파레토 차트입니다. dataviz 원칙상 이중 축(왼쪽
+   절대값·오른쪽 %)은 원래 지양 대상이지만, 파레토 차트는 "상위 몇 개가
+   전체의 몇 %를 차지하는가"를 한눈에 드러내는 게 존재 이유인 표준
+   차트 형식이라 이 조합 자체가 정의입니다 - 이미 있는 buildCombinedTrendChart
+   콤보차트(누적 현황)와 같은 이유로 예외로 둡니다. */
+function demandParetoData(){
+  const S=byKey['T_판매계약'],D=byKey['T_수요기업'];
+  if(!S) return [];
+  const nameMap={};
+  if(D) D.rows.forEach(r=>{nameMap[String(r.cells['수요기업ID']||'')]=r.cells['기업명']||r.cells['수요기업ID'];});
+  const pairs=groupSum('T_판매계약','수요기업ID','판매계약용량(MW)');
+  const total=pairs.reduce((s,[,v])=>s+v,0);
+  let running=0;
+  return pairs.map(([id,cap])=>{
+    running+=cap;
+    return {id,label:String(nameMap[id]||id),cap,pct:total>0?cap/total*100:0,cumPct:total>0?running/total*100:0};
+  });
+}
+function demandParetoPanel(){
+  const rows=demandParetoData();
+  if(!rows.length) return '';
+  const TOP_N=12;
+  const top=rows.slice(0,TOP_N),rest=rows.slice(TOP_N);
+  const displayRows=rest.length
+    ?[...top,{id:null,label:`기타 ${rest.length}개`,cap:rest.reduce((s,r)=>s+r.cap,0),pct:rest.reduce((s,r)=>s+r.pct,0),cumPct:100}]
+    :top;
+  const n=displayRows.length;
+  const maxCap=Math.max(1,...displayRows.map(r=>r.cap));
+  const ticks=niceTicks(maxCap,false);
+  const scaleTop=ticks[ticks.length-1]||1;
+  const leftAxis=ticks.map(t=>`<span class="trendaxistick" style="bottom:${t/scaleTop*100}%">${fmtTick(t,'cap')}</span>`).join('');
+  const rightAxis=[0,25,50,75,100].map(t=>`<span class="trendaxistick" style="bottom:${t}%">${t}%</span>`).join('');
+  const grid=ticks.map(t=>`<div class="trendgridline" style="bottom:${t/scaleTop*100}%"></div>`).join('');
+
+  const W=1200,H=200,padX=16;
+  const xAt=i=>n>1?padX+i*((W-2*padX)/(n-1)):W/2;
+  const yLeft=v=>H-(scaleTop>0?Math.min(1,v/scaleTop)*H:0);
+  const yRight=pct=>H-Math.min(1,pct/100)*H;
+  const barW=Math.max(4,Math.min(34,((W-2*padX)/n)*0.55));
+  let svg=`<svg class="trendsvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">`;
+  svg+=`<line x1="0" y1="${yRight(80).toFixed(1)}" x2="${W}" y2="${yRight(80).toFixed(1)}" stroke="var(--mute)" stroke-width="1" stroke-dasharray="4 4" opacity=".5"/>`;
+  displayRows.forEach((r,i)=>{
+    const cx=xAt(i),y=yLeft(r.cap);
+    const rich=`<b>${esc(r.label)}</b><div class='rtrow'><span>계약 용량</span><b>${nf(r.cap)}MW</b></div>`
+      +`<div class='rtrow'><span>비중</span><b>${nf(r.pct,1)}%</b></div><div class='rtrow rtmute'><span>누적 비중</span><span>${nf(r.cumPct,1)}%</span></div>`;
+    const act=r.id?`jumpToFilter('T_판매계약','수요기업ID','${jsq(r.id)}')`:"state.tab='T_판매계약';render()";
+    svg+=`<rect x="${(cx-barW/2).toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${(H-y).toFixed(1)}" fill="var(--teal)" style="cursor:pointer" onclick="${act}"
+      onmouseenter="richTip('${jsq(rich)}',event)" onmousemove="moveTip(event)" onmouseleave="hideTip()"/>`;
+  });
+  const linePath=displayRows.map((r,i)=>(i===0?'M':'L')+xAt(i).toFixed(1)+','+yRight(r.cumPct).toFixed(1)).join(' ');
+  svg+=`<path d="${linePath}" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
+  displayRows.forEach((r,i)=>{
+    svg+=`<circle cx="${xAt(i).toFixed(1)}" cy="${yRight(r.cumPct).toFixed(1)}" r="3.5" fill="var(--amber)" stroke="var(--panel)" stroke-width="1.5"/>`;
+  });
+  svg+='</svg>';
+
+  const xticks=displayRows.map(r=>`<span class="trendtick">${esc(r.label.length>6?r.label.slice(0,5)+'…':r.label)}</span>`).join('');
+  const legend=`<div class="trendlegend">
+      <span><span class="trendswatch" style="background:var(--teal)"></span>계약 용량(MW)</span>
+      <span><span class="trendlegendline" style="border-top-color:var(--amber)"></span>누적 비중(%)</span>
+    </div>`;
+  const n80=rows.findIndex(r=>r.cumPct>=80)+1;
+  const concentrationNote=n80>0?`상위 ${nf(n80,0)}개 기업이 전체 계약 용량의 80%를 차지합니다(총 ${nf(rows.length,0)}개 기업 중).`:'';
+  const chart=`${concentrationNote?`<div class="trendaxisnote">${esc(concentrationNote)}</div>`:''}
+    <div class="trendplot">
+      <div class="trendaxis">${leftAxis}</div>
+      <div class="trendarea"><div class="trendgrid">${grid}</div>${svg}</div>
+      <div class="trendaxis right">${rightAxis}</div>
+    </div>
+    <div class="trendxrow"><div class="trendaxisspacer"></div><div class="trendticks">${xticks}</div><div class="trendaxisspacer"></div></div>
+    ${legend}`;
+  return panel('수요기업 파레토(집중도) 분석'+infoTip('판매계약 용량을 수요기업별로 내림차순 정렬한 막대와, 누적 비중(%)을 나타내는 선을 함께 보여주는 파레토 차트입니다. 선이 가파르게 100%에 도달할수록 소수 기업에 매출이 집중돼 있다는 뜻입니다. 막대를 누르면 해당 기업의 판매계약만 필터링합니다.'),
+    `총 ${nf(rows.length,0)}개 수요기업 · 계약 용량 합계 ${nf(rows.reduce((s,r)=>s+r.cap,0))}MW`,
+    chart);
+}
+
 /* "수급매칭 — 현황별 비율·용량" 패널 전용 색상 - 심각도(cls)가 아니라
    STATUS_META에 나열된 순서(1.공급 중 → 99.공급종료) 그대로 초록→빨강
    그라데이션을 매깁니다. 표/모달의 배지 색(statusMeta().cls)은 이 색과
@@ -3226,6 +3304,7 @@ function tHome(){
     ${actionItemsPanel()}
     ${riskScorecardPanel()}
     ${contractEndPipelinePanel()}
+    ${demandParetoPanel()}
     ${capacityGapPanel()}
     ${schemaDiagram()?panel('표 관계 구조','박스를 누르면 해당 표로 이동합니다',schemaDiagram()):''}</section>`;
 }
