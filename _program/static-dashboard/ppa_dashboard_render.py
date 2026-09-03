@@ -395,6 +395,9 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 .trendpresets{display:flex;gap:6px;flex-wrap:wrap}
 .presetbtn{padding:6px 11px;font-size:11.5px}
 .presetbtn.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+.trendbrushcatch{cursor:crosshair}
+.trendbrushsel{fill:var(--teal);opacity:0;pointer-events:none}
+.trendbrushsel.show{opacity:.16}
 .trendrange label{display:flex;align-items:center;gap:6px;font-weight:600}
 .trendrangeinput{font-family:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)}
 .trendrangesep{color:var(--mute)}
@@ -2406,7 +2409,7 @@ function buildCombinedTrendChart(keys,sourceSeries,matchedTotalValues,newVals,en
   const yLeft=v=>H-(leftTop>0?Math.min(1,v/leftTop)*H:0);
   const yRight=v=>H-(rightTop>0?Math.min(1,v/rightTop)*H:0);
 
-  let svg=`<svg class="trendsvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">`;
+  let svg=`<svg class="trendsvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" ${trendBrushSvgAttrs(keys)}>`;
   layers.forEach(l=>{
     const top=l.top.map((v,i)=>xAt(i).toFixed(1)+','+yLeft(v).toFixed(1));
     const bot=l.bottom.map((v,i)=>xAt(i).toFixed(1)+','+yLeft(v).toFixed(1)).reverse();
@@ -2438,7 +2441,7 @@ function buildCombinedTrendChart(keys,sourceSeries,matchedTotalValues,newVals,en
         onmouseenter="richTip('${jsq(rich)}',event)" onmousemove="moveTip(event)" onmouseleave="hideTip()"/>`;
     }
   });
-  svg+='</svg>';
+  svg+=trendBrushSelRect(H)+'</svg>';
 
   const shownIdx=new Set(tickIndices(n,12));
   const xticks=keys.map((k,i)=>`<span class="trendtick">${shownIdx.has(i)?esc(monthLabel(k)):''}</span>`).join('');
@@ -2536,6 +2539,82 @@ function tickIndices(n,targetCount){
   idxs.push(last);
   return idxs;
 }
+/* ── 년월별 추이 차트 브러시 줌 ─────────────────────────────────────────
+   SVG 위에서 가로로 드래그하면 그 구간으로 확대(=state.homeTrend의
+   rangeFrom/rangeTo를 드래그 구간으로 설정하고 다시 그림)합니다. 기존
+   조회 시작/종료 달력 입력·기간 프리셋 버튼과 정확히 같은 state 필드를
+   쓰므로 별도의 "양방향 동기화" 코드가 필요 없습니다 - 드래그로 줌하면
+   그 즉시 달력 입력값도 그 구간으로 바뀌어 보이고, 뒤로가기/URL 공유에
+   실리는 방식(history.state의 homeTrend)도 프리셋 버튼을 눌렀을 때와
+   동일합니다.
+   mousedown 리스너는 (전용 투명 사각형이 아니라) <svg> 루트 자체에
+   붙입니다 - 영역 그래프·막대·점처럼 실제로 색이 칠해진 마크가 위에
+   그려져 있어도 mousedown은 그 마크에서 시작해 버블링으로 svg까지
+   올라오므로, 어떤 마크 위에서 드래그를 시작하든 항상 브러시가 반응
+   합니다(z-order 걱정 없음 - 이전 시도에서 빗금/영역 마크가 캐치용
+   사각형을 가려 그 위에서는 드래그가 씹히던 문제를 이렇게 해결). 드래그
+   시작 후에는 mousemove/mouseup을 document에 임시로 붙여, 마우스가
+   차트 밖으로 나가거나 화면 아무 데서나 손을 떼도 드래그가 끊기지
+   않게 합니다. */
+function trendBrushSvgAttrs(keys){
+  return `data-keys='${JSON.stringify(keys)}' onmousedown="trendBrushStart(event)"`;
+}
+function trendBrushSelRect(H){
+  return `<rect class="trendbrushsel" x="0" y="0" width="0" height="${H}"></rect>`;
+}
+let g_trendBrush=null;
+function trendBrushSvgX(evt,svgEl){
+  const r=svgEl.getBoundingClientRect();
+  const vb=svgEl.viewBox.baseVal;
+  return (evt.clientX-r.left)*(vb.width/r.width);
+}
+function trendBrushIdxFromX(x,n,W,padX){
+  if(n<=1) return 0;
+  const frac=(x-padX)/(W-2*padX);
+  return Math.max(0,Math.min(n-1,Math.round(frac*(n-1))));
+}
+function trendBrushStart(evt){
+  const svgEl=evt.currentTarget;
+  let keys;try{keys=JSON.parse(svgEl.dataset.keys||'[]');}catch(e){keys=[];}
+  if(keys.length<2) return;
+  const x=trendBrushSvgX(evt,svgEl);
+  g_trendBrush={svgEl,keys,startX:x};
+  const sel=svgEl.querySelector('.trendbrushsel');
+  if(sel){sel.setAttribute('x',x);sel.setAttribute('width','0');sel.classList.add('show');}
+  document.addEventListener('mousemove',trendBrushDocMove);
+  document.addEventListener('mouseup',trendBrushDocUp);
+  evt.preventDefault();
+}
+function trendBrushDocMove(evt){
+  if(!g_trendBrush) return;
+  const {svgEl,startX}=g_trendBrush;
+  const x=trendBrushSvgX(evt,svgEl);
+  const sel=svgEl.querySelector('.trendbrushsel');
+  if(sel){
+    const x0=Math.min(startX,x),x1=Math.max(startX,x);
+    sel.setAttribute('x',x0);sel.setAttribute('width',Math.max(0,x1-x0));
+  }
+}
+function trendBrushDocUp(evt){
+  if(!g_trendBrush) return;
+  const {svgEl,keys,startX}=g_trendBrush;
+  const x=trendBrushSvgX(evt,svgEl);
+  trendBrushTeardown();
+  const W=1200,padX=16;
+  const i0=trendBrushIdxFromX(Math.min(startX,x),keys.length,W,padX);
+  const i1=trendBrushIdxFromX(Math.max(startX,x),keys.length,W,padX);
+  if(i1<=i0) return; /* 드래그 없이 그냥 클릭 - 확대하지 않고 기존 클릭 동작(점/막대)에 맡김 */
+  setHomeTrendRange(keys[i0],keys[i1]);
+}
+function trendBrushTeardown(){
+  if(g_trendBrush&&g_trendBrush.svgEl){
+    const sel=g_trendBrush.svgEl.querySelector('.trendbrushsel');
+    if(sel) sel.classList.remove('show');
+  }
+  g_trendBrush=null;
+  document.removeEventListener('mousemove',trendBrushDocMove);
+  document.removeEventListener('mouseup',trendBrushDocUp);
+}
 /* 월별/일별 추이 공용 렌더러 — keys 순서대로 막대를 그리고, "보기 좋은"
    눈금의 격자선·왼쪽 축 라벨을 같이 그려서 값을 가늠하기 쉽게 합니다.
    onclickFn(key)가 null을 돌려주면 그 막대는 클릭 비활성. */
@@ -2626,13 +2705,13 @@ function buildTrendLineChart(cfg,m,unit,curKeys){
   const curEnd=curVals[n-1],curEndY=yAt(curEnd);
   const endLabel=curCut<n?`<text class="trendendlabel" x="${xAt(n-1).toFixed(1)}" y="${Math.max(11,curEndY-10).toFixed(1)}" text-anchor="end">${esc(fmtTick(curEnd,unit))}</text>`:'';
 
-  let svg=`<svg class="trendsvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">`;
+  let svg=`<svg class="trendsvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" ${trendBrushSvgAttrs(curKeys)}>`;
   if(curCut>0){
     const cutX=xAt(curCut).toFixed(1);
     svg+=`<defs><pattern id="nodatahatch" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
         <rect width="7" height="7" fill="var(--panel)"/><line x1="0" y1="0" x2="0" y2="7" stroke="var(--mute)" stroke-width="2" opacity=".35"/>
       </pattern></defs>`;
-    svg+=`<rect x="0" y="0" width="${cutX}" height="${H}" fill="url(#nodatahatch)"><title>데이터 없음 - 집계 시작 전 구간</title></rect>`;
+    svg+=`<rect x="0" y="0" width="${cutX}" height="${H}" fill="url(#nodatahatch)"></rect>`;
     svg+=`<line x1="${cutX}" y1="0" x2="${cutX}" y2="${H}" stroke="var(--mute)" stroke-width="1" stroke-dasharray="3 3" opacity=".6"/>`;
     if(parseFloat(cutX)>60) svg+=`<text x="6" y="14" font-size="9.5" fill="var(--sub)">데이터 없음</text>`;
   }
@@ -2647,7 +2726,7 @@ function buildTrendLineChart(cfg,m,unit,curKeys){
   if(hasPrev&&prevCut<n) svg+=dots(prevVals,prevKeys,'var(--mute)',false,prevCut);
   if(curCut<n) svg+=dots(curVals,curKeys,'var(--teal)',true,curCut);
   svg+=endLabel;
-  svg+='</svg>';
+  svg+=trendBrushSelRect(H)+'</svg>';
 
   /* 범위가 12개월을 넘거나 연도 경계를 넘나들면 "3월"만으론 헷갈리므로
      "'26.03" 형식(monthLabel)으로, 점 개수가 많을 때는 겹치지 않게
@@ -2836,7 +2915,7 @@ function trendPanel(){
   const body=legacyTrendSection();
   if(!body) return '';
   return panel('년월별 추이',
-    '지표를 선택해 추세를 확인하세요 - 영역·막대·범례를 누르면 근거 자료로 이동합니다',
+    '지표를 선택해 추세를 확인하세요 - 영역·막대·범례를 누르면 근거 자료로 이동, 차트를 가로로 드래그하면 그 구간으로 확대됩니다',
     body);
 }
 
