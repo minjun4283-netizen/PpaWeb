@@ -392,6 +392,9 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 /* 년월별 추이 */
 .trendtools{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
 .trendrange{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;font-size:12px;color:var(--sub)}
+.trendpresets{display:flex;gap:6px;flex-wrap:wrap}
+.presetbtn{padding:6px 11px;font-size:11.5px}
+.presetbtn.on{background:var(--teal);color:#fff;border-color:var(--teal)}
 .trendrange label{display:flex;align-items:center;gap:6px;font-weight:600}
 .trendrangeinput{font-family:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)}
 .trendrangesep{color:var(--mute)}
@@ -2488,6 +2491,7 @@ function trendRangeKeys(){
   return monthRange(12);
 }
 function resetHomeTrendRange(){state.homeTrend.rangeFrom=null;state.homeTrend.rangeTo=null;render();}
+function setHomeTrendRange(fromYm,toYm){state.homeTrend.rangeFrom=fromYm;state.homeTrend.rangeTo=toYm;render();}
 function fmtTick(v,unit){return unit==='cap'?nf(v):nf(v,0);}
 /* "보기 좋은" 눈금 간격 — 4등분 근처에서 1/2/5×10ⁿ 중 하나를 고릅니다 */
 function niceStep(range,targetTicks){
@@ -2683,12 +2687,27 @@ function trendToolsHtml(buttons,unit,showUnit){
 }
 /* 조회 시작/종료 년월 필터 — <input type=month>는 브라우저 기본 달력
    선택기와 직접 타이핑을 동시에 지원합니다(공급기한 입력과 동일한 이유로
-   선택). 값이 바뀌면 즉시 다시 그립니다. */
-function trendRangeToolsHtml(){
+   선택). 값이 바뀌면 즉시 다시 그립니다.
+   기간 프리셋(3개월/6개월/1년/3년/5년/전체) 버튼도 같이 두어, 매번 두
+   달력을 직접 조작하지 않고 자주 쓰는 구간을 한 번에 고를 수 있게
+   합니다. "전체"는 이 지표에 실제 데이터가 있는 가장 이른 달(호출부가
+   넘겨주는 earliestYm, 없으면 기준연도)부터 이번 달까지입니다 - 10년
+   캡을 넘으면 기존 로직이 알아서 120개월로 잘라 안내합니다. */
+function trendRangeToolsHtml(earliestYm){
   const {rangeFrom,rangeTo}=state.homeTrend;
   const custom=!!(rangeFrom&&rangeTo);
   const clamped=custom&&(Math.abs(ymIdx(rangeTo)-ymIdx(rangeFrom))>119);
+  const nowYm=monthRange(1)[0];
+  const presetBtn=(label,fromYm,toYm)=>{
+    const on=custom&&rangeFrom===fromYm&&rangeTo===toYm;
+    return `<button class="btn presetbtn${on?' on':''}" onclick="setHomeTrendRange('${jsq(fromYm)}','${jsq(toYm)}')">${esc(label)}</button>`;
+  };
+  const presets=[['3개월',3],['6개월',6],['1년',12],['3년',36],['5년',60]]
+    .map(([label,n])=>{const keys=monthRange(n);return presetBtn(label,keys[0],keys[keys.length-1]);}).join('');
+  const allFrom=earliestYm||(TREND_BASE_YEAR+'-01');
+  const allBtn=presetBtn('전체',allFrom,nowYm);
   return `<div class="trendrange">
+      <div class="trendpresets">${presets}${allBtn}</div>
       <label>조회 시작<input type="month" class="trendrangeinput" value="${esc(rangeFrom||'')}" onchange="setHomeTrend('rangeFrom',this.value)"></label>
       <span class="trendrangesep">~</span>
       <label>조회 종료<input type="month" class="trendrangeinput" value="${esc(rangeTo||'')}" onchange="setHomeTrend('rangeTo',this.value)"></label>
@@ -2789,7 +2808,8 @@ function legacyTrendSection(){
 
   const m=groupByMonth(cfg.tk,cfg.col,cfg.cap);
   const keys=Object.keys(m);
-  const rangeTools=trendRangeToolsHtml();
+  const earliestYm=keys.length?idxYm(Math.min(...keys.map(ymIdx))):null;
+  const rangeTools=trendRangeToolsHtml(earliestYm);
   if(!keys.length) return `${heading}
     <div class="nocand">${esc(cfg.label)} 항목에 날짜가 입력된 데이터가 없습니다.</div>
     <div style="margin-top:10px">${tools}</div>`;
