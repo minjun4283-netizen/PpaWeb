@@ -418,6 +418,8 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 .trendlegendline{width:16px;height:0;border-top:2.5px solid var(--teal);display:inline-block}
 .trendlegendline.prev{border-top:2.5px dashed var(--mute)}
 .trendswatch{width:10px;height:10px;border-radius:2px;display:inline-block}
+.trendlegendswatch{width:14px;height:10px;border-radius:2px;display:inline-block;border:1px dashed var(--mute)}
+.trendlegendswatch.nodata{background:repeating-linear-gradient(45deg,var(--mute) 0,var(--mute) 1px,transparent 1px,transparent 5px);opacity:.7}
 .trendsubtitle{font-size:12.5px;font-weight:800;color:var(--sub);margin:2px 0 10px}
 
 /* 상세 모달 */
@@ -2508,12 +2510,27 @@ function buildTrendLineChart(cfg,m,unit,curKeys){
   const axis=ticks.map(t=>`<span class="trendaxistick" style="bottom:${t/scaleTop*100}%">${fmtTick(t,unit)}</span>`).join('');
   const grid=ticks.map(t=>`<div class="trendgridline" style="bottom:${t/scaleTop*100}%"></div>`).join('');
 
+  /* 조회 구간이 이 지표에 실제로 데이터가 쌓이기 시작한 달보다 앞선
+     구간을 포함하면, 그 구간의 값 0은 "그 달엔 0건이었다"가 아니라
+     "그 시점엔 아직 집계 대상 자체가 없었다"는 뜻이라 의미가 다릅니다.
+     m에 실제로 존재하는 가장 이른 월을 기준으로 그보다 앞선 구간은
+     선/점 없이 빗금 배경만 깔아 "데이터 없음"을 구분합니다. */
+  const histKeys=Object.keys(m);
+  const firstIdx=histKeys.length?Math.min(...histKeys.map(ymIdx)):null;
+  const cutOf=keysArr=>{
+    if(firstIdx===null) return 0;
+    const i=keysArr.findIndex(k=>ymIdx(k)>=firstIdx);
+    return i===-1?keysArr.length:i;
+  };
+  const curCut=cutOf(curKeys),prevCut=cutOf(prevKeys);
+
   const W=1200,H=180,padX=16,n=curKeys.length;
   const xAt=i=>n>1?padX+i*((W-2*padX)/(n-1)):W/2;
   const yAt=v=>H-(scaleTop>0?Math.min(1,v/scaleTop)*H:0);
-  const linePath=vals=>vals.map((v,i)=>(i===0?'M':'L')+xAt(i).toFixed(1)+','+yAt(v).toFixed(1)).join(' ');
-  const areaPath=vals=>linePath(vals)+` L${xAt(n-1).toFixed(1)},${H} L${xAt(0).toFixed(1)},${H} Z`;
-  const dots=(vals,keysArr,color,clickable)=>vals.map((v,i)=>{
+  const linePath=(vals,from)=>vals.slice(from).map((v,i)=>(i===0?'M':'L')+xAt(from+i).toFixed(1)+','+yAt(v).toFixed(1)).join(' ');
+  const areaPath=(vals,from)=>linePath(vals,from)+` L${xAt(n-1).toFixed(1)},${H} L${xAt(from).toFixed(1)},${H} Z`;
+  const dots=(vals,keysArr,color,clickable,from)=>vals.map((v,i)=>{
+    if(i<from) return '';
     const cx=xAt(i).toFixed(1),cy=yAt(v).toFixed(1),k=keysArr[i];
     const b=m[k]||{cnt:0,cap:0};
     const title=monthLabel(k)+' · '+nf(b.cnt,0)+'건 · '+nf(b.cap)+'MW'+(clickable?' · 눌러서 일별 보기':'');
@@ -2522,17 +2539,28 @@ function buildTrendLineChart(cfg,m,unit,curKeys){
       <circle cx="${cx}" cy="${cy}" r="4" fill="${color}" stroke="var(--panel)" stroke-width="2" style="pointer-events:none"/>`;
   }).join('');
   const curEnd=curVals[n-1],curEndY=yAt(curEnd);
-  const endLabel=`<text class="trendendlabel" x="${xAt(n-1).toFixed(1)}" y="${Math.max(11,curEndY-10).toFixed(1)}" text-anchor="end">${esc(fmtTick(curEnd,unit))}</text>`;
+  const endLabel=curCut<n?`<text class="trendendlabel" x="${xAt(n-1).toFixed(1)}" y="${Math.max(11,curEndY-10).toFixed(1)}" text-anchor="end">${esc(fmtTick(curEnd,unit))}</text>`:'';
 
   let svg=`<svg class="trendsvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">`;
-  if(hasPrev){
-    svg+=`<path d="${areaPath(prevVals)}" fill="var(--mute)" opacity=".10" stroke="none"/>`;
-    svg+=`<path d="${linePath(prevVals)}" fill="none" stroke="var(--mute)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>`;
+  if(curCut>0){
+    const cutX=xAt(curCut).toFixed(1);
+    svg+=`<defs><pattern id="nodatahatch" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+        <rect width="7" height="7" fill="var(--panel)"/><line x1="0" y1="0" x2="0" y2="7" stroke="var(--mute)" stroke-width="2" opacity=".35"/>
+      </pattern></defs>`;
+    svg+=`<rect x="0" y="0" width="${cutX}" height="${H}" fill="url(#nodatahatch)"><title>데이터 없음 - 집계 시작 전 구간</title></rect>`;
+    svg+=`<line x1="${cutX}" y1="0" x2="${cutX}" y2="${H}" stroke="var(--mute)" stroke-width="1" stroke-dasharray="3 3" opacity=".6"/>`;
+    if(parseFloat(cutX)>60) svg+=`<text x="6" y="14" font-size="9.5" fill="var(--sub)">데이터 없음</text>`;
   }
-  svg+=`<path d="${areaPath(curVals)}" fill="var(--teal)" opacity=".14" stroke="none"/>`;
-  svg+=`<path d="${linePath(curVals)}" fill="none" stroke="var(--teal)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
-  if(hasPrev) svg+=dots(prevVals,prevKeys,'var(--mute)',false);
-  svg+=dots(curVals,curKeys,'var(--teal)',true);
+  if(hasPrev&&prevCut<n){
+    svg+=`<path d="${areaPath(prevVals,prevCut)}" fill="var(--mute)" opacity=".10" stroke="none"/>`;
+    svg+=`<path d="${linePath(prevVals,prevCut)}" fill="none" stroke="var(--mute)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>`;
+  }
+  if(curCut<n){
+    svg+=`<path d="${areaPath(curVals,curCut)}" fill="var(--teal)" opacity=".14" stroke="none"/>`;
+    svg+=`<path d="${linePath(curVals,curCut)}" fill="none" stroke="var(--teal)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
+  }
+  if(hasPrev&&prevCut<n) svg+=dots(prevVals,prevKeys,'var(--mute)',false,prevCut);
+  if(curCut<n) svg+=dots(curVals,curKeys,'var(--teal)',true,curCut);
   svg+=endLabel;
   svg+='</svg>';
 
@@ -2546,9 +2574,10 @@ function buildTrendLineChart(cfg,m,unit,curKeys){
     return `<span class="trendtick">${esc(lbl)}</span>`;
   }).join('');
   const rangeLabel=n===12&&!(state.homeTrend.rangeFrom&&state.homeTrend.rangeTo)?'최근 12개월':`${monthLabel(curKeys[0])} ~ ${monthLabel(curKeys[n-1])}`;
-  const legend=hasPrev?`<div class="trendlegend">
+  const legend=(hasPrev||curCut>0)?`<div class="trendlegend">
       <span><span class="trendlegendline"></span>${esc(rangeLabel)}</span>
-      <span><span class="trendlegendline prev"></span>전년 동기</span>
+      ${hasPrev?`<span><span class="trendlegendline prev"></span>전년 동기</span>`:''}
+      ${curCut>0?`<span><span class="trendlegendswatch nodata"></span>데이터 없음(집계 시작 전)</span>`:''}
     </div>`:'';
   const chart=`<div class="trendplot">
       <div class="trendaxis">${axis}</div>
