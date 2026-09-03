@@ -269,10 +269,26 @@
       "현황": [
         "1. 공급 중", "2. 신고 중", "3. 상업운전 개시", "4. 공사 중",
         "5. 착공 전", "6. 이슈 발생", "7. 미확보", "99. 공급종료"
-      ]
+      ],
+      "수요기업 미확보": ["FALSE", "TRUE"],
+      "공급자원 미확보": ["FALSE", "TRUE"]
     };
     function enumOptionsFor(name) {
       return ENUM_COLUMNS[name] || null;
+    }
+
+    // 필드 아래에 작게 붙는 입력 안내(검증 오류/힌트와 별개로 항상 보임 -
+    // ppaf-fieldnote는 validateFieldLive가 지웠다 새로 그렸다 하므로 여기엔
+    // 못 씁니다). "미확보"는 이름이 이중부정이라 헷갈리기 쉬워 뜻을,
+    // 발전소ID는 실제 채번 규칙을 짧게 안내합니다.
+    var FIELD_HELP = {
+      "수요기업 미확보": "False = 확보",
+      "공급자원 미확보": "False = 확보",
+      "발전소ID": "KPX 발전기ID 원칙 · 미발급 시 발전소명·법인명(4자 이내)+구분숫자"
+    };
+    function buildFieldHelp(columnName) {
+      var msg = FIELD_HELP[columnName];
+      return msg ? el("div", { class: "ppaf-fieldhelp" }, [msg]) : null;
     }
 
     // "원인"(수급매칭의 "현황"이 "6. 이슈 발생"일 때 함께 기록하는 사유)은
@@ -676,6 +692,8 @@
       wrap.appendChild(label);
       wrap.appendChild(input);
       if (comboDatalist) wrap.appendChild(comboDatalist);
+      var fieldHelp = buildFieldHelp(columnName);
+      if (fieldHelp) wrap.appendChild(fieldHelp);
 
       var onLiveCheck = function () { validateFieldLive(tableName, columnName, wrap, input, !!formState.loadedPk); };
       input.addEventListener("blur", onLiveCheck);
@@ -756,6 +774,8 @@
       }
       input.value = currentVal;
       wrap.appendChild(input);
+      var fieldHelp = buildFieldHelp(columnName);
+      if (fieldHelp) wrap.appendChild(fieldHelp);
 
       var sync = function () { record[columnName] = input.value || ""; };
       var onLiveCheck = function () {
@@ -2039,6 +2059,7 @@
         ".ppaf-btn.danger:hover:not(:disabled){background:var(--ppaf-danger-bg)}" +
         ".ppaf-required::after{content:' *';color:var(--ppaf-danger);font-weight:800}" +
         ".ppaf-formula24-display{font-size:11px;color:var(--ppaf-sub);margin-top:1px}" +
+        ".ppaf-fieldhelp{font-size:11px;color:var(--ppaf-sub);margin-top:3px;line-height:1.4}" +
         ".ppaf-idpreview-display{font-size:13px;font-weight:700;padding:10px 11px;border:1.5px dashed var(--ppaf-line);border-radius:9px;background:rgba(11,133,119,.05);color:var(--ppaf-teal-d)}" +
         ".ppaf-idpreview-display.ppaf-idpreview-error{color:var(--ppaf-danger);border-color:var(--ppaf-danger);background:var(--ppaf-danger-bg);font-weight:600}" +
         ".ppaf-tempcheck{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ppaf-sub);cursor:pointer;margin-top:2px}" +
