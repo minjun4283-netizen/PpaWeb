@@ -432,6 +432,14 @@ tbody tr.rowmiss td{background:var(--amber-w)}
 .trendbar{width:100%;max-width:26px;background:var(--teal);border-radius:4px 4px 0 0;transition:background .12s}
 .trendcol:hover .trendbar{background:var(--teal-d)}
 .trendcol.peak .trendbar{background:var(--amber)}
+/* 향후 만료 예정 계약 타임라인 - 한 달 칸에 구매/판매 막대 두 개를
+   나란히 세워 비교합니다(.trendchart/.trendaxis 등 기존 추이 차트
+   골격을 그대로 재사용). */
+.pipelinecol{flex:1;display:flex;align-items:flex-end;justify-content:center;height:100%;gap:2px;min-width:10px}
+.pipelinebar{width:40%;max-width:14px;border-radius:3px 3px 0 0;cursor:pointer;transition:opacity .12s}
+.pipelinebar.buy{background:var(--teal)}
+.pipelinebar.sale{background:var(--amber)}
+.pipelinebar:hover{opacity:.75}
 .trendlabel{font-size:9.5px;color:var(--ink);font-weight:700;margin-bottom:3px;white-space:nowrap}
 .trendxrow{display:flex;gap:8px}
 .trendaxisspacer{width:34px;flex-shrink:0}
@@ -2251,6 +2259,77 @@ function riskScorecardPanel(){
     body);
 }
 
+/* ── 향후 만료 예정 계약 타임라인(파이프라인) ────────────────────────────
+   이미 있는 "계약종료임박(D-90 이내)" KPI는 90일이라는 좁은 창만
+   보여줘서, 그보다 먼 미래(예: 8개월 뒤에 한꺼번에 몰려 끝나는 계약)를
+   놓치기 쉽습니다. 이 섹션은 이번 달부터 향후 12개월 전체를 월별로
+   펼쳐, 계약종료(공급기한+계약기간) 예정 용량을 구매/판매 계약으로
+   나눠 미리 보여줍니다 — addYears/CONTRACT_END_YEARS_COL 등 기존
+   계약종료일 계산 로직을 그대로 재사용합니다. */
+function contractEndPipelinePanel(){
+  const B=byKey['T_구매계약'],S=byKey['T_판매계약'];
+  if(!B&&!S) return '';
+  const infoText='공급기한에 계약기간(년)을 더해 계산한 실제 계약종료일 기준으로, '
+    +'이번 달부터 향후 12개월 동안 종료 예정인 계약을 월별로 미리 보여줍니다. '
+    +'막대를 누르면 해당 월 종료 예정 계약만 표로 필터링합니다.';
+  const heading='향후 만료 예정 계약 타임라인(향후 12개월)'+infoTip(infoText);
+  if(!TODAY) return panel(heading,'기준 시각 정보가 없어 계산할 수 없습니다.','<div class="nocand">해당 없음</div>');
+
+  const months=monthRangeForward(12);
+  const buyM={},saleM={};
+  months.forEach(ym=>{buyM[ym]={n:0,cap:0,pks:[]};saleM[ym]={n:0,cap:0,pks:[]};});
+  const scan=(t,dateCol,capCol,bucket)=>{
+    if(!t) return;
+    t.rows.forEach(r=>{
+      const end=addYears(String(r.cells[dateCol]||''),r.cells[CONTRACT_END_YEARS_COL]);
+      if(!end) return;
+      const ym=end.slice(0,7);
+      if(!bucket[ym]) return; /* 향후 12개월 범위 밖 */
+      bucket[ym].n++;
+      const c=Number(r.cells[capCol]);bucket[ym].cap+=isNaN(c)?0:c;
+      bucket[ym].pks.push(String(r.cells[t.pk]));
+    });
+  };
+  scan(B,'공급기한_구매','구매계약용량(MW)',buyM);
+  scan(S,'공급기한_판매','판매계약용량(MW)',saleM);
+  const totalN=months.reduce((s,ym)=>s+buyM[ym].n+saleM[ym].n,0);
+  const totalCap=months.reduce((s,ym)=>s+buyM[ym].cap+saleM[ym].cap,0);
+  if(!totalN) return panel(heading,'향후 12개월 이내 계약종료 예정인 계약이 없습니다.','<div class="nocand">해당 없음</div>');
+
+  const maxV=Math.max(1,...months.map(ym=>Math.max(buyM[ym].cap,saleM[ym].cap)));
+  const ticks=niceTicks(maxV,false);
+  const scaleTop=ticks[ticks.length-1]||1;
+  const axis=ticks.map(t=>`<span class="trendaxistick" style="bottom:${t/scaleTop*100}%">${fmtTick(t,'cap')}</span>`).join('');
+  const grid=ticks.map(t=>`<div class="trendgridline" style="bottom:${t/scaleTop*100}%"></div>`).join('');
+  const cols=months.map(ym=>{
+    const b=buyM[ym],s=saleM[ym];
+    const bh=b.cap>0?Math.max(3,b.cap/scaleTop*100):0;
+    const sh=s.cap>0?Math.max(3,s.cap/scaleTop*100):0;
+    const richB=`<b>${esc(monthLabel(ym))} 구매계약 종료</b><div class='rtrow'><span>건수</span><b>${nf(b.n,0)}건</b></div><div class='rtrow'><span>용량</span><b>${nf(b.cap)}MW</b></div>`;
+    const richS=`<b>${esc(monthLabel(ym))} 판매계약 종료</b><div class='rtrow'><span>건수</span><b>${nf(s.n,0)}건</b></div><div class='rtrow'><span>용량</span><b>${nf(s.cap)}MW</b></div>`;
+    const buyAct=b.pks.length?` onclick="jumpToPkSet('T_구매계약',${pkArrLiteral(b.pks)})"`:'';
+    const saleAct=s.pks.length?` onclick="jumpToPkSet('T_판매계약',${pkArrLiteral(s.pks)})"`:'';
+    return `<div class="pipelinecol">
+        <div class="pipelinebar buy" style="height:${bh}%"${buyAct}
+          onmouseenter="richTip('${jsq(richB)}',event)" onmousemove="moveTip(event)" onmouseleave="hideTip()"></div>
+        <div class="pipelinebar sale" style="height:${sh}%"${saleAct}
+          onmouseenter="richTip('${jsq(richS)}',event)" onmousemove="moveTip(event)" onmouseleave="hideTip()"></div>
+      </div>`;
+  }).join('');
+  const xticks=months.map(ym=>`<span class="trendtick">${esc(monthLabel(ym))}</span>`).join('');
+  const legend=`<div class="trendlegend">
+      <span><span class="trendswatch" style="background:var(--teal)"></span>구매계약 종료 예정</span>
+      <span><span class="trendswatch" style="background:var(--amber)"></span>판매계약 종료 예정</span>
+    </div>`;
+  const chart=`<div class="trendplot">
+      <div class="trendaxis">${axis}</div>
+      <div class="trendarea"><div class="trendgrid">${grid}</div><div class="trendchart">${cols}</div></div>
+    </div>
+    <div class="trendxrow"><div class="trendaxisspacer"></div><div class="trendticks">${xticks}</div></div>
+    ${legend}`;
+  return panel(heading,`향후 12개월 내 종료 예정 ${nf(totalN,0)}건 · 합계 ${nf(totalCap)}MW`,chart);
+}
+
 /* "수급매칭 — 현황별 비율·용량" 패널 전용 색상 - 심각도(cls)가 아니라
    STATUS_META에 나열된 순서(1.공급 중 → 99.공급종료) 그대로 초록→빨강
    그라데이션을 매깁니다. 표/모달의 배지 색(statusMeta().cls)은 이 색과
@@ -2298,6 +2377,14 @@ function monthRange(n){ // 이번 달을 포함해 최근 n개월의 YYYY-MM 목
   const out=[];const base=TODAY?new Date(TODAY):new Date();
   for(let i=n-1;i>=0;i--){
     const d=new Date(base.getFullYear(),base.getMonth()-i,1);
+    out.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
+  }
+  return out;
+}
+function monthRangeForward(n){ // 이번 달을 포함해 앞으로 n개월의 YYYY-MM 목록 (현재→미래)
+  const out=[];const base=TODAY?new Date(TODAY):new Date();
+  for(let i=0;i<n;i++){
+    const d=new Date(base.getFullYear(),base.getMonth()+i,1);
     out.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
   }
   return out;
@@ -3138,6 +3225,7 @@ function tHome(){
     ${statusPanel()}
     ${actionItemsPanel()}
     ${riskScorecardPanel()}
+    ${contractEndPipelinePanel()}
     ${capacityGapPanel()}
     ${schemaDiagram()?panel('표 관계 구조','박스를 누르면 해당 표로 이동합니다',schemaDiagram()):''}</section>`;
 }
