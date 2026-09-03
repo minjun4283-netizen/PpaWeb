@@ -95,16 +95,28 @@ _LOADING_HTML = """<!doctype html>
   @keyframes spin{to{transform:rotate(360deg)}}
   p{font-size:14px;line-height:1.6;color:#5c6b6e}
   @media(prefers-color-scheme:dark){p{color:#a7b6b1}}
+  .err{margin-top:14px;padding:10px 14px;border-radius:8px;background:rgba(211,63,63,.09);
+    color:#b03434;font-size:12.5px;white-space:pre-wrap;text-align:left;display:none}
+  @media(prefers-color-scheme:dark){.err{background:rgba(255,120,120,.12);color:#ff9a9a}}
 </style></head>
-<body><div class="box"><div class="spinner"></div>
-<p>엑셀에서 최신 데이터를 불러오는 중입니다...<br>완료되면 자동으로 화면이 바뀝니다.</p>
+<body><div class="box"><div class="spinner" id="spin"></div>
+<p id="msg">엑셀에서 최신 데이터를 불러오는 중입니다...<br>완료되면 자동으로 화면이 바뀝니다.</p>
+<div class="err" id="err"></div>
 </div>
 <script>
 (function poll(){
   fetch('/api/ready', {cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
-    if (d && d.ok && d.ready) { location.reload(); }
-    else { setTimeout(poll, 700); }
-  }).catch(function(){ setTimeout(poll, 700); });
+    if (d && d.ok && d.ready) { location.reload(); return; }
+    if (d && d.error) {
+      document.getElementById('msg').innerHTML =
+        '엑셀에서 데이터를 불러오는 중 문제가 있어 자동으로 다시 시도하고 있습니다.<br>' +
+        '해결되면 화면이 자동으로 바뀝니다(엑셀 파일이 열려 있는지, 다른 프로그램이 ' +
+        '막고 있지 않은지 확인해보시면 더 빨리 해결될 수 있습니다).';
+      document.getElementById('err').textContent = d.error;
+      document.getElementById('err').style.display = 'block';
+    }
+    setTimeout(poll, 1500);
+  }).catch(function(){ setTimeout(poll, 1500); });
 })();
 </script>
 </body></html>"""
@@ -119,6 +131,12 @@ class App:
         self.bridge = ExcelBridge(self.xlsm_path)
         self._rebuild_lock = threading.Lock()
         self._last_payload: dict | None = None
+        # 첫 rebuild가 실패하면(엑셀 COM 오류 등) 예전에는 콘솔에만 출력되고
+        # 끝나서, 콘솔이 없는 숨김 실행 방식(run_live_server_hidden.vbs)에서는
+        # 사용자가 "불러오는 중" 화면만 하염없이 보게 되는 문제가 있었습니다.
+        # 실패 원인을 여기 저장해두고 /api/ready로 노출해서, 로딩 화면이 계속
+        # 도는 대신 원인을 보여주도록 합니다.
+        self._last_error: str | None = None
         # 엑셀을 닫거나(watchdog) 대시보드 탭을 닫으면(/api/shutdown, 브라우저
         # sendBeacon) 이 이벤트를 세워서 main()의 대기 루프가 정상 종료
         # 절차(엑셀 COM 정리 등)를 그대로 타며 빠져나가게 합니다 - Ctrl+C와
@@ -228,6 +246,7 @@ class App:
                 save_snapshot(baseline_path, tables_data, payload["generated_at"])
 
             self._last_payload = payload
+            self._last_error = None
             return payload
 
     def reset_baseline(self) -> dict:
@@ -340,7 +359,7 @@ def make_handler(app: App):
                 return
 
             if path == "/api/ready":
-                self._send_json({"ok": True, "ready": app.is_ready()})
+                self._send_json({"ok": True, "ready": app.is_ready(), "error": app._last_error})
                 return
 
             if path == "/api/options":
@@ -677,11 +696,24 @@ def main():
         webbrowser.open(url)
 
     def _initial_rebuild():
-        try:
-            app.rebuild()
-            print("[정보] 초기 대시보드 생성 완료")
-        except Exception as e:
-            print(f"[경고] 초기 대시보드 생성 실패 (서버는 계속 실행됩니다): {e}")
+        # 예전에는 실패하면 콘솔에 경고만 찍고 끝나서, 콘솔이 없는 숨김 실행
+        # 방식(run_live_server_hidden.vbs)에서는 "불러오는 중" 화면만 계속
+        # 도는 채로 사용자가 원인을 알 방법이 없었습니다. 실패해도 포기하지
+        # 않고 점점 간격을 늘려가며(3s→6s→...→최대 30s) 계속 재시도하고,
+        # 매번 실패 사유를 app._last_error에 남겨 로딩 화면에 보여줍니다 -
+        # 원인(엑셀 잠금, OneDrive 동기화 지연 등)이 스스로 풀리면 사용자가
+        # 아무것도 안 눌러도 자동으로 화면이 바뀝니다.
+        delay = 3.0
+        while not app.shutdown_event.is_set() and not app.is_ready():
+            try:
+                app.rebuild()
+                print("[정보] 초기 대시보드 생성 완료")
+                return
+            except Exception as e:
+                app._last_error = str(e)
+                print(f"[경고] 초기 대시보드 생성 실패, {delay:.0f}초 후 재시도: {e}")
+                app.shutdown_event.wait(timeout=delay)
+                delay = min(delay * 2, 30.0)
 
     threading.Thread(target=_initial_rebuild, daemon=True).start()
     threading.Thread(target=_watch_excel_closed, args=(app,), daemon=True).start()
