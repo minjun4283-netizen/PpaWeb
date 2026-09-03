@@ -290,6 +290,15 @@ td.num,th.num{text-align:right;font-family:ui-monospace,SFMono-Regular,Consolas,
 .chipcount{font-size:11.5px;font-weight:700;color:var(--teal-d);background:var(--teal-w);padding:3px 10px;border-radius:20px;margin-right:6px;display:inline-block;margin-top:4px}
 .lookuphead,.homehead{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
 .homehead{margin-bottom:14px}
+/* 홈 탭 최상단 - 아래 KPI 카드 수십 개를 하나하나 안 봐도, 가장 중요한
+   상태(검증 오류·만료 임박·미확보·밸런스 중 우선순위가 가장 높은 것)와
+   지난 생성 대비 변화를 한두 문장으로 미리 요약해 보여줍니다. */
+.narrativeinsight{display:flex;gap:10px;align-items:flex-start;background:var(--teal-w);
+  border:1px solid var(--teal);border-radius:12px;padding:12px 16px;margin-bottom:14px}
+.narrativeinsight.warn{background:var(--amber-w);border-color:var(--amber)}
+.narrativeinsight .niicon{font-size:16px;line-height:1.5;flex-shrink:0}
+.narrativeinsight p{margin:0;font-size:13.5px;line-height:1.6;color:var(--ink)}
+.narrativeinsight b{font-weight:800}
 
 /* 관계형 탐색 */
 .colchip{font-size:12.5px;font-weight:600;color:var(--sub);background:var(--paper);border:1px solid var(--line);
@@ -2833,6 +2842,31 @@ function mixBox(mix){
   return `<div class="kpi kpi-mix"><span class="kk">발전원별 설비용량 비중</span><div class="mixmini">${body}</div></div>`;
 }
 
+/* 홈 탭 최상단에 놓일 1~2문장 자동 요약 - tHome()이 이미 계산해 둔 KPI
+   값들을 재사용해 "검증 오류 → 만료 임박 → 미확보 → 구매/판매 밸런스"
+   순으로 가장 시급한 문제를 하나 골라 첫 문장으로 삼고, 문제가 하나도
+   없으면 대신 전체 규모를 요약하는 긍정 문장을 씁니다. 지난 생성(변경
+   탭 비교 기준) 대비 변화가 있으면 두 번째 문장으로 덧붙입니다. */
+function narrativeInsight(ctx){
+  const{supplyMW,purchMW,saleMW,balance,bUn,sUn,bEnd90h,sEnd90h,errN,chgTotal,hasPrev,supplyDelta}=ctx;
+  const parts=[];
+  if(errN>0) parts.push(`검증 오류가 <b>${nf(errN,0)}건</b> 발견되어 확인이 필요합니다`);
+  const endN=bEnd90h.n+sEnd90h.n,endCap=bEnd90h.cap+sEnd90h.cap;
+  if(endN>0) parts.push(`90일 이내 종료 예정인 계약이 <b>${nf(endN,0)}건(${nf(endCap)}MW)</b> 있습니다`);
+  const unN=bUn+sUn;
+  if(unN>0) parts.push(`미확보 계약이 <b>${nf(unN,0)}건</b> 남아있습니다`);
+  if(balance<-0.005) parts.push(`판매계약이 구매계약보다 <b>${nf(Math.abs(balance))}MW</b> 많아 공급 확보가 필요합니다`);
+  const warn=parts.length>0;
+  const lead=warn?parts.slice(0,2).join(', ')+'.'
+    :`발전소 설비용량 <b>${nf(supplyMW)}MW</b>, 구매 <b>${nf(purchMW)}MW</b> · 판매 <b>${nf(saleMW)}MW</b>로 `
+      +`구매가 판매보다 <b>${nf(Math.abs(balance))}MW</b> ${balance>=0?'여유 있는':'부족한'} 안정적인 상태입니다.`;
+  let trail='';
+  if(hasPrev){
+    if(Math.abs(supplyDelta)>=0.005) trail=` 지난 생성 대비 발전소 설비용량이 ${supplyDelta>=0?'+':''}${nf(supplyDelta)}MW ${supplyDelta>=0?'증가':'감소'}했고, 전체 <b>${nf(chgTotal,0)}건</b>이 변경되었습니다.`;
+    else if(chgTotal>0) trail=` 지난 생성 대비 <b>${nf(chgTotal,0)}건</b>이 변경되었습니다.`;
+  }
+  return `<div class="narrativeinsight${warn?' warn':''}"><span class="niicon">${warn?'⚠️':'💡'}</span><p>${lead}${trail}</p></div>`;
+}
 function tHome(){
   const P=byKey['T_발전소'],B=byKey['T_구매계약'],S=byKey['T_판매계약'];
   const supplyMW=P?sumCol('T_발전소','설비용량(MW)'):0;
@@ -2859,6 +2893,9 @@ function tHome(){
   const ok=DATA.validation.total_errors===0;
   const balance=purchMW-saleMW;
   const chgTotal=CHANGES.has_prev?(CHANGES.total_added+CHANGES.total_changed+CHANGES.total_removed):0;
+  const narrative=narrativeInsight({supplyMW,purchMW,saleMW,balance,bUn,sUn,bEnd90h,sEnd90h,
+    errN:DATA.validation.total_errors,chgTotal,hasPrev:CHANGES.has_prev,
+    supplyDelta:capacityDelta('T_발전소','설비용량(MW)')});
 
   /* 여러 표에 걸친 지표(종료/만료, 미확보, 공급기한)는 카드 하나당 이동
      대상을 하나만 고를 수 있으므로, 구매 쪽에 해당 건이 있으면 구매계약을
@@ -2870,6 +2907,7 @@ function tHome(){
   const expAction=bExp?`jumpToDateWindow('T_구매계약','공급기한_구매',${SOON_DAYS})`:(sExp?`jumpToDateWindow('T_판매계약','공급기한_판매',${SOON_DAYS})`:'');
 
   return `<section>${printHead('PPA 계약관리 현황 요약','')}
+    ${narrative}
     <div class="homehead"><span class="sub mono">기준 시각: ${esc((DATA.generated_at||'').replace('T',' '))}</span>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn primary" onclick="copySummary()">요약 복사 (보고용)</button>
