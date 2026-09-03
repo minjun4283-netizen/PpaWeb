@@ -139,6 +139,8 @@ button:focus-visible,.search:focus-visible{outline:2px solid var(--teal);outline
   display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 26px;flex-wrap:wrap}
 .topbar-left{display:flex;align-items:center;gap:12px;min-width:0}
 .topbar h1{font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.freshness{font-size:11px;color:var(--sub);white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;background:var(--paper2,rgba(11,133,119,.06))}
+.freshness .dot{width:6px;height:6px;border-radius:50%;background:var(--teal);flex-shrink:0}
 .topbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .eyebrow{font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);font-weight:700;margin:0 0 3px}
 h1{font-size:22px;margin:0;letter-spacing:-.02em;font-weight:800}
@@ -459,6 +461,7 @@ footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-si
 @media(max-width:900px){
   .grid2{grid-template-columns:1fr}
   .drow{grid-template-columns:130px 1fr}
+  .freshness{display:none}
   /* 사이드바 → 오프캔버스 드로어 */
   .menubtn{display:flex}
   .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);transition:transform .2s ease;box-shadow:var(--shadow)}
@@ -3310,6 +3313,24 @@ function applyTheme(){
 }
 function toggleTheme(){state.theme=state.theme==='dark'?'light':'dark';writeLS('ppa_theme',state.theme);applyTheme();}
 
+/* 상단 고정바에 "데이터가 언제 기준으로 만들어졌는지"를 탭 이동과
+   무관하게 항상 보여줍니다(기존엔 홈 탭에서만 보였음). 24시간을 넘기면
+   점 색을 경고색으로 바꿔 "오래된 데이터일 수 있음"을 한눈에 알립니다 -
+   실시간 서버는 저장할 때마다 갱신되므로, 오래됐다는 건 대개 정적
+   HTML을 오래 전에 내보낸 뒤 그대로 열어보고 있다는 뜻입니다. */
+function renderFreshness(){
+  const raw=DATA.generated_at||'';
+  const el=document.getElementById('freshness'),txt=document.getElementById('freshnessText');
+  if(!el||!txt) return;
+  if(!raw){el.style.display='none';return;}
+  const disp=raw.replace('T',' ').slice(0,16);
+  txt.textContent='기준 '+disp;
+  const ageMs=Date.now()-new Date(raw).getTime();
+  const stale=isFinite(ageMs)&&ageMs>24*3600*1000;
+  el.querySelector('.dot').style.background=stale?'var(--amber)':'var(--teal)';
+  el.title=stale?`${disp} 기준 — 생성된 지 24시간이 지났습니다. 최신 상태가 아닐 수 있습니다.`:`${disp} 기준으로 생성된 데이터입니다.`;
+}
+
 /* ── 뒤로가기 ────────────────────────────────────────────────────────────
    "화면이 바뀌었다고 체감하는" 상태만 history entry로 쌓는다. 검색어/
    정렬/페이지 이동/컬럼 숨김 같은 잦은 조작은 일부러 스냅샷에서 뺐다 —
@@ -3493,6 +3514,7 @@ document.addEventListener('keydown',e=>{
   loadHidden();applyTheme();restoreTabFromSession();parseHash();
   document.getElementById('foot-src').textContent=(DATA.is_demo?'데모 데이터':'실 데이터')+
     ' · '+DATA.tables.map(t=>t.label+' '+t.rows.length).join(' · ');
+  renderFreshness();
   /* 시작 entry를 자기 자신으로 확정 — 첫 render()가 이 값과 똑같은
      스냅샷을 만들므로 불필요한 pushState 없이 replaceState 한 번뿐 */
   g_lastNavKey=JSON.stringify(navSnapshot());
@@ -3522,6 +3544,7 @@ _HTML = r"""<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
       <div class="topbar-left">
         <button class="menubtn" onclick="toggleSidebar()" title="메뉴" aria-label="메뉴 열기">☰</button>
         <h1 id="pageTitle">홈</h1>
+        <span id="freshness" class="freshness" title=""><span class="dot"></span><span id="freshnessText"></span></span>
       </div>
       <div class="topbar-right">
         <div class="gsearchwrap">
