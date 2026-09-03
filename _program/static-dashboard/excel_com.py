@@ -851,7 +851,6 @@ class ExcelBridge:
         schema = TABLE_BY_KEY[table_key]
         original_pk = str(original_pk or "").strip() or None
         tables_data = None
-        id_changed = False
 
         if table_key in ID_TABLE_KEYS:
             tables_data = self._read_all_tables()
@@ -859,22 +858,36 @@ class ExcelBridge:
             if not id_result["ok"]:
                 raise ExcelComError(id_result["reason"])
             record[schema.pk] = id_result["id"]
-            id_changed = id_result["changed"]
 
         errors = self._validate(table_key, record)
         if errors:
             raise ExcelComError(" / ".join(errors))
 
         wb = self._ensure_workbook()
-        locate_pk = original_pk if (table_key in ID_TABLE_KEYS and original_pk) else None
+        # original_pk(편집 중이던 행이 원래 갖고 있던 PK)이 있으면 항상 그
+        # 값으로 행을 찾아 고쳐 씁니다 - "이 표가 ID 자동생성 대상인지"와는
+        # 무관합니다. 예전엔 ID_TABLE_KEYS(구매계약 등 4개)에만 이 값을
+        # 썼는데, 그러면 발전소/수요기업처럼 PK를 사람이 직접 고치는 표는
+        # PK를 바꿔 저장할 때마다 옛 행을 못 찾고 새 행이 추가되는 버그가
+        # 있었습니다.
+        locate_pk = original_pk if original_pk else None
         result = self._write_row(wb, table_key, record, locate_pk=locate_pk)
 
+        # PK가 실제로 바뀐 편집이면(자동 채번으로 재계산됐든, 사람이 발전소ID/
+        # 수요기업ID 같은 표의 PK를 직접 고쳤든) 참조하는 다른 표의 FK를
+        # 함께 갱신합니다. _cascade_rename은 표 종류를 가리지 않는 범용
+        # 함수이므로 4개 자동 채번 표에 국한하지 않고 전부 적용합니다.
+        new_pk_value = str(record.get(schema.pk) or "").strip()
         cascaded: list[dict] = []
-        if table_key in ID_TABLE_KEYS and original_pk and id_changed:
+        if original_pk and new_pk_value and new_pk_value != original_pk:
+            if tables_data is None:
+                tables_data = self._read_all_tables()
             parent_row = find_row(tables_data, table_key, schema.pk, original_pk)
             if parent_row is not None:
                 parent_row.update(record)
-            cascaded = self._cascade_rename(wb, table_key, original_pk, record[schema.pk], tables_data)
+            else:
+                tables_data.setdefault(table_key, []).append(dict(record))
+            cascaded = self._cascade_rename(wb, table_key, original_pk, new_pk_value, tables_data)
 
         wb.Save()
         if cascaded:
@@ -1042,9 +1055,16 @@ class ExcelBridge:
                 if not id_result["ok"]:
                     raise ExcelComError(f"{idx}번째 작업({schema.label}): {id_result['reason']}")
                 record[schema.pk] = id_result["id"]
-                if original_pk and id_result["changed"]:
-                    id_changes.append((table, original_pk, id_result["id"]))
 
+            # PK가 실제로 바뀐 편집이면(자동 채번 재계산이든, 발전소ID/수요기업ID
+            # 처럼 사람이 표의 PK를 직접 고쳤든) 참조하는 다른 표의 FK도 함께
+            # 갱신해야 합니다 - _cascade_rename은 표 종류를 가리지 않는 범용
+            # 함수라 4개 자동 채번 표에 국한하지 않습니다.
+            new_pk_value = str(record.get(schema.pk) or "").strip()
+            if original_pk and new_pk_value and new_pk_value != original_pk:
+                id_changes.append((table, original_pk, new_pk_value))
+
+            if original_pk or table in ID_TABLE_KEYS:
                 row_copy = dict(record)
                 existing_row = find_row(tables_data, table, schema.pk, original_pk) if original_pk else None
                 if existing_row is not None:

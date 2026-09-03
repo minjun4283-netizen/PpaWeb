@@ -1205,7 +1205,7 @@
     // groupWrap 안에서 그때그때 다시 그립니다(state 기반 재렌더 방식).
     // ---------------------------------------------------------------------
     function newGroupState(kind) {
-      return { kind: kind, master: { record: {}, existing: false }, children: [] };
+      return { kind: kind, master: { record: {}, existing: false, originalPk: null }, children: [] };
     }
 
     async function loadChildrenFor(def, masterPkVal) {
@@ -1266,6 +1266,7 @@
         var pkVal = schema ? row[schema.pk] : "";
         groupState.master.record = row;
         groupState.master.existing = true;
+        groupState.master.originalPk = pkVal;
         loadChildrenFor(def, pkVal)
           .then(function (children) {
             groupState.children = children;
@@ -1515,7 +1516,14 @@
         return;
       }
 
-      var operations = [{ table: def.master, action: "save", record: groupState.master.record }];
+      var masterOp = { table: def.master, action: "save", record: groupState.master.record };
+      // 기존 마스터를 불러와 PK 자체를 고쳐 저장하는 경우(예: 발전소ID를
+      // 오타 수정) - original_pk를 보내야 서버가 옛 행을 찾아 고쳐 쓰지,
+      // 새 PK로 새 행을 추가해버리지 않습니다.
+      if (groupState.master.existing && groupState.master.originalPk) {
+        masterOp.original_pk = groupState.master.originalPk;
+      }
+      var operations = [masterOp];
       var refSeq = 0;
       activeChildren.forEach(function (c) {
         var childOp = { table: childDef.table, action: "save", record: c.record };
@@ -1778,7 +1786,11 @@
         return;
       }
 
-      await performSave(tableName, record, null);
+      // 지금 편집 중이던 행이 원래 갖고 있던 PK(formState.loadedPk)를 반드시
+      // 넘겨야, 발전소ID/수요기업ID처럼 사람이 직접 고칠 수 있는 PK를 바꿔
+      // 저장할 때 서버가 그 값으로 옛 행을 찾아 고쳐 씁니다 - 여기서 항상
+      // null을 넘기면(예전 버그) 새 PK로 찾다가 못 찾아 새 행이 추가됩니다.
+      await performSave(tableName, record, formState.loadedPk || null);
     }
 
     async function performSave(tableName, record, originalPk) {
