@@ -717,11 +717,14 @@ class ExcelBridge:
         return options
 
     # ---- 검증 (엑셀에 쓰기 전에 확인 — VBA 입력폼과 동일한 최소 기준) ----
-    def _validate(self, table_key: str, record: dict, extra_valid_fk: dict | None = None) -> list[str]:
+    def _validate(
+        self, table_key: str, record: dict, extra_valid_fk: dict | None = None, original_pk: str | None = None
+    ) -> list[str]:
         """extra_valid_fk: {표이름: {아직 저장 전이지만 이번 배치에서 같이
         생기는 PK, ...}} - 그룹 일괄 입력에서 "새 부모 + 그 부모를 참조하는
         새 자식"을 한 배치로 같이 만들 때, 부모가 아직 엑셀에 없어도 FK
-        검증을 통과시키기 위해 씁니다."""
+        검증을 통과시키기 위해 씁니다. original_pk: 지금 편집 중인 행이 원래
+        갖고 있던 PK(수요기업 중복 검사에서 "자기 자신"을 구분하는 데 씀)."""
         extra_valid_fk = extra_valid_fk or {}
         schema = TABLE_BY_KEY[table_key]
         errors = []
@@ -742,6 +745,26 @@ class ExcelBridge:
             ref_values |= extra_valid_fk.get(ref_key, set())
             if val not in ref_values:
                 errors.append(f"{fk_col} 값 '{val}'을(를) {ref_key}에서 찾을 수 없습니다.")
+
+        # 수요기업은 다른 표와 달리(다른 표는 "새 입력에 기존 PK를 치면 그
+        # 데이터를 수정한다"는 동작을 그대로 둠) ID·기업명 중복을 아예
+        # 막습니다 - 서로 다른 회사가 실수로 같은 ID/이름으로 등록되는 사고를
+        # 막아달라는 요청. 클라이언트도 같은 검사를 미리 하지만(즉각 피드백
+        # 용), 여기가 최종 관문입니다.
+        if table_key == "T_수요기업":
+            original_pk = str(original_pk or "").strip() or None
+            rows = self._read_table(table_key)["rows"]
+            if pk_val and pk_val != (original_pk or ""):
+                if any(str(r.get(schema.pk) or "").strip() == pk_val for r in rows):
+                    errors.append(f"이미 사용 중인 {schema.pk}입니다: '{pk_val}'")
+            name_val = str(record.get("기업명") or "").strip()
+            if name_val:
+                for r in rows:
+                    if original_pk and str(r.get(schema.pk) or "").strip() == original_pk:
+                        continue
+                    if str(r.get("기업명") or "").strip() == name_val:
+                        errors.append(f"이미 등록된 기업명입니다: '{name_val}'")
+                        break
 
         return errors
 
@@ -859,7 +882,7 @@ class ExcelBridge:
                 raise ExcelComError(id_result["reason"])
             record[schema.pk] = id_result["id"]
 
-        errors = self._validate(table_key, record)
+        errors = self._validate(table_key, record, original_pk=original_pk)
         if errors:
             raise ExcelComError(" / ".join(errors))
 
@@ -1101,7 +1124,9 @@ class ExcelBridge:
                 continue
 
             if action == "save":
-                errs = self._validate(table, op.get("record") or {}, extra_valid_fk=batch_new_pks)
+                errs = self._validate(
+                    table, op.get("record") or {}, extra_valid_fk=batch_new_pks, original_pk=op.get("original_pk")
+                )
                 if errs:
                     errors.append(f"{idx}번째 작업({TABLE_BY_KEY[table].label}): " + " / ".join(errs))
             elif action == "delete":

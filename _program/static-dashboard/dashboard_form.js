@@ -291,6 +291,141 @@
       return msg ? el("div", { class: "ppaf-fieldhelp" }, [msg]) : null;
     }
 
+    // -----------------------------------------------------------------------
+    // 수요기업명 → 수요기업ID 자동 생성 (영문 대문자 3~4글자)
+    //
+    // 1) 사전 정의(COMPANY_ID_MAP): 담당자가 이미 관례적으로 써온 약어 -
+    //    회사명이 여기 있으면 알고리즘을 거치지 않고 그대로 씁니다.
+    // 2) 신규 생성(fallback): (주)/(유) 같은 법인 표기를 지우고, 흔한 외래어
+    //    조각(COMPANY_LOANWORD_ROOTS)은 영문 어근으로, 나머지 한글은 발음
+    //    대로 로마자 표기해 앞 3~4글자를 뽑습니다. 완벽한 재현은 불가능한
+    //    영역이라(브랜드 약어는 결국 사람의 감각이 들어감) 어디까지나 "초안"
+    //    이고, 담당자가 확인 후 얼마든지 고칠 수 있도록 입력칸은 항상 수정
+    //    가능한 일반 텍스트로 둡니다(자동 채번 4개 표처럼 읽기전용 아님).
+    // -----------------------------------------------------------------------
+    function normalizeCompanyName(name) {
+      return (name || "")
+        .replace(/\(주\)|\(유\)|\(사\)|㈜|㈲|㈔|주식회사|유한회사/g, "")
+        .replace(/Co\.,?\s*Ltd\.?|Corporation|Corp\.?|Inc\.?|Ltd\.?/gi, "")
+        .replace(/\s+/g, "")
+        .trim();
+    }
+
+    // 담당자가 이미 쓰고 있던 약어 - 예시로 준 3곳을 우선 등록해둠(정규화된
+    // 이름 기준). 실제 운영 중인 다른 회사도 여기에 같은 식으로 추가하면
+    // 알고리즘을 거치지 않고 그 값을 그대로 씁니다.
+    var COMPANY_ID_MAP = {
+      "아모레퍼시픽": "AMOR",
+      "베어링아트": "BEAR",
+      "도쿄일렉트론코리아": "DELK"
+    };
+
+    // 한국 기업명에 흔한 외래어 조각 → 영문 어근. 긴 조각부터 먼저 매칭해
+    // "일렉트로닉스" 안의 "일렉트론"이 잘못 먼저 걸리지 않게 합니다. 이
+    // 목록에 없는 외래어/신조어는 그냥 발음대로 로마자 표기됩니다.
+    var COMPANY_LOANWORD_ROOTS = [
+      ["일렉트로닉스", "Electronics"], ["세미컨덕터", "Semiconductor"], ["커뮤니케이션", "Communication"],
+      ["인터내셔널", "International"], ["엔지니어링", "Engineering"], ["테크놀로지", "Technology"],
+      ["로지스틱스", "Logistics"], ["오토모티브", "Automotive"], ["소프트웨어", "Software"],
+      ["일렉트론", "Electron"], ["헬스케어", "Healthcare"], ["코스메틱", "Cosmetic"],
+      ["로보틱스", "Robotics"], ["머티리얼", "Material"], ["솔루션", "Solution"],
+      ["네트워크", "Network"], ["하드웨어", "Hardware"], ["컨설팅", "Consulting"],
+      ["파트너스", "Partners"], ["베어링", "Bearing"], ["시스템", "System"],
+      ["에너지", "Energy"], ["디스플레이", "Display"], ["배터리", "Battery"],
+      ["모빌리티", "Mobility"], ["인더스트리", "Industry"], ["캐피탈", "Capital"],
+      ["홀딩스", "Holdings"], ["퍼시픽", "Pacific"], ["코리아", "Korea"],
+      ["글로벌", "Global"], ["디지털", "Digital"], ["바이오", "Bio"],
+      ["메디컬", "Medical"], ["케미칼", "Chemical"], ["그린", "Green"],
+      ["스마트", "Smart"], ["파워", "Power"], ["모터", "Motor"],
+      ["그룹", "Group"], ["파마", "Pharma"], ["테크", "Tech"], ["랩", "Lab"]
+    ].sort(function (a, b) { return b[0].length - a[0].length; });
+
+    // 한글 음절 하나를 초성/중성/종성으로 분해해 로마자(국어의 로마자 표기법
+    // 방식)로 바꿉니다. 정식 표기법의 세부 예외(ㄹ 연음 등)까진 반영하지
+    // 않은 근사치이지만, ID 생성용 초안으로는 충분합니다.
+    function romanizeHangulSyllable(ch) {
+      var code = ch.charCodeAt(0) - 0xAC00;
+      if (code < 0 || code > 11171) return null;
+      var CHO = ["g", "kk", "n", "d", "tt", "r", "m", "b", "pp", "s", "ss", "", "j", "jj", "ch", "k", "t", "p", "h"];
+      var JUNG = ["a", "ae", "ya", "yae", "eo", "e", "yeo", "ye", "o", "wa", "wae", "oe", "yo", "u", "wo", "we", "wi", "yu", "eu", "ui", "i"];
+      var JONG = ["", "g", "kk", "gs", "n", "nj", "nh", "d", "l", "lg", "lm", "lb", "ls", "lt", "lp", "lh", "m", "b", "bs", "s", "ss", "ng", "j", "ch", "k", "t", "p", "h"];
+      var cho = Math.floor(code / (21 * 28));
+      var jung = Math.floor((code % (21 * 28)) / 28);
+      var jong = code % 28;
+      return CHO[cho] + JUNG[jung] + JONG[jong];
+    }
+
+    // COMPANY_LOANWORD_ROOTS에 있는 조각은 영문 어근으로 바꾸고, 나머지
+    // 한글은 음절 단위로 로마자 표기해 이어 붙입니다.
+    function transliterateCompanyCore(text) {
+      var out = "";
+      var i = 0;
+      while (i < text.length) {
+        var matched = false;
+        for (var k = 0; k < COMPANY_LOANWORD_ROOTS.length; k++) {
+          var word = COMPANY_LOANWORD_ROOTS[k][0];
+          if (text.substr(i, word.length) === word) {
+            out += COMPANY_LOANWORD_ROOTS[k][1];
+            i += word.length;
+            matched = true;
+            break;
+          }
+        }
+        if (matched) continue;
+        var r = romanizeHangulSyllable(text[i]);
+        out += r !== null ? r : text[i];
+        i++;
+      }
+      return out;
+    }
+
+    function generateCompanyIdCode(normalized) {
+      var translit = transliterateCompanyCore(normalized).replace(/[^A-Za-z]/g, "");
+      return translit.slice(0, 4).toUpperCase();
+    }
+
+    // existingIds: 이미 쓰이고 있는 수요기업ID 목록(자기 자신 제외) - 알고리즘
+    // 결과가 겹치면 뒤에 숫자를 붙여 구분합니다(그래도 사람이 얼마든지 다시
+    // 고칠 수 있음).
+    function suggestCompanyId(name, existingIds) {
+      var normalized = normalizeCompanyName(name);
+      if (!normalized) return "";
+      var base = COMPANY_ID_MAP[normalized] || generateCompanyIdCode(normalized);
+      if (!base) return "";
+      var used = existingIds || [];
+      var candidate = base;
+      var n = 2;
+      while (used.indexOf(candidate) !== -1) {
+        candidate = base + n;
+        n++;
+      }
+      return candidate;
+    }
+
+    // 수요기업명 입력칸이 바뀔 때마다 수요기업ID 입력칸을 자동으로 채웁니다.
+    // 담당자가 ID 칸을 직접 건드리는 순간부터는(한 글자라도 수정) 그 뒤로는
+    // 이름이 바뀌어도 자동으로 덮어쓰지 않습니다 - "자동 생성 + 자유 수정"
+    // 원칙을 지키기 위함. idInput이 이미 값을 갖고 있는 상태(기존 데이터를
+    // 불러온 경우)로 시작하면 애초에 자동 채우기를 켜지 않습니다.
+    function wireCompanyIdAutoFill(nameInput, idInput) {
+      if (!nameInput || !idInput) return;
+      var autoFilled = !idInput.value;
+      idInput.addEventListener("input", function () { autoFilled = false; });
+      function recompute() {
+        if (!autoFilled) return;
+        var existing = (recordCache["T_수요기업"] || [])
+          .map(function (r) { return String(r["수요기업ID"] || ""); })
+          .filter(function (v) { return v && v !== idInput.value; });
+        var suggestion = suggestCompanyId(nameInput.value, existing);
+        if (suggestion && suggestion !== idInput.value) {
+          idInput.value = suggestion;
+          idInput.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      }
+      nameInput.addEventListener("input", recompute);
+      nameInput.addEventListener("blur", recompute);
+    }
+
     // "원인"(수급매칭의 "현황"이 "6. 이슈 발생"일 때 함께 기록하는 사유)은
     // 자주 쓰는 값은 목록에서 고르되, 목록에 없는 사유는 자유롭게 직접
     // 입력할 수 있어야 합니다 - <select>(강제 선택)가 아니라
@@ -488,6 +623,27 @@
       if (required && !value) {
         markInvalid(wrap, input, columnName + "는 필수입니다.");
         return false;
+      }
+
+      // 수요기업은 다른 표와 달리 ID·기업명 중복을 아예 막습니다(다른 표는
+      // "새 입력에 기존 PK를 치면 그 데이터를 덮어쓴다"는 동작을 그대로
+      // 두되, 서로 다른 회사가 실수로 같은 ID/이름으로 등록되는 사고를
+      // 막아달라는 요청).
+      if (tableName === "T_수요기업" && value && !alreadyLoaded) {
+        if (columnName === "수요기업ID") {
+          var idTaken = (recordCache["T_수요기업"] || []).some(function (r) { return String(r["수요기업ID"] || "") === value; });
+          if (idTaken) {
+            markInvalid(wrap, input, "이미 사용 중인 수요기업ID입니다.");
+            return false;
+          }
+        }
+        if (columnName === "기업명") {
+          var nameTaken = (recordCache["T_수요기업"] || []).some(function (r) { return String(r["기업명"] || "").trim() === value; });
+          if (nameTaken) {
+            markInvalid(wrap, input, "이미 등록된 수요기업명입니다.");
+            return false;
+          }
+        }
       }
 
       // 새 데이터 입력 중인데 PK가 이미 존재하는 값이면 - 막지는 않되(저장하면
@@ -740,6 +896,12 @@
         if (exclude.indexOf(col) !== -1) return;
         grid.appendChild(buildBoundFieldRow(tableName, col, record, alreadyLoaded));
       });
+      if (tableName === "T_수요기업") {
+        wireCompanyIdAutoFill(
+          grid.querySelector('[data-col="기업명"]'),
+          grid.querySelector('[data-col="수요기업ID"]')
+        );
+      }
       return grid;
     }
 
@@ -768,6 +930,7 @@
         input = el("input", { class: "ppaf-input", type: "text" });
       }
       input.removeAttribute("data-name");
+      input.setAttribute("data-col", columnName);
       if (input.tagName === "SELECT" && currentVal &&
           !Array.prototype.some.call(input.options, function (o) { return o.value === currentVal; })) {
         input.appendChild(el("option", { value: currentVal }, [currentVal + " (목록에 없는 기존 값)"]));
@@ -1170,6 +1333,12 @@
       columns.forEach(function (col) {
         fields.appendChild(createField(tableName, col));
       });
+      if (tableName === "T_수요기업") {
+        wireCompanyIdAutoFill(
+          fields.querySelector('[data-name="fld_기업명"]'),
+          fields.querySelector('[data-name="fld_수요기업ID"]')
+        );
+      }
       scheduleIdPreview(tableName);
     }
 
