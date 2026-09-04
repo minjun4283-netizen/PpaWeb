@@ -275,6 +275,12 @@ td.num,th.num{text-align:right;font-family:ui-monospace,SFMono-Regular,Consolas,
 .chk.add{border-left-color:var(--pass)}
 .chk.chg{border-left-color:var(--info)}
 .chk.del{border-left-color:var(--mute)}
+/* 전체 변경 이력 접기/펴기 - 기본 접힘 상태(최신 5건 정도 높이)에서
+   "더 보기"를 누르면 부드럽게 펼쳐집니다. max-height 전환은 height:auto로
+   애니메이션할 수 없는 CSS의 한계를 피하려고 충분히 큰 값(다음 줄)으로
+   대신합니다 - 한 페이지 안 최대 1000행이어도 넘치지 않는 넉넉한 값. */
+.clog-collapse{max-height:300px;overflow:hidden;transition:max-height .28s ease}
+.clog-collapse.expanded{max-height:60000px}
 .chgval{font-size:12.5px}
 .chgold{color:var(--sub);text-decoration:line-through;margin-right:6px}
 .chgnew{color:var(--info);font-weight:700}
@@ -609,7 +615,7 @@ let state={
   recent:[],pinned:[],modal:null,
   theme:readLS('ppa_theme','light'),
   homeTrend:{metric:'new',unit:'cnt',drillYm:null,rangeFrom:null,rangeTo:null},
-  clog:{q:'',kind:'',table:''},
+  clog:{q:'',kind:'',table:'',expanded:false},
 };
 /* dashboard_form.js(실시간 입력 서버가 붙어 있을 때만 로드됨)가 저장 후
    location.reload() 하기 전에 "지금 보고 있던 탭"을 세션스토리지에 남길 수
@@ -1459,7 +1465,10 @@ function tCompare(){
    엑셀에서 VLOOKUP을 여러 번 걸어 만들던 "여러 표를 합친 목록"을 화면에서
    바로 만듭니다. 기준 표를 정하고 연결할 표를 고르면 FK 경로를 따라 조인하며,
    연결 상대가 없는 행도 빈칸으로 남겨두기 때문에(LEFT JOIN) "구매계약이 없는
-   발전소" 같은 누락 데이터를 그대로 찾아낼 수 있습니다. */
+   발전소" 같은 누락 데이터를 그대로 찾아낼 수 있습니다. 여기서 한 걸음 더 -
+   기준 표(예: 수급매칭) 쪽에서 아예 안 걸리는 표별 미매칭 행(예: 아직
+   수급매칭이 안 된 구매계약·판매계약)도 buildExplore()가 별도로 채워 넣어
+   결과에서 빠지지 않습니다(합집합/Full Outer Join, joinOneStep 참고). */
 
 /* 표 사이 연결 그래프 — 부모(참조 대상)·자식(참조하는 쪽) 양방향 */
 const adj={};
@@ -1529,6 +1538,10 @@ function initExploreDefault(){
   };
 }
 function setExploreBase(k){initExplore(k);render();}
+/* "3. 출력 컬럼" 초기화 버튼 - 기준 표/연결 표/드래그로 바꾼 출력 컬럼
+   순서·검색어·정렬·필터까지 전부 처음 기본 조회(initExploreDefault) 상태로
+   되돌립니다. */
+function resetExploreDefault(){initExploreDefault();render();}
 function exploreEffective(){
   /* 사용자가 고른 표 + 거기까지 가는 데 필요한 경유 표 */
   const ex=state.explore,{prev,dist}=joinPaths(ex.base);
@@ -1581,39 +1594,84 @@ function doExploreSort(id){
   ex.sort=(ex.sort&&ex.sort.key===id)?{key:id,dir:-ex.sort.dir}:{key:id,dir:1};
   ex.page=1;render();
 }
+/* 조인 한 단계 — records의 각 레코드에, step.from 표의 값을 보고 tk 표의
+   매칭 행(들)을 붙입니다. 상대가 없으면 null로 남겨 "누락"을 그대로 볼 수
+   있게 합니다(LEFT JOIN 한 단계). 기준 표에서 시작하는 메인 조인과, 아래
+   미매칭(고아) 행에 하위 표를 이어 붙이는 데 똑같이 재사용합니다. */
+function joinOneStep(records,tk,step,cap){
+  const parentT=byKey[step.from];
+  const next=[];
+  records.forEach(rec=>{
+    const src=rec[step.from];
+    let matches=[];
+    if(src){
+      if(step.dir==='child'){
+        /* tk 가 step.from 을 참조 (1:N) */
+        matches=(fkIndex(tk,step.col)[String(src.cells[parentT.pk]??'')]||[]);
+      }else{
+        /* step.from 이 tk 를 참조 (N:1) */
+        const v=String(src.cells[step.col]??'');
+        const m=v!==''&&rowIndex[tk]?rowIndex[tk][v]:null;
+        matches=m?[m]:[];
+      }
+    }
+    if(!matches.length){const o=Object.assign({},rec);o[tk]=null;next.push(o);}
+    else matches.forEach(m=>{
+      if(cap.count>=EXPLORE_CAP){cap.truncated=true;return;}
+      cap.count++;
+      const o=Object.assign({},rec);o[tk]=m;next.push(o);});
+  });
+  return next;
+}
+/* t2가 기준 표에서 tk를 거쳐야 닿는 표인지 - 미매칭 행에 "그 아래로"
+   이어지는 하위 표만 같이 채워 넣기 위해 씁니다(예: 미매칭 구매계약엔
+   발전소까지는 채우되, 그 반대편인 수급매칭·전기사용지 쪽은 안 건드림). */
+function isDownstreamOf(t2,tk,prev,base){
+  let cur=t2;
+  while(cur!==base){
+    const step=prev[cur];
+    if(!step) return false;
+    if(step.from===tk) return true;
+    cur=step.from;
+  }
+  return false;
+}
 /* 기준 표의 각 행을 시작으로, 선택한 표들을 경로 순서대로 붙여나갑니다.
    상대가 없으면 null로 남겨 "누락"을 볼 수 있게 합니다(LEFT JOIN). */
 function buildExplore(){
   const ex=state.explore;
   const eff=exploreEffective();
   const {prev}=joinPaths(ex.base);
+  const joinOrder=eff.filter(tk=>tk!==ex.base);
   let out=byKey[ex.base].rows.map(r=>{const o={};o[ex.base]=r;return o;});
-  let truncated=false;
-  eff.filter(tk=>tk!==ex.base).forEach(tk=>{
+  const cap={count:out.length,truncated:false};
+  joinOrder.forEach(tk=>{
     const step=prev[tk];if(!step) return;
-    const parentT=byKey[step.from],childT=byKey[tk];
-    const next=[];
-    out.forEach(rec=>{
-      const src=rec[step.from];
-      let matches=[];
-      if(src){
-        if(step.dir==='child'){
-          /* tk 가 step.from 을 참조 (1:N) */
-          matches=(fkIndex(tk,step.col)[String(src.cells[parentT.pk]??'')]||[]);
-        }else{
-          /* step.from 이 tk 를 참조 (N:1) */
-          const v=String(src.cells[step.col]??'');
-          const m=v!==''&&rowIndex[tk]?rowIndex[tk][v]:null;
-          matches=m?[m]:[];
-        }
-      }
-      if(!matches.length){const o=Object.assign({},rec);o[tk]=null;next.push(o);}
-      else matches.forEach(m=>{
-        if(next.length>=EXPLORE_CAP){truncated=true;return;}
-        const o=Object.assign({},rec);o[tk]=m;next.push(o);});
-    });
-    out=next;
+    out=joinOneStep(out,tk,step,cap);
   });
+  /* 합집합(Full Outer Join): 기준 표 행 어디에도 걸리지 않는(=미매칭) 표별
+     행도 결과에서 빠지지 않도록 별도로 채워 넣습니다 - 예) 아직 수급매칭이
+     없는 구매계약·판매계약도 그 표 자체 정보(및 발전소처럼 그 아래로 이어
+     지는 표)는 정상 표시하고, 기준 표를 포함해 연결되지 않는 나머지 칸만
+     공란으로 둡니다. joinOrder는 기준 표에서 가까운 순서라 이 순서 그대로
+     처리해야, 하위 표(예: 전기사용지가 미매칭이면 그 아래 판매계약도 같이
+     채워짐)가 먼저 채워지고 나서 그보다 먼 표를 검사하게 되어 같은 값이
+     두 번(한 번은 하위 표를 통해, 한 번은 자기 자신의 미매칭 검사로) 중복
+     추가되지 않습니다. */
+  joinOrder.forEach(tk=>{
+    const pk=byKey[tk].pk;
+    const usedPks=new Set();
+    out.forEach(rec=>{ if(rec[tk]) usedPks.add(String(rec[tk].cells[pk]??'')); });
+    const orphanRows=byKey[tk].rows.filter(r=>!usedPks.has(String(r.cells[pk]??'')));
+    if(!orphanRows.length) return;
+    let seeds=orphanRows.map(r=>{const o={};o[tk]=r;return o;});
+    joinOrder.filter(t2=>t2!==tk&&isDownstreamOf(t2,tk,prev,ex.base)).forEach(dtk=>{
+      seeds=joinOneStep(seeds,dtk,prev[dtk],cap);
+    });
+    out=out.concat(seeds);
+  });
+  let truncated=cap.truncated;
+  if(out.length>EXPLORE_CAP){out=out.slice(0,EXPLORE_CAP);truncated=true;}
   /* 누락 필터 */
   const joined=eff.filter(tk=>tk!==ex.base);
   if(ex.missing==='any'&&joined.length) out=out.filter(rec=>joined.some(tk=>!rec[tk]));
@@ -1836,7 +1894,10 @@ function tExplore(){
     ${panel('1. 기준 표','이 표의 각 행이 결과의 기준이 됩니다',`<div class="subtabbar">${baseTabs}</div>`)}
     ${panel('2. 연결할 표','숫자는 기준 표에서 몇 단계 떨어져 있는지 · 회색은 경로상 자동으로 거쳐가는 표',
       joinChips?`<div class="chiprow">${joinChips}</div>`:'<div class="nocand">연결할 수 있는 표가 없습니다.</div>')}
-    ${panel('3. 출력 컬럼','보고 싶은 컬럼만 눌러서 켜고 끄세요',exploreSelectedColsHtml(cols)+colGroups)}
+    ${panel('3. 출력 컬럼','보고 싶은 컬럼만 눌러서 켜고 끄세요',
+      `<div style="margin-bottom:8px"><button class="btn" onclick="resetExploreDefault()"
+        title="기준 표·연결된 표·출력 컬럼 순서를 처음 기본 조회 상태로 되돌립니다">↺ 기본 컬럼으로 초기화</button></div>`
+      +exploreSelectedColsHtml(cols)+colGroups)}
     ${panel('4. 결과',truncated?`행이 너무 많아 ${nf(EXPLORE_CAP,0)}건에서 끊었습니다 — 조건을 좁혀주세요`:'',
       `<div class="toolbar">
         <input id="exploreSearch" class="search" placeholder="결과에서 검색… (여러 낱말 가능)" value="${esc(ex.q||'')}" oninput="onSearchType(event,setExploreQ)">
@@ -3410,6 +3471,11 @@ function changelogRow(e){
 function setClogQ(v){state.clog.q=v;state.page.clog=1;render();}
 function setClogKind(v){state.clog.kind=v;state.page.clog=1;render();}
 function setClogTable(v){state.clog.table=v;state.page.clog=1;render();}
+/* 접기/펴기 - 기본 접힘(최신 몇 건만 보이는 높이)에서 눌러 전체(지금
+   페이지 안의 모든 건)를 펼치거나 다시 접습니다. 페이지 넘김(pager)과는
+   별개의 기능 - 한 페이지 안의 표시 높이만 조절합니다. */
+const CLOG_COLLAPSED_ROWS=5;
+function toggleClogExpand(){state.clog.expanded=!state.clog.expanded;render();}
 function changelogView(){
   if(!CHANGELOG.length) return '<div class="nocand">아직 쌓인 이력이 없습니다 — 다음 생성부터 여기 표시됩니다.</div>';
   const kOpts=[['','전체 종류'],['added','추가'],['changed','수정'],['removed','삭제']]
@@ -3423,13 +3489,19 @@ function changelogView(){
   state.page.clog=page;
   const pageRows=rows.slice((page-1)*state.pageSize,page*state.pageSize);
   const list=pageRows.map(changelogRow).join('')||'<div class="nocand">조건에 맞는 이력이 없습니다.</div>';
+  const expanded=!!state.clog.expanded;
+  const needsToggle=pageRows.length>CLOG_COLLAPSED_ROWS;
+  const toggleBtn=needsToggle
+    ?`<button class="btn" style="margin-top:8px" onclick="toggleClogExpand()">${expanded?'접기 ▲':'더 보기 ▼ (전체 '+nf(pageRows.length,0)+'건)'}</button>`
+    :'';
   return `<div class="toolbar">
       <input id="clog-q" class="search" placeholder="PK·값으로 이력 검색…" value="${esc(state.clog.q)}" oninput="onSearchType(event,setClogQ)">
       <select class="filtersel" onchange="setClogKind(this.value)">${kOpts}</select>
       <select class="filtersel" onchange="setClogTable(this.value)">${tOpts}</select>
       <span class="count">${nf(total,0)} / ${nf(CHANGELOG.length,0)}건</span>
     </div>
-    <div>${list}</div>
+    <div class="clog-collapse${expanded||!needsToggle?' expanded':''}">${list}</div>
+    ${toggleBtn}
     ${pager({key:'clog'},total,page,pages)}`;
 }
 
