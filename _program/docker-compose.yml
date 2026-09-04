@@ -1,0 +1,18 @@
+services:
+  ppaweb:
+    build: .
+    ports:
+      - "4000:4000"
+    volumes:
+      - ppaweb-data:/app/data
+    environment:
+      # Change these before exposing this beyond a trusted intranet segment.
+      - JWT_SECRET=please-change-this-secret
+      - ADMIN_PASSWORD=changeme123
+      # Only meaningful if this container runs on Windows with the ACE OLEDB
+      # driver installed; otherwise Access sync stays gracefully disabled.
+      - ACCESS_DB_PATH=
+    restart: unless-stopped
+
+volumes:
+  ppaweb-data:
