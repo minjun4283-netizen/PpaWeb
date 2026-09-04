@@ -3938,11 +3938,26 @@ function parseHash(){
 function restoreTabFromSession(){
   var saved;
   try{ saved=sessionStorage.getItem('ppa_return_tab'); sessionStorage.removeItem('ppa_return_tab'); }
-  catch(e){ return; }
-  if(!saved) return;
-  if(saved==='홈'||saved==='관계조회'||saved==='탐색'||saved==='비교'||saved==='변경'||saved==='검증'||byKey[saved]){
+  catch(e){ saved=null; }
+  if(saved&&(saved==='홈'||saved==='관계조회'||saved==='탐색'||saved==='비교'||saved==='변경'||saved==='검증'||byKey[saved])){
     state.tab=saved;
   }
+  /* 탐색 탭의 검색어/정렬/페이지/결측필터는 navSnapshot()에는 일부러 안
+     싣지만(뒤로가기 history가 매 키입력마다 쌓이는 걸 막으려고), 저장 후
+     새로고침 복원은 1회성이라 그 걱정이 없다 - 별도 키로 따로 남겨서 여기서
+     함께 복원한다("검색 결과값 유지" 요구사항). */
+  try{
+    var ex=sessionStorage.getItem('ppa_return_explore');
+    sessionStorage.removeItem('ppa_return_explore');
+    if(ex){
+      var v=JSON.parse(ex);
+      if(!state.explore) initExploreDefault();
+      if(v.q!==undefined) state.explore.q=v.q;
+      if(v.sort!==undefined) state.explore.sort=v.sort;
+      if(v.page!==undefined) state.explore.page=v.page;
+      if(v.missing!==undefined) state.explore.missing=v.missing;
+    }
+  }catch(e){}
 }
 window.addEventListener('popstate',e=>{
   if(!e.state||!e.state.nav) return; /* 우리가 만들지 않은 진입점 — 무시하고 추가 push도 안 만듦 */

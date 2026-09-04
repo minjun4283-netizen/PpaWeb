@@ -1144,6 +1144,33 @@ class ExcelBridge:
             else:
                 errors.append(f"{idx}번째 작업: 알 수 없는 action '{action}' 입니다.")
 
+        # ---- N:N 매칭 금지 (1:N 또는 N:1만 허용, 원천 차단) ----
+        # 판매(전기사용지) 1건에 구매계약 여러 건, 또는 구매계약 1건에
+        # 전기사용지 여러 건을 연결하는 것은 허용하지만, 이번 배치에서 새로
+        # 함께 생기는 구매계약↔전기사용지 조합이 양쪽 다 2건 이상이면(N:N)
+        # UI를 우회한 직접 API 호출까지 포함해 여기서 막습니다 - UI(매칭
+        # 위젯)의 선택 제한은 사용성을 위한 것일 뿐, 실제 차단은 이 서버
+        # 검증이 최종 방어선입니다. 이미 저장돼 있던 기존 매칭들은 그
+        # 자체로 이미 유효했던 것이므로 재검증 대상이 아니고, 이번 배치에서
+        # 새로 생기는 조합끼리만 봅니다.
+        match_pc_ids: set = set()
+        match_fe_ids: set = set()
+        for op in operations:
+            if op.get("action") != "save" or op.get("table") != "T_수급매칭":
+                continue
+            rec = op.get("record") or {}
+            pc = str(rec.get("구매계약ID") or "").strip()
+            fe = str(rec.get("전기사용지ID") or "").strip()
+            if pc:
+                match_pc_ids.add(pc)
+            if fe:
+                match_fe_ids.add(fe)
+        if len(match_pc_ids) >= 2 and len(match_fe_ids) >= 2:
+            errors.append(
+                "수급매칭: 구매계약과 전기사용지를 각각 2건 이상 동시에 연결(N:N)할 수 없습니다 - "
+                "한쪽은 1건으로 고정하고 반대쪽만 여러 건을 선택해주세요."
+            )
+
         if errors:
             raise ExcelComError(
                 "일괄 작업을 적용하지 못했습니다(하나도 반영되지 않았습니다):\n" + "\n".join(errors)

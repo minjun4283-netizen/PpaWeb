@@ -228,8 +228,32 @@
       try {
         var st = window.PPA_DASHBOARD_STATE;
         if (st && st.tab) sessionStorage.setItem("ppa_return_tab", st.tab);
+        // 탐색 탭의 검색어/정렬/페이지/결측필터도 같이 남겨서, 새로고침 뒤
+        // ppa_dashboard_render.py의 restoreTabFromSession()이 검색 결과를
+        // 그대로 복원하게 합니다("탐색에서 검색하고 데이터를 수정했을 때
+        // 검색값이 리셋되지 않고 유지"돼야 한다는 요구사항).
+        if (st && st.explore) {
+          sessionStorage.setItem("ppa_return_explore", JSON.stringify({
+            q: st.explore.q, sort: st.explore.sort, page: st.explore.page, missing: st.explore.missing
+          }));
+        }
         sessionStorage.setItem("ppa_intentional_reload", "1");
       } catch (e) { /* 세션스토리지 사용 불가 환경 - 조용히 무시(그냥 홈으로 감) */ }
+    }
+
+    // 입력 창(모달)이 열려 있는 채로 저장/삭제해서 새로고침하는 경우, 완전한
+    // 무새로고침은(대시보드 본문이 페이지 로드 시점에 한 번 구운 정적
+    // 데이터라) 어렵지만, 새로고침 직후 곧바로 같은 표/모드로 모달을 다시
+    // 열어 "입력 창이 닫히지 않고 유지"되는 것처럼 체감하게 합니다.
+    // keepRecord를 넘기면(저장 성공 + "저장 후 새 입력으로 초기화" 체크
+    // 해제 상태) 그 값으로 폼을 다시 채워 편집을 이어갈 수 있게 합니다.
+    function rememberFormReopen(keepRecord) {
+      try {
+        if (!modal.classList.contains("show")) return;
+        var reopen = { mode: appMode, table: appMode === "single" ? modeSel.value : groupState.kind };
+        if (keepRecord) reopen.record = keepRecord;
+        sessionStorage.setItem("ppa_reopen_form", JSON.stringify(reopen));
+      } catch (e) { /* 무시 */ }
     }
 
     // ---------------------------------------------------------------------
@@ -266,6 +290,8 @@
     var ENUM_COLUMNS = {
       "발전원": ["태양광", "풍력", "소수력"],
       "Readiness": ["New", "Operating"],
+      "Requirement": ["New", "Operating"],
+      "계약유형": ["D", "V", "D↔V"],
       "현황": [
         "1. 공급 중", "2. 신고 중", "3. 상업운전 개시", "4. 공사 중",
         "5. 착공 전", "6. 이슈 발생", "7. 미확보", "99. 공급종료"
@@ -905,8 +931,55 @@
       return grid;
     }
 
+    // buildFieldsGrid(그룹A/B 입력)에서 쓰는, createTempDateField와 같은 규칙의
+    // "임시 계약" 체크박스 버전 - 단일입력은 DOM을 유지한 채 fillRecord()로
+    // 값만 바꿔치기하지만, 그룹 입력은 상태가 바뀔 때마다 행 전체를 다시
+    // 그리므로(renderGroup) 생성 시점에 record 값으로 체크 여부를 바로
+    // 정하면 되고, 단일입력의 _syncTempFromValue/_resetTemp 같은 재동기화
+    // 훅은 따로 필요 없습니다.
+    function buildTempDateBoundRow(tableName, columnName, record, alreadyLoaded) {
+      var wrap = el("div", { class: "ppaf-row" });
+      var labelClass = isRequiredColumn(tableName, columnName) ? "ppaf-label ppaf-required" : "ppaf-label";
+      wrap.appendChild(el("label", { class: labelClass }, [columnName]));
+
+      var currentVal = record[columnName] || "";
+      var input = el("input", { class: "ppaf-input", type: "date" });
+      input.setAttribute("data-col", columnName);
+      input.value = currentVal;
+
+      var tempCb = el("input", { type: "checkbox" });
+      tempCb.checked = !currentVal;
+      input.disabled = tempCb.checked;
+      var tempLabel = el("label", { class: "ppaf-tempcheck" }, [tempCb, " 임시 계약 (공급기한 미정)"]);
+
+      wrap.appendChild(input);
+      wrap.appendChild(tempLabel);
+      var fieldHelp = buildFieldHelp(columnName);
+      if (fieldHelp) wrap.appendChild(fieldHelp);
+
+      var sync = function () { record[columnName] = input.disabled ? "" : (input.value || ""); };
+      var onLiveCheck = function () {
+        sync();
+        validateFieldLive(tableName, columnName, wrap, input, alreadyLoaded);
+      };
+      tempCb.addEventListener("change", function () {
+        input.disabled = tempCb.checked;
+        if (tempCb.checked) input.value = "";
+        onLiveCheck();
+      });
+      input.addEventListener("blur", onLiveCheck);
+      input.addEventListener("change", onLiveCheck);
+      input.addEventListener("input", function () {
+        sync();
+        if (wrap.classList.contains("invalid")) onLiveCheck();
+      });
+
+      return wrap;
+    }
+
     function buildBoundFieldRow(tableName, columnName, record, alreadyLoaded) {
       if (isFormula24Column(columnName)) return buildFormula24BoundRow(tableName, columnName, record, alreadyLoaded);
+      if (temporaryDateColumnFor(tableName) === columnName) return buildTempDateBoundRow(tableName, columnName, record, alreadyLoaded);
 
       var wrap = el("div", { class: "ppaf-row" });
       var labelClass = isRequiredColumn(tableName, columnName) ? "ppaf-label ppaf-required" : "ppaf-label";
@@ -1136,48 +1209,24 @@
     }
 
     // -----------------------------------------------------------------------
-    // 수급매칭ID처럼 "접두어 + 숫자" 규칙을 쓰는 PK의 다음 값을 실제 데이터에서
-    // 그대로 추정합니다 - 데모에서 정한 규칙이 아니라 지금 엑셀에 들어있는
-    // 값들의 접두어/자리수를 그때그때 관찰해서 만들므로, 실제 업무 명명 규칙이
-    // 무엇이든(예: "매칭-001", "SM-2024-01" 등) 그대로 따라갑니다. 숫자로
-    // 끝나는 값이 하나도 없으면 빈 문자열을 돌려줘 사용자가 직접 입력하게
-    // 둡니다(잘못 추측해 강제로 채우지 않음).
-    function suggestNextId(existingIds) {
-      var groups = {};
-      (existingIds || []).forEach(function (id) {
-        var m = /^(.*?)(\d+)$/.exec(String(id || ""));
-        if (!m) return;
-        var prefix = m[1], width = m[2].length, num = parseInt(m[2], 10);
-        var g = groups[prefix];
-        if (!g) g = groups[prefix] = { count: 0, max: -1, width: width };
-        g.count++;
-        if (num > g.max) g.max = num;
-        g.width = Math.max(g.width, width);
-      });
-      var bestPrefix = null, bestCount = -1;
-      Object.keys(groups).forEach(function (p) {
-        if (groups[p].count > bestCount) { bestCount = groups[p].count; bestPrefix = p; }
-      });
-      if (bestPrefix === null) return "";
-      var g = groups[bestPrefix];
-      var numStr = String(g.max + 1);
-      while (numStr.length < g.width) numStr = "0" + numStr;
-      return bestPrefix + numStr;
-    }
-
-    // -----------------------------------------------------------------------
-    // 수급매칭 전용 "카드로 쉽게 매칭하기" - 구매계약 카드 하나 + 전기사용지
-    // 카드 하나를 클릭으로 골라 연결하면, 아래 일반 입력 폼의 전기사용지ID/
-    // 구매계약ID 칸을 그대로 채워줍니다(수급매칭ID도 비어있으면 자동 제안).
-    // 저장/검증은 기존 saveCurrentTable() 흐름을 그대로 씁니다 - 새 API 없음.
+    // 수급매칭 전용 "카드로 쉽게 매칭하기" - 구매계약/전기사용지를 각각 여러
+    // 건 다중선택해 1:N(판매 1건에 구매 여러 건) 또는 N:1(구매 1건에 판매
+    // 여러 건) 매칭을 한 번에 만듭니다. 단, 양쪽 다 2건 이상 선택하는
+    // N:N은 UI에서부터 막습니다(원천 차단 - 서버 _batch_apply에도 동일한
+    // 최종 검증이 있습니다). 검색은 매칭 테이블 자신의 컬럼뿐 아니라
+    // 연관 표(구매계약→발전소, 전기사용지→판매계약→수요기업)까지 함께
+    // 뒤져 탐색 탭과 같은 교차검색을 지원합니다. 저장은 기존 단일입력
+    // 폼을 거치지 않고 /api/batch로 직접 여러 건을 한 번에 만듭니다.
     // -----------------------------------------------------------------------
     function buildSupplyMatchWidget() {
-      var trigger = el("button", { class: "ppaf-btn ppaf-matchtrigger", type: "button" }, ["🔗 카드로 쉽게 매칭하기"]);
+      var trigger = el("button", { class: "ppaf-btn ppaf-matchtrigger", type: "button" }, ["🔗 카드로 쉽게 매칭하기 (1:N 지원)"]);
       var panel = el("div", { class: "ppaf-matchwrap", style: "display:none" });
       var loaded = false;
-      var sel = { 구매: null, 전기: null };
+      var sel = { 구매: [], 전기: [] };
       var existingPairs = {}; // "전기사용지ID||구매계약ID" -> true
-      var joinPlantName = {}; // 발전소ID -> 발전소명
+      var joinPlant = {};  // 발전소ID -> 발전소 행
+      var joinSale = {};   // 판매계약ID -> 판매계약 행
+      var joinDemand = {}; // 수요기업ID -> 수요기업 행
 
       function pairKey(feId, pcId) { return String(feId) + "||" + String(pcId); }
 
@@ -1192,109 +1241,195 @@
         return (recordCache["T_수급매칭"] || []).filter(function (r) { return String(r[col] || "") === String(idVal); }).length;
       }
 
-      var pcSearch = el("input", { class: "ppaf-input ppaf-matchsearch", type: "text", placeholder: "구매계약 검색 (ID·발전소명 등)" });
-      var feSearch = el("input", { class: "ppaf-input ppaf-matchsearch", type: "text", placeholder: "전기사용지 검색 (ID·이름 등)" });
+      function isSelected(kind, idVal, schema) {
+        return sel[kind].some(function (r) { return r[schema.pk] === idVal; });
+      }
+
+      // 반대쪽이 이미 2건 이상 선택돼 있으면 이쪽은 1건까지만 허용합니다
+      // - 어느 한쪽이든 2건 이상이 되는 순간 반대쪽은 그 즉시 1건으로
+      // 잠깁니다(N:N 매칭이 화면에서부터 아예 만들어지지 않게 함).
+      function wouldViolate(kind) {
+        var other = kind === "구매" ? "전기" : "구매";
+        return sel[kind].length + 1 >= 2 && sel[other].length >= 2;
+      }
+
+      function toggleSel(kind, row, schema) {
+        var idVal = row[schema.pk];
+        var idx = sel[kind].findIndex(function (r) { return r[schema.pk] === idVal; });
+        if (idx !== -1) {
+          sel[kind].splice(idx, 1);
+        } else {
+          if (wouldViolate(kind)) {
+            showToast("한쪽을 2건 이상 선택하면 반대쪽은 1건만 선택할 수 있습니다 (N:N 매칭 방지).", "error");
+            return;
+          }
+          sel[kind].push(row);
+        }
+        renderLists();
+        renderPreview();
+      }
+
+      var pcSearch = el("input", { class: "ppaf-input ppaf-matchsearch", type: "text", placeholder: "구매계약 검색 (ID·발전소명·발전법인명 등)" });
+      var feSearch = el("input", { class: "ppaf-input ppaf-matchsearch", type: "text", placeholder: "전기사용지 검색 (ID·이름·판매계약·수요기업명 등)" });
       var pcList = el("div", { class: "ppaf-matchlist" });
       var feList = el("div", { class: "ppaf-matchlist" });
-      var previewText = el("div", { class: "ppaf-matchpreview" }, ["구매계약과 전기사용지를 각각 하나씩 선택하세요."]);
+      var statusSel = buildSelect("x", (enumOptionsFor("현황") || []).map(function (v) { return { value: v, label: v }; }));
+      var reasonCombo = buildComboInput("x", comboOptionsFor("원인") || []);
+      var previewText = el("div", { class: "ppaf-matchpreview" }, ["구매계약과 전기사용지를 각각 하나 이상 선택하세요."]);
       var connectBtn = el("button", { class: "ppaf-btn primary", type: "button", disabled: "disabled" }, ["연결하기"]);
       var closeBtn2 = el("button", { class: "ppaf-btn", type: "button" }, ["닫기"]);
 
       function cardRow(kind, row, schema) {
         var idVal = row[schema.pk];
-        var isSel = sel[kind] && sel[kind][schema.pk] === idVal;
+        var isSel = isSelected(kind, idVal, schema);
         var card = el("div", { class: "ppaf-matchcard" + (isSel ? " selected" : "") });
         var count = matchCountFor(kind === "구매" ? "구매계약ID" : "전기사용지ID", idVal);
         var pill = el("span", { class: "ppaf-matchpill" + (count > 0 ? " on" : "") }, [count > 0 ? count + "건 매칭됨" : "미매칭"]);
         card.appendChild(el("div", { class: "ppaf-matchcard-head" }, [el("b", {}, [idVal]), pill]));
         if (kind === "구매") {
-          var plant = joinPlantName[row["발전소ID"]] || row["발전소ID"] || "";
-          card.appendChild(el("div", { class: "ppaf-matchcard-line" }, [plant + " · " + (row["구매계약용량(MW)"] || "?") + " MW"]));
+          var plant = joinPlant[row["발전소ID"]] || {};
+          var plantLabel = plant["발전소명"] || row["발전소ID"] || "";
+          card.appendChild(el("div", { class: "ppaf-matchcard-line" }, [plantLabel + " · " + (row["구매계약용량(MW)"] || "?") + " MW"]));
           card.appendChild(el("div", { class: "ppaf-matchcard-sub" }, ["담당자: " + (row["구매 담당자"] || "-") + " · 공급기한: " + (row["공급기한_구매"] || "-")]));
         } else {
+          var sale = joinSale[row["판매계약ID"]] || {};
+          var demand = joinDemand[sale["수요기업ID"]] || {};
           card.appendChild(el("div", { class: "ppaf-matchcard-line" }, [(row["전기사용지명"] || "") + " · " + (row["전기사용지계약용량(MW)"] || "?") + " MW"]));
-          card.appendChild(el("div", { class: "ppaf-matchcard-sub" }, ["판매계약: " + (row["판매계약ID"] || "-")]));
+          card.appendChild(el("div", { class: "ppaf-matchcard-sub" }, [
+            "판매계약: " + (row["판매계약ID"] || "-") + (demand["기업명"] ? " · 수요기업: " + demand["기업명"] : "")
+          ]));
         }
-        card.addEventListener("click", function () {
-          sel[kind] = isSel ? null : row;
-          renderLists();
-          renderPreview();
-        });
+        card.addEventListener("click", function () { toggleSel(kind, row, schema); });
         return card;
       }
 
-      function filteredRows(tableName, query) {
+      // 탐색 탭과 같은 교차검색 - 매칭 테이블 자신의 컬럼뿐 아니라 FK로
+      // 연결된 표(발전소, 판매계약, 수요기업)의 값도 검색어와 대조합니다.
+      function haystack(kind, row) {
+        var parts = [];
+        Object.keys(row).forEach(function (k) { parts.push(row[k]); });
+        if (kind === "구매") {
+          var plant = joinPlant[row["발전소ID"]];
+          if (plant) Object.keys(plant).forEach(function (k) { parts.push(plant[k]); });
+        } else {
+          var sale = joinSale[row["판매계약ID"]];
+          if (sale) {
+            Object.keys(sale).forEach(function (k) { parts.push(sale[k]); });
+            var demand = joinDemand[sale["수요기업ID"]];
+            if (demand) Object.keys(demand).forEach(function (k) { parts.push(demand[k]); });
+          }
+        }
+        return parts.join(" ").toLowerCase();
+      }
+
+      function filteredRows(kind, tableName, query) {
         var rows = recordCache[tableName] || [];
         var q = (query || "").trim().toLowerCase();
         if (!q) return rows;
-        return rows.filter(function (r) {
-          return Object.keys(r).some(function (k) { return String(r[k] || "").toLowerCase().indexOf(q) !== -1; });
-        });
+        return rows.filter(function (r) { return haystack(kind, r).indexOf(q) !== -1; });
       }
 
       function renderLists() {
         var pcSchema = SCHEMA_BY_KEY["T_구매계약"], feSchema = SCHEMA_BY_KEY["T_전기사용지"];
         pcList.innerHTML = "";
-        filteredRows("T_구매계약", pcSearch.value).forEach(function (r) { pcList.appendChild(cardRow("구매", r, pcSchema)); });
+        filteredRows("구매", "T_구매계약", pcSearch.value).forEach(function (r) { pcList.appendChild(cardRow("구매", r, pcSchema)); });
         if (!pcList.children.length) pcList.appendChild(el("div", { class: "ppaf-picker-hint" }, ["일치하는 구매계약이 없습니다."]));
         feList.innerHTML = "";
-        filteredRows("T_전기사용지", feSearch.value).forEach(function (r) { feList.appendChild(cardRow("전기", r, feSchema)); });
+        filteredRows("전기", "T_전기사용지", feSearch.value).forEach(function (r) { feList.appendChild(cardRow("전기", r, feSchema)); });
         if (!feList.children.length) feList.appendChild(el("div", { class: "ppaf-picker-hint" }, ["일치하는 전기사용지가 없습니다."]));
       }
 
+      // 실제로 새로 생길 조합만 골라냅니다 - 이미 매칭돼 있는 조합은
+      // 자동으로 건너뛰어(중복 생성 방지) "신규 N건"만 만듭니다.
+      function newPairs() {
+        var out = [];
+        sel.구매.forEach(function (pc) {
+          sel.전기.forEach(function (fe) {
+            var pcId = pc["구매계약ID"], feId = fe["전기사용지ID"];
+            if (!existingPairs[pairKey(feId, pcId)]) out.push({ pc: pc, fe: fe });
+          });
+        });
+        return out;
+      }
+
       function renderPreview() {
-        if (!sel.구매 || !sel.전기) {
+        if (!sel.구매.length || !sel.전기.length) {
           previewText.className = "ppaf-matchpreview";
-          previewText.textContent = "구매계약과 전기사용지를 각각 하나씩 선택하세요.";
+          previewText.textContent = "구매계약과 전기사용지를 각각 하나 이상 선택하세요.";
           connectBtn.disabled = true;
           return;
         }
-        var pcId = sel.구매["구매계약ID"], feId = sel.전기["전기사용지ID"];
-        if (existingPairs[pairKey(feId, pcId)]) {
+        var total = sel.구매.length * sel.전기.length;
+        var pairs = newPairs();
+        if (!pairs.length) {
           previewText.className = "ppaf-matchpreview warn";
-          previewText.textContent = "⚠ 이미 이 조합으로 매칭된 수급매칭이 있습니다 - 다른 조합을 선택해주세요.";
+          previewText.textContent = "⚠ 선택한 조합(" + total + "건)이 전부 이미 매칭되어 있습니다 - 다른 조합을 선택해주세요.";
+          connectBtn.disabled = true;
+          return;
+        }
+        if (!statusSel.value) {
+          previewText.className = "ppaf-matchpreview warn";
+          previewText.textContent = "구매계약 " + sel.구매.length + "건 × 전기사용지 " + sel.전기.length + "건 - 신규 " + pairs.length + "건. 현황을 선택해주세요.";
           connectBtn.disabled = true;
           return;
         }
         previewText.className = "ppaf-matchpreview ok";
-        previewText.textContent = "구매계약 " + pcId + "  ↔  전기사용지 " + feId;
+        previewText.textContent = "구매계약 " + sel.구매.length + "건 × 전기사용지 " + sel.전기.length + "건 = 신규 수급매칭 " + pairs.length + "건을 만듭니다" +
+          (pairs.length < total ? " (기존 매칭 " + (total - pairs.length) + "건은 제외)" : "") + ".";
         connectBtn.disabled = false;
       }
 
       pcSearch.addEventListener("input", renderLists);
       feSearch.addEventListener("input", renderLists);
+      statusSel.addEventListener("change", renderPreview);
 
       connectBtn.addEventListener("click", function () {
-        var feInput = fields.querySelector('[data-name="fld_전기사용지ID"]');
-        var pcInput = fields.querySelector('[data-name="fld_구매계약ID"]');
-        var pkSchema = SCHEMA_BY_KEY["T_수급매칭"];
-        var pkInput = pkSchema ? fields.querySelector('[data-name="fld_' + pkSchema.pk + '"]') : null;
-
-        if (feInput) { feInput.value = sel.전기["전기사용지ID"]; feInput.dispatchEvent(new Event("change", { bubbles: true })); }
-        if (pcInput) { pcInput.value = sel.구매["구매계약ID"]; pcInput.dispatchEvent(new Event("change", { bubbles: true })); }
-        if (pkInput && !pkInput.value && !formState.loadedPk) {
-          var suggested = suggestNextId((recordCache["T_수급매칭"] || []).map(function (r) { return r[pkSchema.pk]; }));
-          if (suggested) { pkInput.value = suggested; pkInput.dispatchEvent(new Event("change", { bubbles: true })); }
-        }
-        formDirty = true;
-
-        panel.style.display = "none";
-        showToast("선택한 구매계약·전기사용지가 연결되었습니다. 현황을 선택하고 저장하세요.", "success");
-        var statusInput = fields.querySelector('[data-name="fld_현황"]');
-        if (statusInput) { statusInput.focus(); statusInput.scrollIntoView({ block: "center", behavior: "smooth" }); }
+        (async function () {
+          var pairs = newPairs();
+          if (!pairs.length || !statusSel.value) return;
+          var operations = pairs.map(function (p) {
+            var record = {
+              "구매계약ID": p.pc["구매계약ID"],
+              "전기사용지ID": p.fe["전기사용지ID"],
+              "현황": statusSel.value
+            };
+            if (reasonCombo.input.value.trim()) record["원인"] = reasonCombo.input.value.trim();
+            return { table: "T_수급매칭", action: "save", record: record };
+          });
+          try {
+            connectBtn.disabled = true;
+            var data = await apiPost("/api/batch", { operations: operations, actor: getActorName() });
+            showToast(data.message || ("수급매칭 " + pairs.length + "건을 연결했습니다."), "success");
+            delete recordCache["T_수급매칭"];
+            delete optionCache["T_수급매칭"];
+            await getTableRecords("T_수급매칭", true);
+            recomputeExistingPairs();
+            sel = { 구매: [], 전기: [] };
+            renderLists();
+            renderPreview();
+          } catch (e) {
+            showToast("매칭 연결 실패: " + (e.message || e), "error");
+            connectBtn.disabled = false;
+          }
+        })();
       });
 
       closeBtn2.addEventListener("click", function () { panel.style.display = "none"; });
 
       var pcCol = el("div", { class: "ppaf-matchcol" }, [
-        el("div", { class: "ppaf-matchcol-title" }, ["구매계약 선택"]), pcSearch, pcList
+        el("div", { class: "ppaf-matchcol-title" }, ["구매계약 선택 (여러 건 가능)"]), pcSearch, pcList
       ]);
       var feCol = el("div", { class: "ppaf-matchcol" }, [
-        el("div", { class: "ppaf-matchcol-title" }, ["전기사용지 선택"]), feSearch, feList
+        el("div", { class: "ppaf-matchcol-title" }, ["전기사용지 선택 (여러 건 가능)"]), feSearch, feList
       ]);
       var grid = el("div", { class: "ppaf-matchgrid" }, [pcCol, feCol]);
+      var statusRow = el("div", { class: "ppaf-matchstatus" }, [
+        el("label", { class: "ppaf-matchstatus-label" }, ["현황"]), statusSel,
+        el("label", { class: "ppaf-matchstatus-label" }, ["원인(선택)"]), reasonCombo.input, reasonCombo.datalist
+      ]);
       var foot = el("div", { class: "ppaf-matchfoot" }, [previewText, el("div", { class: "ppaf-matchfoot-btns" }, [closeBtn2, connectBtn])]);
       panel.appendChild(grid);
+      panel.appendChild(statusRow);
       panel.appendChild(foot);
 
       trigger.addEventListener("click", function () {
@@ -1307,9 +1442,13 @@
               await Promise.all([
                 getTableRecords("T_구매계약", false),
                 getTableRecords("T_전기사용지", false),
-                getTableRecords("T_발전소", false)
+                getTableRecords("T_발전소", false),
+                getTableRecords("T_판매계약", false),
+                getTableRecords("T_수요기업", false)
               ]);
-              (recordCache["T_발전소"] || []).forEach(function (p) { joinPlantName[p["발전소ID"]] = p["발전소명"]; });
+              (recordCache["T_발전소"] || []).forEach(function (p) { joinPlant[p["발전소ID"]] = p; });
+              (recordCache["T_판매계약"] || []).forEach(function (s) { joinSale[s["판매계약ID"]] = s; });
+              (recordCache["T_수요기업"] || []).forEach(function (d) { joinDemand[d["수요기업ID"]] = d; });
               loaded = true;
             } catch (e) {
               showToast("매칭용 데이터 불러오기 실패: " + (e.message || e), "error");
@@ -1318,7 +1457,9 @@
             }
           }
           recomputeExistingPairs();
-          sel = { 구매: null, 전기: null };
+          sel = { 구매: [], 전기: [] };
+          statusSel.value = "";
+          reasonCombo.input.value = "";
           renderLists();
           renderPreview();
         })();
@@ -1757,6 +1898,7 @@
         delete optionCache[childDef.table];
         if (gdef) { delete recordCache[gdef.table]; delete optionCache[gdef.table]; }
         rememberDashboardTab();
+        rememberFormReopen();
         setTimeout(function () { location.reload(); }, 700);
       } catch (e) {
         showToast("일괄 저장 실패: " + (e.message || e), "error");
@@ -1803,6 +1945,7 @@
         if (gdef) { delete recordCache[gdef.table]; delete optionCache[gdef.table]; }
         groupState = newGroupState(def.key);
         rememberDashboardTab();
+        rememberFormReopen();
         setTimeout(function () { location.reload(); }, 700);
       } catch (e) {
         showToast("그룹 삭제 실패: " + (e.message || e), "error");
@@ -1878,6 +2021,7 @@
           return apiPost("/api/rebuild", {});
         });
         rememberDashboardTab();
+        rememberFormReopen();
         location.reload();
       } catch (e) {
         showToast("새로고침 실패: " + (e.message || e), "error");
@@ -1900,6 +2044,7 @@
         });
         showToast(data.message || "리셋 완료", "success");
         rememberDashboardTab();
+        rememberFormReopen();
         setTimeout(function () { location.reload(); }, 700);
       } catch (e) {
         showToast("리셋 실패: " + (e.message || e), "error");
@@ -1949,6 +2094,7 @@
         var count = (data.migrate && data.migrate.count) || 0;
         showToast(data.message || ("ID " + count + "건을 재계산했습니다."), "success");
         rememberDashboardTab();
+        rememberFormReopen();
         setTimeout(function () { location.reload(); }, 700);
       } catch (e) {
         showToast("일괄 재계산 실패: " + (e.message || e), "error");
@@ -2003,6 +2149,7 @@
         updateDeleteButtonState();
 
         rememberDashboardTab();
+        rememberFormReopen(clearAfterSaveCb.checked ? null : record);
         setTimeout(function () { location.reload(); }, 700);
       } catch (e) {
         showToast("저장 실패: " + (e.message || e), "error");
@@ -2181,6 +2328,7 @@
         delete recordCache[tableName];
         await renderMode(true);
         rememberDashboardTab();
+        rememberFormReopen();
         setTimeout(function () { location.reload(); }, 700);
       } catch (e) {
         showToast("삭제 실패: " + (e.message || e), "error");
@@ -2308,6 +2456,10 @@
         ".ppaf-matchpreview.ok{color:var(--ppaf-teal-d)}" +
         ".ppaf-matchpreview.warn{color:var(--ppaf-danger)}" +
         ".ppaf-matchfoot-btns{display:flex;gap:8px}" +
+        ".ppaf-matchstatus{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}" +
+        ".ppaf-matchstatus-label{font-size:12px;font-weight:700;color:var(--ppaf-sub)}" +
+        ".ppaf-matchstatus select,.ppaf-matchstatus input{width:auto;min-width:150px}" +
+        ".ppaf-clearaftersave{margin-right:auto;font-weight:600}" +
         "@media(max-width:640px){.ppaf-matchgrid{grid-template-columns:1fr}}"
     });
 
@@ -2328,6 +2480,23 @@
     }, ["기존 ID 일괄 재계산"]);
     var deleteBtn = el("button", { class: "ppaf-btn danger", type: "button", disabled: "disabled" }, ["삭제"]);
     var saveBtn = el("button", { class: "ppaf-btn primary", type: "button" }, ["엑셀에 저장"]);
+
+    // 저장 뒤 폼을 그대로 둘지(같은 값으로 이어서 수정) 비울지(다음 새
+    // 레코드를 바로 입력) 선택 - 같은 발전소/수요기업으로 여러 건을 연달아
+    // 입력하는 "연속 입력" 시나리오를 돕습니다. 체크 여부는 localStorage에
+    // 남겨 다음에 열 때도 마지막으로 고른 대로 유지합니다.
+    var KEEP_CLEAR_KEY = "ppa_clear_after_save";
+    function getClearAfterSavePref() {
+      try { return localStorage.getItem(KEEP_CLEAR_KEY) === "1"; } catch (e) { return false; }
+    }
+    var clearAfterSaveCb = el("input", { type: "checkbox" });
+    clearAfterSaveCb.checked = getClearAfterSavePref();
+    clearAfterSaveCb.addEventListener("change", function () {
+      try { localStorage.setItem(KEEP_CLEAR_KEY, clearAfterSaveCb.checked ? "1" : "0"); } catch (e) { /* 무시 */ }
+    });
+    var clearAfterSaveLabel = el("label", { class: "ppaf-tempcheck ppaf-clearaftersave" }, [
+      clearAfterSaveCb, " 저장 후 새 입력으로 초기화"
+    ]);
 
     var modeSel = el("select", { class: "ppaf-input" });
 
@@ -2367,7 +2536,7 @@
     bodyWrap.appendChild(singleWrap);
     bodyWrap.appendChild(groupWrap);
     modal.appendChild(bodyWrap);
-    modal.appendChild(el("div", { class: "ppaf-foot" }, [clearBtn, deleteBtn, resetBaselineBtn, migrateIdsBtn, rebuildBtn, saveBtn]));
+    modal.appendChild(el("div", { class: "ppaf-foot" }, [clearAfterSaveLabel, clearBtn, deleteBtn, resetBaselineBtn, migrateIdsBtn, rebuildBtn, saveBtn]));
 
     // 삭제 2차 확인 모달
     var confirmBackdrop = el("div", { class: "ppaf-confirm-backdrop" });
@@ -2560,6 +2729,37 @@
       } catch (e) { /* 세션스토리지 사용 불가 환경 - 판단 불가하니 그냥 보냄 */ }
       try { navigator.sendBeacon("/api/shutdown"); } catch (e) { /* 무시 */ }
     });
+
+    // 저장/삭제로 인한 새로고침 직전에 rememberFormReopen()이 남겨둔 표시가
+    // 있으면, 페이지가 다시 뜨자마자 같은 표/모드로 입력창을 자동으로 다시
+    // 엽니다 - "입력 창이 닫히지 않고 유지"되는 것처럼 체감하게 하는
+    // 부분입니다(완전한 무새로고침은 대시보드 본문이 정적으로 구워지는
+    // 구조상 어렵습니다 - 설계 보고서 1번 항목 참고).
+    (function () {
+      var raw;
+      try {
+        raw = sessionStorage.getItem("ppa_reopen_form");
+        sessionStorage.removeItem("ppa_reopen_form");
+      } catch (e) { raw = null; }
+      if (!raw) return;
+      var info;
+      try { info = JSON.parse(raw); } catch (e) { return; }
+      if (!info || !info.mode) return;
+      openModal().then(function () {
+        if (info.mode === "groupA" || info.mode === "groupB") {
+          return switchMode(info.mode);
+        }
+        if (info.table && info.table !== modeSel.value) {
+          modeSel.value = info.table;
+          return renderMode(true, false);
+        }
+      }).then(function () {
+        if (info.mode === "single" && info.record) {
+          applyLoadedRecord(info.table || currentTable(), info.record);
+          showToast("이어서 입력할 수 있도록 입력값을 유지했습니다.", "info");
+        }
+      }).catch(function (e) { console.error("[ppa] 입력창 복원 실패:", e); });
+    })();
 
     console.log("[ppa] dashboard_form.js loaded");
   } catch (e) {
