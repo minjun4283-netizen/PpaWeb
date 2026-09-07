@@ -237,6 +237,10 @@
             q: st.explore.q, sort: st.explore.sort, page: st.explore.page, missing: st.explore.missing
           }));
         }
+        // 저장 직전 스크롤 위치도 남겨서, 새로고침 뒤 같은 위치로 되돌립니다
+        // - 목록을 스크롤해서 찾은 행을 수정했는데 화면이 맨 위로 튕기는
+        // 문제를 막습니다.
+        sessionStorage.setItem("ppa_return_scroll", String(window.scrollY || 0));
         sessionStorage.setItem("ppa_intentional_reload", "1");
       } catch (e) { /* 세션스토리지 사용 불가 환경 - 조용히 무시(그냥 홈으로 감) */ }
     }

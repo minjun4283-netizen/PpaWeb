@@ -1152,8 +1152,18 @@ function tData(t){
 }
 
 /* ── 상세 모달 ──────────────────────────────────────────────────────────── */
-function openDetail(tk,i){state.modal={t:tk,i:i};render();}
-function openRemovedDetail(tk,idx){state.modal={t:tk,removed:idx};render();}
+/* 모달을 열고 닫을 때 화면 전체(view)를 다시 그리면 표 스크롤 박스
+   (.tbl-wrap)가 매번 새로 만들어져 스크롤이 맨 위로 튕깁니다 - 행을
+   찾아서 클릭했는데 닫으면 다시 맨 위부터 찾아야 하는 문제. modalHtml()은
+   이미 별도의 #modalHost에만 그려지므로, 모달을 열고 닫을 때는 #view를
+   건드리지 않고 #modalHost만 갱신해 스크롤 위치가 그대로 유지되게 합니다.
+   (뒤로가기 딥링크를 위한 syncHash()는 그대로 호출합니다.) */
+function renderModalOnly(){
+  document.getElementById('modalHost').innerHTML=modalHtml();
+  syncHash();
+}
+function openDetail(tk,i){state.modal={t:tk,i:i};renderModalOnly();}
+function openRemovedDetail(tk,idx){state.modal={t:tk,removed:idx};renderModalOnly();}
 /* 탐색 탭에서 조인된 행을 클릭했을 때 — 그 행에 실제로 걸친 모든 표(예:
    구매계약+발전소+수급매칭)를 한 모달 안에 표별 구역으로 나눠 보여주고,
    구역마다 독립된 수정/삭제 버튼을 둡니다(표별로 따로 저장 — 한 화면에서
@@ -1169,9 +1179,9 @@ function openExploreRowDetail(tables){
   }).filter(Boolean);
   if(!resolved.length) return;
   state.modal={rowMulti:true,tables:resolved};
-  render();
+  renderModalOnly();
 }
-function closeDetail(){state.modal=null;render();}
+function closeDetail(){state.modal=null;renderModalOnly();}
 function modalHtml(){
   if(!state.modal) return '';
   if(state.modal.rowMulti) return rowMultiModalHtml(state.modal.tables);
@@ -3935,6 +3945,10 @@ function parseHash(){
    남겨둔 탭을 여기서 1회성으로 복원합니다(#lookup= 해시가 있으면 그 딥링크가
    더 명시적인 의도이므로, 이 함수 뒤에 이어서 실행되는 parseHash()가
    우선권을 가져가도록 순서를 둡니다 — 아래 초기화 IIFE 참고). */
+/* 새로고침 뒤 render()가 다 그려지고 나서야 실제로 스크롤할 수 있는
+   높이가 생기므로, 여기서는 값만 기억해뒀다가 아래 초기화 IIFE가
+   render() 호출 다음에 적용합니다. */
+var pendingScrollY=null;
 function restoreTabFromSession(){
   var saved;
   try{ saved=sessionStorage.getItem('ppa_return_tab'); sessionStorage.removeItem('ppa_return_tab'); }
@@ -3957,6 +3971,13 @@ function restoreTabFromSession(){
       if(v.page!==undefined) state.explore.page=v.page;
       if(v.missing!==undefined) state.explore.missing=v.missing;
     }
+  }catch(e){}
+  /* 저장 직전 스크롤 위치도 함께 복원 - "데이터를 선택할 때와 동일한
+     화면 상태 유지" 요구사항의 일부(탭/검색어에 이어 스크롤까지). */
+  try{
+    var sy=sessionStorage.getItem('ppa_return_scroll');
+    sessionStorage.removeItem('ppa_return_scroll');
+    if(sy!==null) pendingScrollY=parseInt(sy,10)||0;
   }catch(e){}
 }
 window.addEventListener('popstate',e=>{
@@ -4082,6 +4103,10 @@ document.addEventListener('keydown',e=>{
   g_lastNavKey=JSON.stringify(navSnapshot());
   history.replaceState({nav:JSON.parse(g_lastNavKey)},'',location.href);
   render();
+  if(pendingScrollY!==null){
+    var sy=pendingScrollY;pendingScrollY=null;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo(0,sy)));
+  }
 })();
 """
 
