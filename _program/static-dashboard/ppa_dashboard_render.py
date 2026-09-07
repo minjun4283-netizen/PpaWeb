@@ -616,6 +616,7 @@ let state={
   theme:readLS('ppa_theme','light'),
   homeTrend:{metric:'new',unit:'cnt',drillYm:null,rangeFrom:null,rangeTo:null},
   clog:{q:'',kind:'',table:'',expanded:false},
+  chgExpand:{},
 };
 /* dashboard_form.js(실시간 입력 서버가 붙어 있을 때만 로드됨)가 저장 후
    location.reload() 하기 전에 "지금 보고 있던 탭"을 세션스토리지에 남길 수
@@ -3428,11 +3429,15 @@ function tChanges(){
     </div>
     ${panel('표별 변경 건수(행 기준)','행을 클릭하면 그 표의 변경분만 보기로 이동합니다',
       `<table><thead><tr><th class="nosort">표</th><th class="nosort num">추가</th><th class="nosort num">수정</th><th class="nosort num">삭제</th></tr></thead><tbody>${tableRows}</tbody></table>`)}
-    ${panel(`수정된 항목 (이전값 → 새값) · ${nf((CHANGES.details||[]).length,0)}개`,'클릭하면 관계조회로 이동',details+trunc)}
-    <div class="grid2">${panel('추가된 항목','',added)}${panel('삭제된 항목','',removed)}</div>
     ${panel(`전체 변경 이력 · 최근 ${nf(CHANGELOG.length,0)}건 (최대 1,000건 보존)`,
       '여러 번의 생성에 걸쳐 계속 쌓입니다 — 이번 생성분만이 아니라 지금까지의 추가/수정/삭제를 검색할 수 있습니다',
       changelogView())}
+    ${panel(`수정된 항목 (이전값 → 새값) · ${nf((CHANGES.details||[]).length,0)}개`,'클릭하면 관계조회로 이동',
+      collapsibleSection('details',details,(CHANGES.details||[]).length)+trunc)}
+    <div class="grid2">
+      ${panel('추가된 항목','',collapsibleSection('added',added,CHANGES.total_added))}
+      ${panel('삭제된 항목','',collapsibleSection('removed',removed,CHANGES.total_removed))}
+    </div>
     </section>`;
 }
 
@@ -3486,6 +3491,19 @@ function setClogTable(v){state.clog.table=v;state.page.clog=1;render();}
    별개의 기능 - 한 페이지 안의 표시 높이만 조절합니다. */
 const CLOG_COLLAPSED_ROWS=5;
 function toggleClogExpand(){state.clog.expanded=!state.clog.expanded;render();}
+/* 변경 탭의 "수정된 항목"/"추가된 항목"/"삭제된 항목" 목록도 전체 변경
+   이력과 똑같은 방식(기본 접힘 + 더 보기/접기)으로 접었다 펼 수 있게 하는
+   공용 헬퍼 - key는 이 세 섹션을 서로 구분하는 값("details"/"added"/
+   "removed")입니다. */
+function toggleChgExpand(key){state.chgExpand[key]=!state.chgExpand[key];render();}
+function collapsibleSection(key,html,count){
+  const expanded=!!state.chgExpand[key];
+  const needsToggle=count>CLOG_COLLAPSED_ROWS;
+  const toggleBtn=needsToggle
+    ?`<button class="btn" style="margin-top:8px" onclick="toggleChgExpand('${jsq(key)}')">${expanded?'접기 ▲':'더 보기 ▼ (전체 '+nf(count,0)+'건)'}</button>`
+    :'';
+  return `<div class="clog-collapse${expanded||!needsToggle?' expanded':''}">${html}</div>${toggleBtn}`;
+}
 function changelogView(){
   if(!CHANGELOG.length) return '<div class="nocand">아직 쌓인 이력이 없습니다 — 다음 생성부터 여기 표시됩니다.</div>';
   const kOpts=[['','전체 종류'],['added','추가'],['changed','수정'],['removed','삭제']]
@@ -3949,6 +3967,7 @@ function parseHash(){
    높이가 생기므로, 여기서는 값만 기억해뒀다가 아래 초기화 IIFE가
    render() 호출 다음에 적용합니다. */
 var pendingScrollY=null;
+var pendingWrapScroll=null;
 function restoreTabFromSession(){
   var saved;
   try{ saved=sessionStorage.getItem('ppa_return_tab'); sessionStorage.removeItem('ppa_return_tab'); }
@@ -3978,6 +3997,15 @@ function restoreTabFromSession(){
     var sy=sessionStorage.getItem('ppa_return_scroll');
     sessionStorage.removeItem('ppa_return_scroll');
     if(sy!==null) pendingScrollY=parseInt(sy,10)||0;
+  }catch(e){}
+  /* 탐색/표 탭 결과가 자체 스크롤 상자(.tbl-wrap, max-height 560px)를 쓰는
+     경우 브라우저 창 스크롤(window)과 별개로 그 상자 안쪽 스크롤도 따로
+     기억해뒀다가 되돌려야 합니다 - 결과가 길어 상자 안에서만 스크롤한
+     상태로 행을 수정/삭제했을 때도 그 위치 그대로 유지되게 합니다. */
+  try{
+    var wy=sessionStorage.getItem('ppa_return_wrapscroll');
+    sessionStorage.removeItem('ppa_return_wrapscroll');
+    if(wy!==null) pendingWrapScroll=parseInt(wy,10)||0;
   }catch(e){}
 }
 window.addEventListener('popstate',e=>{
@@ -4046,6 +4074,19 @@ function render(){
     fid=act.id;
     if(typeof act.selectionStart==='number'){ss=act.selectionStart;se=act.selectionEnd;}
   }
+  /* 스크롤 위치 보존 - 위 포커스/커서 복원과 같은 이유입니다. render()는
+     검색어 입력·정렬·페이지 이동·저장 후 재조회 등 사실상 모든 조작에서
+     #view를 통째로 다시 그리는데, 그때마다 표 스크롤 상자(.tbl-wrap)와
+     변경 탭의 접기 상자(.clog-collapse)가 새로 만들어지며 스크롤이 맨
+     위로 튕기던 문제를 없앱니다. 같은 탭을 다시 그릴 때는 스크롤 상자의
+     개수·순서가 그대로이므로 인덱스로 매칭해 되돌리는 것으로 충분합니다.
+     탭 자체를 바꾸는 경우처럼 상자 구성이 달라지면(있으면 되돌리고 없으면
+     조용히 건너뜀) 그냥 새 화면 그대로 둡니다 - 명시적으로 스크롤을 옮기는
+     동작(예: jumpTo)이 아닌 이상 브라우저 창 스크롤(window)도 그대로
+     유지합니다. */
+  const scrollableSel='.tbl-wrap, .clog-collapse';
+  const prevScrolls=Array.prototype.map.call(view.querySelectorAll(scrollableSel),el=>el.scrollTop);
+  const prevWinScroll=window.scrollY;
   let html;
   if(state.tab==='홈') html=tHome();
   else if(state.tab==='관계조회') html=tLookup();
@@ -4061,6 +4102,9 @@ function render(){
     const el=document.getElementById(fid);
     if(el){el.focus();if(ss!==null&&el.setSelectionRange){try{el.setSelectionRange(ss,se);}catch(e){}}}
   }
+  const newScrollables=view.querySelectorAll(scrollableSel);
+  prevScrolls.forEach((top,i)=>{ if(top&&newScrollables[i]) newScrollables[i].scrollTop=top; });
+  if(window.scrollY!==prevWinScroll) window.scrollTo(0,prevWinScroll);
   const st=document.getElementById('status');
   const hasUnmatched=Object.values(DATA.unmatched_headers||{}).some(cols=>cols&&cols.length);
   const ok=DATA.validation.total_errors===0&&!hasUnmatched;
@@ -4106,6 +4150,13 @@ document.addEventListener('keydown',e=>{
   if(pendingScrollY!==null){
     var sy=pendingScrollY;pendingScrollY=null;
     requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo(0,sy)));
+  }
+  if(pendingWrapScroll!==null){
+    var wy=pendingWrapScroll;pendingWrapScroll=null;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const wrap=document.querySelector('#view .tbl-wrap');
+      if(wrap) wrap.scrollTop=wy;
+    }));
   }
 })();
 """

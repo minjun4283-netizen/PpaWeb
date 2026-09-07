@@ -239,8 +239,13 @@
         }
         // 저장 직전 스크롤 위치도 남겨서, 새로고침 뒤 같은 위치로 되돌립니다
         // - 목록을 스크롤해서 찾은 행을 수정했는데 화면이 맨 위로 튕기는
-        // 문제를 막습니다.
+        // 문제를 막습니다. 표/탐색 결과가 자체 스크롤 상자(.tbl-wrap)를 쓰는
+        // 경우 브라우저 창 스크롤과 별개로 그 안쪽 스크롤도 따로 남깁니다.
         sessionStorage.setItem("ppa_return_scroll", String(window.scrollY || 0));
+        try {
+          var wrap = document.querySelector("#view .tbl-wrap");
+          if (wrap) sessionStorage.setItem("ppa_return_wrapscroll", String(wrap.scrollTop || 0));
+        } catch (e2) { /* 무시 */ }
         sessionStorage.setItem("ppa_intentional_reload", "1");
       } catch (e) { /* 세션스토리지 사용 불가 환경 - 조용히 무시(그냥 홈으로 감) */ }
     }
