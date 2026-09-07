@@ -1224,7 +1224,7 @@
     // -----------------------------------------------------------------------
     function buildSupplyMatchWidget() {
       var trigger = el("button", { class: "ppaf-btn ppaf-matchtrigger", type: "button" }, ["🔗 카드로 쉽게 매칭하기 (1:N 지원)"]);
-      var panel = el("div", { class: "ppaf-matchwrap", style: "display:none" });
+      var panel = el("div", { class: "ppaf-matchwrap" }); // 기본값: 펼쳐진 상태(요청 사항)
       var loaded = false;
       var sel = { 구매: [], 전기: [] };
       var existingPairs = {}; // "전기사용지ID||구매계약ID" -> true
@@ -1436,10 +1436,11 @@
       panel.appendChild(statusRow);
       panel.appendChild(foot);
 
-      trigger.addEventListener("click", function () {
-        if (panel.style.display !== "none") { panel.style.display = "none"; return; }
-        panel.style.display = "";
-        (async function () {
+      // 패널을 펼치면서(또는 이미 펼쳐진 기본 상태에서) 데이터를 불러와
+      // 목록을 채우는 부분 - 트리거 클릭과 "기본으로 펼친 채 시작" 양쪽이
+      // 공유합니다.
+      function openPanelAndLoad() {
+        return (async function () {
           if (!loaded) {
             trigger.disabled = true;
             try {
@@ -1467,7 +1468,17 @@
           renderLists();
           renderPreview();
         })();
+      }
+
+      trigger.addEventListener("click", function () {
+        if (panel.style.display !== "none") { panel.style.display = "none"; return; }
+        panel.style.display = "";
+        openPanelAndLoad();
       });
+
+      // 기본값: 펼쳐진 상태로 시작 - 매번 "카드로 쉽게 매칭하기"를 눌러야
+      // 하는 번거로움 없이 수급매칭 폼을 열면 바로 카드 목록이 보입니다.
+      openPanelAndLoad();
 
       return { trigger: trigger, panel: panel };
     }
@@ -1986,6 +1997,16 @@
           Object.keys(SCHEMA_BY_KEY).forEach(function (key) {
             modeSel.appendChild(el("option", { value: key }, [TABLE_META[key] ? TABLE_META[key].label : key]));
           });
+          // 개별입력을 처음 열 때의 기본 표 - 실무에서 가장 자주 다루는
+          // 표가 수급매칭이라 발전소 대신 이걸 기본값으로 둡니다. 이후
+          // 사용자가 다른 표로 바꾸면(모달을 닫았다 다시 열어도) 그 선택을
+          // 그대로 유지합니다 - 여기는 이번 페이지에서 처음 열 때만 탑니다.
+          // 저장/삭제 뒤 자동 재오픈(ppa_reopen_form)이 예약돼 있으면 그
+          // 쪽이 곧바로 원래 표로 다시 바꿀 것이므로, 여기서 굳이 수급매칭을
+          // 한 번 더 그렸다가 버리지 않도록 건너뜁니다.
+          var hasPendingReopen = false;
+          try { hasPendingReopen = !!sessionStorage.getItem("ppa_reopen_form"); } catch (e) { /* 무시 */ }
+          if (!hasPendingReopen && SCHEMA_BY_KEY["T_수급매칭"]) modeSel.value = "T_수급매칭";
         }
         await switchMode("single");
       } catch (e) {
