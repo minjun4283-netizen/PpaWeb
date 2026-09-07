@@ -295,7 +295,7 @@
       "발전원": ["태양광", "풍력", "소수력"],
       "Readiness": ["New", "Operating"],
       "Requirement": ["New", "Operating"],
-      "계약유형": ["D", "V", "D↔V"],
+      "계약유형": ["V", "D", "V↔D", "On-Site"],
       "현황": [
         "1. 공급 중", "2. 신고 중", "3. 상업운전 개시", "4. 공사 중",
         "5. 착공 전", "6. 이슈 발생", "7. 미확보", "99. 공급종료"
@@ -314,7 +314,8 @@
     var FIELD_HELP = {
       "수요기업 미확보": "False = 확보",
       "공급자원 미확보": "False = 확보",
-      "발전소ID": "KPX 발전기ID 원칙\n미발급 시 발전소명·법인명(4자 이내)+구분숫자"
+      "발전소ID": "KPX 발전기ID 원칙\n미발급 시 발전소명·법인명(4자 이내)+구분숫자",
+      "수요기업ID": "우측 기업명 입력 시 자동 생성 (수정 가능)"
     };
     function buildFieldHelp(columnName) {
       var msg = FIELD_HELP[columnName];
