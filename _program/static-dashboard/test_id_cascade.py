@@ -329,6 +329,37 @@ def test_9_matching_id_ignores_purchase_side_changes():
     print("test_9_matching_id_ignores_purchase_side_changes OK ->", r["pk_value"])
 
 
+def test_10_force_temp_keeps_real_date_but_id_is_temporary():
+    bridge, wb = make_bridge_and_wb(seed)
+    # 날짜가 이미 채워져 있어도 __force_temp가 있으면 ID 연도는 T로 계산돼야
+    # 하고, 실제 날짜값 자체는 그대로 셀에 저장돼야 한다("임시 계약으로
+    # 처리" 체크박스 - 날짜는 지우지 않고 ID만 임시로 만드는 요청사항).
+    r = bridge._save_record(
+        "T_구매계약",
+        {"발전소ID": "P001", "구매계약용량(MW)": "1", "공급기한_구매": "2031-05-01",
+         "계약기간(년)": "1", "__force_temp": True},
+        original_pk=None,
+    )
+    assert r["pk_value"] == "구매-P001-T-01", r
+    rows = dump(wb, "T_구매계약")
+    row = find(rows, "구매계약ID", "구매-P001-T-01")
+    # 이 테스트 하네스의 가짜 시트는 날짜를 엑셀 일련번호(int)로 저장해두고
+    # dump()가 이를 다시 텍스트 날짜로 되돌리지 않는 한계가 있어(실제 COM은
+    # 셀 서식 덕에 datetime으로 돌아옴), 여기서는 "비어있지 않다(=지워지지
+    # 않았다)"만 확인합니다 - 이 테스트가 검증하려는 핵심(날짜를 안 지운다)
+    # 에는 그걸로 충분합니다.
+    assert row is not None and row.get("공급기한_구매") not in ("", None), row
+    # __force_temp가 없으면(또는 거짓이면) 평소대로 실제 연도를 씀 - 회귀 방지.
+    r2 = bridge._save_record(
+        "T_구매계약",
+        {"발전소ID": "P001", "구매계약용량(MW)": "1", "공급기한_구매": "2031-05-01",
+         "계약기간(년)": "1"},
+        original_pk=None,
+    )
+    assert r2["pk_value"] == "구매-P001-2031-01", r2
+    print("test_10_force_temp_keeps_real_date_but_id_is_temporary OK ->", r["pk_value"], r2["pk_value"])
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

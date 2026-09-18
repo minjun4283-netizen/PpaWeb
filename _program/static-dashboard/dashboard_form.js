@@ -812,26 +812,38 @@
       var fieldName = "fld_" + columnName;
       var input = el("input", { class: "ppaf-input", type: "date", "data-name": fieldName });
       var tempCb = el("input", { type: "checkbox" });
-      var tempLabel = el("label", { class: "ppaf-tempcheck" }, [tempCb, " 임시 계약 (공급기한 미정)"]);
+      // 날짜가 이미 입력돼 있어도 체크하면 날짜는 그대로 두고 ID만 임시로
+      // 만들 수 있어야 하므로(요청사항), 서버(ppa_ids.py)에 "이 레코드는
+      // 강제로 임시 처리"를 전달할 숨김 필드를 같이 둡니다. collectRecord()가
+      // data-name 패턴으로 값을 그대로 주워가므로 별도 배선 없이 record에
+      // "__force_temp" 키로 실립니다 - 실제 엑셀 시트엔 이 이름의 열이
+      // 없으므로 저장 시 조용히 무시되고(엑셀에 안 써짐) ID 계산에만 쓰입니다.
+      var forceTempHidden = el("input", { type: "hidden", "data-name": "fld___force_temp" });
+      var tempLabel = el("label", { class: "ppaf-tempcheck" }, [tempCb, " 임시 계약으로 처리"]);
 
       wrap.appendChild(input);
       wrap.appendChild(tempLabel);
+      wrap.appendChild(forceTempHidden);
+
+      function syncForceTempHidden() { forceTempHidden.value = tempCb.checked ? "1" : ""; }
 
       tempCb.addEventListener("change", function () {
-        input.disabled = tempCb.checked;
-        if (tempCb.checked) input.value = "";
+        syncForceTempHidden();
         input.dispatchEvent(new Event("change", { bubbles: true }));
       });
 
-      // fillRecord()가 실제 값을 채운 뒤 호출 - 값이 비어있으면 임시로 간주.
+      // fillRecord()가 실제 값을 채운 뒤 호출 - 날짜가 비어있으면 기본으로
+      // 체크된 상태(=임시)로 보여주고, 값이 있으면 기본은 체크 해제 상태로
+      // 보여줍니다. 이후 사용자가 값이 있는 상태에서 직접 체크하면
+      // "__force_temp"만 켜져 날짜는 그대로 둔 채 ID만 임시로 계산됩니다.
       wrap._syncTempFromValue = function () {
         tempCb.checked = !input.value;
-        input.disabled = tempCb.checked;
+        syncForceTempHidden();
       };
       // clearRecord()가 새 입력을 시작할 때 호출 - 기본은 체크 해제 상태.
       wrap._resetTemp = function () {
         tempCb.checked = false;
-        input.disabled = false;
+        syncForceTempHidden();
       };
 
       var onLiveCheck = function () { validateFieldLive(tableName, columnName, wrap, input, !!formState.loadedPk); };
@@ -960,22 +972,26 @@
 
       var tempCb = el("input", { type: "checkbox" });
       tempCb.checked = !currentVal;
-      input.disabled = tempCb.checked;
-      var tempLabel = el("label", { class: "ppaf-tempcheck" }, [tempCb, " 임시 계약 (공급기한 미정)"]);
+      var tempLabel = el("label", { class: "ppaf-tempcheck" }, [tempCb, " 임시 계약으로 처리"]);
 
       wrap.appendChild(input);
       wrap.appendChild(tempLabel);
       var fieldHelp = buildFieldHelp(columnName);
       if (fieldHelp) wrap.appendChild(fieldHelp);
 
-      var sync = function () { record[columnName] = input.disabled ? "" : (input.value || ""); };
+      // 날짜가 이미 입력돼 있어도 체크하면 날짜는 그대로 두고 ID만 임시로
+      // 처리합니다(단일입력의 createTempDateField와 같은 규칙) - record에
+      // "__force_temp"로 실어 보내면 실제 엑셀 열이 아니므로 저장 시
+      // 조용히 무시되고 서버의 ID 계산에만 쓰입니다.
+      record["__force_temp"] = tempCb.checked;
+
+      var sync = function () { record[columnName] = input.value || ""; };
       var onLiveCheck = function () {
         sync();
         validateFieldLive(tableName, columnName, wrap, input, alreadyLoaded);
       };
       tempCb.addEventListener("change", function () {
-        input.disabled = tempCb.checked;
-        if (tempCb.checked) input.value = "";
+        record["__force_temp"] = tempCb.checked;
         onLiveCheck();
       });
       input.addEventListener("blur", onLiveCheck);

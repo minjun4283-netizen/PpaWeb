@@ -17,6 +17,14 @@
 씁니다. 순번은 같은 접두어(발전소/수요기업 + 연도)를 가진 기존 ID들 중
 가장 큰 번호에 1을 더해 2자리 0채움으로 만듭니다.
 
+날짜가 이미 입력돼 있어도 record에 "__force_temp"(참값)가 실려 있으면
+연도는 무조건 "T"로 계산합니다 - 실제 공급기한 값은 그대로 저장하되 ID만
+임시로 관리하고 싶을 때 씁니다(dashboard_form.js의 "임시 계약으로 처리"
+체크박스). 이 키는 실제 엑셀 열이 아니라 이 계산에만 쓰는 값이라 어디에도
+저장되지 않습니다 - 그래서 이 값에서 파생되는 전기사용지/수급매칭은(부모
+행의 실제 저장된 날짜를 다시 읽어 계산하므로) 이 강제 임시 처리를
+자동으로 물려받지 않습니다.
+
 편집 시 근거 필드가 안 바뀌었으면(=새로 계산한 접두어가 기존 PK와
 같으면) 번호를 그대로 유지합니다 - 저장할 때마다 번호가 계속 올라가는
 것을 막기 위함입니다. 전기사용지명처럼 접두어에 포함되지 않는 값만
@@ -66,14 +74,16 @@ def _resolve_purchase(record: dict, tables_data: dict) -> Optional[dict]:
     plant_id = _s(record.get("발전소ID"))
     if not plant_id:
         return None
-    return {"id_part": plant_id, "year": _year_or_t(record.get("공급기한_구매"))}
+    year = "T" if record.get("__force_temp") else _year_or_t(record.get("공급기한_구매"))
+    return {"id_part": plant_id, "year": year}
 
 
 def _resolve_sale(record: dict, tables_data: dict) -> Optional[dict]:
     demand_id = _s(record.get("수요기업ID"))
     if not demand_id:
         return None
-    return {"id_part": demand_id, "year": _year_or_t(record.get("공급기한_판매"))}
+    year = "T" if record.get("__force_temp") else _year_or_t(record.get("공급기한_판매"))
+    return {"id_part": demand_id, "year": year}
 
 
 def _resolve_electric_site(record: dict, tables_data: dict) -> Optional[dict]:
