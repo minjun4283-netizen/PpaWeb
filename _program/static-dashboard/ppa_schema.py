@@ -31,7 +31,7 @@ TABLES: list[TableSchema] = [
     TableSchema(
         key="T_구매계약", label="구매계약", pk="구매계약ID",
         columns=["구매계약ID", "발전소ID", "구매계약용량(MW)", "구매단가(원/kWh)", "공급기한_구매",
-                 "계약기간(년)", "수요기업 미확보", "구매 담당자"],
+                 "계약기간(년)", "수요기업 미확보", "구매 담당자", "계약 단계"],
         fk={"발전소ID": "T_발전소"},
     ),
     TableSchema(
@@ -41,7 +41,8 @@ TABLES: list[TableSchema] = [
     TableSchema(
         key="T_판매계약", label="판매계약", pk="판매계약ID",
         columns=["판매계약ID", "수요기업ID", "판매계약용량(MW)", "계약일", "공급기한_판매", "계약유형",
-                 "판매단가(원/kWh)", "공급자원 미확보", "판매 담당자", "계약기간(년)", "Requirement", "MGA_Demand"],
+                 "판매단가(원/kWh)", "공급자원 미확보", "판매 담당자", "계약기간(년)", "Requirement", "MGA_Demand",
+                 "계약 단계"],
         fk={"수요기업ID": "T_수요기업"},
     ),
     TableSchema(
